@@ -9,6 +9,7 @@ namespace MartinDrozdik.DDD.Models;
 /// </summary>
 /// <remarks>
 /// Inspired by <a href="https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/implement-value-objects">.NET Microservices: Architecture for Containerized .NET Applications</a>.
+/// In contrast to entities, value objects do not have an identity that distinguishes them from other value objects, making their equality by value.
 /// </remarks>
 public abstract class ValueObject : IEqualityComparer<ValueObject>, IEqualityOperators<ValueObject, ValueObject, bool>
 {

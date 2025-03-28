@@ -17,4 +17,32 @@
   <ItemGroup>
     <PackageReference Include="CSharpFunctionalExtensions" Version="3.5.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Errors\WellKnown\WellKnownErrors.cs.Designer.cs">
+      <DependentUpon>WellKnownErrors.cs.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Update="Errors\WellKnown\WellKnownErrors.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>WellKnownErrors.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrors.cs.resx">
+      <LastGenOutput>WellKnownErrors.cs.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrors.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>WellKnownErrors.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

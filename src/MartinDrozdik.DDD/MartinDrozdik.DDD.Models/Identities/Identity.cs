@@ -2,11 +2,13 @@
 
 namespace MartinDrozdik.DDD.Models.Identities;
 
-/// <inheritdoc cref="IIdentity{TSelf, TValue}"/>
-[DebuggerDisplay("{Value}")]
-public abstract class Identity<TSelf, TValue> : ValueObject, IIdentity<TSelf, TValue>
-    where TSelf : Identity<TSelf, TValue>, new()
-    where TValue : notnull
+/// <inheritdoc cref="IIdentity{TValue}"/>
+/// <typeparam name="TKey">Actual value of the ID.</typeparam>
+/// <typeparam name="TSelf">Self-referencing generic type.</typeparam>
+[DebuggerDisplay("{Key}")]
+public abstract class Identity<TSelf, TKey> : ValueObject, IIdentity<TKey>
+    where TSelf : Identity<TSelf, TKey>, new()
+    where TKey : notnull
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Identity{TSelf, TValue}"/> class.
@@ -16,20 +18,24 @@ public abstract class Identity<TSelf, TValue> : ValueObject, IIdentity<TSelf, TV
     }
 
     /// <inheritdoc />
-    public required TValue Value { get; init; }
+    public required TKey Key { get; init; }
 
-    /// <inheritdoc cref="IIdentity{TSelf, TValue}.Create(TValue)"/>
-    public static TSelf Create(TValue value)
+    /// <summary>
+    /// Creates a new instance of the strongly typed ID.
+    /// </summary>
+    /// <param name="key">The actual value of the new identifier.</param>
+    /// <returns>New <typeparamref name="TSelf"/>.</returns>
+    public static TSelf Create(TKey key)
     {
         return new TSelf
         {
-            Value = value,
+            Key = key,
         };
     }
 
     /// <inheritdoc />
     protected override IEnumerable<object?> GetEqualityComponents()
     {
-        yield return Value;
+        yield return Key;
     }
 }

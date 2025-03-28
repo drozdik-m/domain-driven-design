@@ -1,7 +1,7 @@
 ﻿namespace MartinDrozdik.DDD.Models.Identities;
 
 /// <summary>
-/// Complement interface for <see cref="IIdentity{TSelf, TValue}"/> that provides an implicit casting from <typeparamref name="TValue"/> to the strongly typed ID.
+/// Complement interface for <see cref="IIdentity{TValue}"/> that provides an implicit casting from <typeparamref name="TValue"/> to the strongly typed ID.
 /// </summary>
 /// <typeparam name="TSelf">Self-referencing generic type.</typeparam>
 /// <typeparam name="TValue">Actual value of the ID.</typeparam>
