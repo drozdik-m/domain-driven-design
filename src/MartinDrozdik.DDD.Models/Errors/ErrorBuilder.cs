@@ -39,7 +39,7 @@ public class ErrorBuilder
     /// </summary>
     /// <param name="detail">The error detail.</param>
     /// <returns>The current instance of <see cref="ErrorBuilder"/>.</returns>
-    public ErrorBuilder AddDetail(ErrorDetail detail)
+    public ErrorBuilder WithDetail(ErrorDetail detail)
     {
         _details.Add(detail);
         return this;
@@ -51,9 +51,9 @@ public class ErrorBuilder
     /// <param name="key">The error detail key.</param>
     /// <param name="value">The error detail value.</param>
     /// <returns>The current instance of <see cref="ErrorBuilder"/>.</returns>
-    public ErrorBuilder AddDetail(string key, string value)
+    public ErrorBuilder WithDetail(string key, string value)
     {
-        return AddDetail(new ErrorDetail(key, value));
+        return WithDetail(new ErrorDetail(key, value));
     }
 
     /// <summary>

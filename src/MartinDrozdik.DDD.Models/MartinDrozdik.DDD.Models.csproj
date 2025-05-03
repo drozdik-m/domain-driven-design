@@ -16,6 +16,14 @@
 
   <ItemGroup>
     <PackageReference Include="CSharpFunctionalExtensions" Version="3.5.1" />
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.7.0.110445">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -23,26 +31,34 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Errors\WellKnown\WellKnownErrors.cs.Designer.cs">
-      <DependentUpon>WellKnownErrors.cs.resx</DependentUpon>
+    <Compile Update="Enumerations\Errors\EnumerationErrorsResource.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
+      <DependentUpon>EnumerationErrorsResource.resx</DependentUpon>
     </Compile>
-    <Compile Update="Errors\WellKnown\WellKnownErrors.Designer.cs">
+    <Compile Update="Errors\WellKnown\WellKnownErrorsResource.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DependentUpon>WellKnownErrors.resx</DependentUpon>
+      <DependentUpon>WellKnownErrorsResource.resx</DependentUpon>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrors.cs.resx">
-      <LastGenOutput>WellKnownErrors.cs.Designer.cs</LastGenOutput>
+    <EmbeddedResource Update="Enumerations\Errors\EnumerationErrorsResource.cs.resx">
+      <LastGenOutput>EnumerationErrorsResource.cs.Designer.cs</LastGenOutput>
       <Generator>ResXFileCodeGenerator</Generator>
     </EmbeddedResource>
-    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrors.resx">
+    <EmbeddedResource Update="Enumerations\Errors\EnumerationErrorsResource.resx">
+      <LastGenOutput>EnumerationErrorsResource.Designer.cs</LastGenOutput>
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>WellKnownErrors.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrorsResource.cs.resx">
+      <LastGenOutput>WellKnownErrorsResource.cs.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Errors\WellKnown\WellKnownErrorsResource.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>WellKnownErrorsResource.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
 </Project>

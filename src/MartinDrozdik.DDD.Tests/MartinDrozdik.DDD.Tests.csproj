@@ -18,4 +18,16 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="S:\_Projekty\domain-driven-design\src\MartinDrozdik.DDD.Tests\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="S:\_Projekty\domain-driven-design\src\MartinDrozdik.DDD.Tests\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MartinDrozdik.DDD.Models\MartinDrozdik.DDD.Models.csproj" />
+  </ItemGroup>
+
 </Project>

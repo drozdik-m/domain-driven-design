@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MartinDrozdik.DDD.Models.Errors.WellKnown {
+namespace MartinDrozdik.DDD.Models.Enumerations.Errors {
     using System;
     
     
@@ -22,14 +22,14 @@ namespace MartinDrozdik.DDD.Models.Errors.WellKnown {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class WellKnownErrors___Copy {
+    internal class EnumerationErrorsResource {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal WellKnownErrors___Copy() {
+        internal EnumerationErrorsResource() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace MartinDrozdik.DDD.Models.Errors.WellKnown {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("MartinDrozdik.DDD.Models.Errors.WellKnown.WellKnownErrors - Copy", typeof(WellKnownErrors___Copy).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("MartinDrozdik.DDD.Models.Enumerations.Errors.EnumerationErrorsResource", typeof(EnumerationErrorsResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -61,11 +61,11 @@ namespace MartinDrozdik.DDD.Models.Errors.WellKnown {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested item was not found..
+        ///   Looks up a localized string similar to Enumeration value {0} not found for {1}..
         /// </summary>
-        internal static string NotFound {
+        internal static string EnumerationNameNotFoundError {
             get {
-                return ResourceManager.GetString("NotFound", resourceCulture);
+                return ResourceManager.GetString("EnumerationNameNotFoundError", resourceCulture);
             }
         }
     }
