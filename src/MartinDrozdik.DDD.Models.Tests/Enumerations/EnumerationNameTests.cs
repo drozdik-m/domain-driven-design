@@ -1,6 +1,6 @@
 ﻿using MartinDrozdik.DDD.Models.Enumerations;
 
-namespace MartinDrozdik.DDD.Tests.Enumerations;
+namespace MartinDrozdik.DDD.Models.Tests.Enumerations;
 
 public class EnumerationNameTests
 {

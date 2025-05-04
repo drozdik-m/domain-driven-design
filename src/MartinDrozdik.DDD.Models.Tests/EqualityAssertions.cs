@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 
-namespace MartinDrozdik.DDD.Tests;
+namespace MartinDrozdik.DDD.Models.Tests;
 
 /// <summary>
 /// Utility class for testing equality and hash code behavior of types implementing <see cref="IEqualityComparer{T}"/> and <see cref="IEquatable{T}"/>.
@@ -51,8 +51,8 @@ public static class EqualityAssertions
         Assert.False(value2.Equals(differentValue), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false for different values.");
 
         // Test inequality with null
-        Assert.False(value1.Equals(null), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
-        Assert.False(value2.Equals(null), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
+        Assert.False(value1.Equals(default), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
+        Assert.False(value2.Equals(default), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
     }
 
     /// <summary>
@@ -99,9 +99,9 @@ public static class EqualityAssertions
         Assert.True(value1 != differentValue, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true for different values.");
 
         // Test null equality
-        Assert.False(value1 == null, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when compared to null.");
-        Assert.True(value1 != null, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when compared to null.");
-        Assert.True(null != value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when null is compared to a value.");
-        Assert.False(null == value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when null is compared to a value.");
+        Assert.False(value1 == default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when compared to null.");
+        Assert.True(value1 != default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when compared to null.");
+        Assert.True(default != value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when null is compared to a value.");
+        Assert.False(default == value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when null is compared to a value.");
     }
 }
