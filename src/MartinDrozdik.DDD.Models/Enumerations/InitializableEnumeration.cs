@@ -29,13 +29,13 @@ public abstract class InitializableEnumeration<TSelf> : Enumeration,
     /// <summary>
     /// Gets or sets dictionary of all enumeration members of this static enumeration.
     /// </summary>
-    protected internal static IReadOnlyDictionary<EnumerationName, TSelf> EnumerationsDictionary { get; set; }
+    protected static IReadOnlyDictionary<EnumerationName, TSelf> EnumerationsDictionary { get; set; }
         = new Dictionary<EnumerationName, TSelf>();
 
     /// <summary>
     /// Gets or sets list of all enumeration members of this static enumeration.
     /// </summary>
-    protected internal static IReadOnlyList<TSelf> EnumerationsList { get; set; }
+    protected static IReadOnlyList<TSelf> EnumerationsList { get; set; }
         = Array.Empty<TSelf>();
 
     /// <summary>

@@ -2,8 +2,6 @@
 
 namespace MartinDrozdik.DDD.Models.Errors;
 
-//TODO
-
 /// <summary>
 /// Represents an aggregate error that contains multiple errors.
 /// </summary>

@@ -3,16 +3,20 @@ using MartinDrozdik.DDD.Models.Errors;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using Xunit;
 using MartinDrozdik.DDD.Models.Enumerations;
+using MartinDrozdik.DDD.Models.Enumerations.Errors;
 
 namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Statics;
 
 public class FromNameOptionalTests
 {
-    // Temporary enum for testing
     private class TestEnum : StaticEnumeration<TestEnum>
     {
-        public static readonly TestEnum Value1 = new("Value1");
-        public static readonly TestEnum Value2 = new("Value2");
+        private TestEnum(EnumerationName name) : base(name)
+        {
+        }
+
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
     }
 
     [Fact]
@@ -44,7 +48,7 @@ public class FromNameOptionalTests
     }
 
     [Fact]
-    public void FromNameOptional_ShouldReturnError_WhenNameIsInvalid()
+    public void Should_return_error_when_name_is_invalid()
     {
         // Arrange
         var name = new EnumerationName("InvalidValue");
@@ -55,7 +59,6 @@ public class FromNameOptionalTests
         // Assert
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
-        Assert.Equal("NotFound", result.Error.Code.Key);
-        Assert.Contains("Name 'InvalidValue' not found.", result.Error.Message);
+        Assert.Equal(EnumerationErrorCodes.EnumerationNameNotFound, result.Error.Code);
     }
 }
