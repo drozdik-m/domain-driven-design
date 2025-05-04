@@ -49,6 +49,4 @@ public class EnumerationNameTests
             name2,
             differentName);
     }
-
-
 }
