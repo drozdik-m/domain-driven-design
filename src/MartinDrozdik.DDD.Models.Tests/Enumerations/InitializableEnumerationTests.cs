@@ -10,12 +10,8 @@ namespace MartinDrozdik.DDD.Models.Tests.Enumerations;
 
 public class InitializableEnumerationTests
 {
-    private class TestEnum : InitializableEnumeration<TestEnum>
+    private class TestEnum(EnumerationName name): InitializableEnumeration<TestEnum>(name)
     {
-        public TestEnum(EnumerationName name) : base(name)
-        {
-        }
-
         // Well known values
         public static readonly TestEnum Value1 = new(nameof(Value1));
         public static readonly TestEnum Value2 = new(nameof(Value2));
@@ -28,11 +24,8 @@ public class InitializableEnumerationTests
             ];
     }
 
-    private class TestEnumWithWellKnown : InitializableEnumeration<TestEnum>
+    private class TestEnumWithWellKnown(EnumerationName name): InitializableEnumeration<TestEnum>(name)
     {
-        public TestEnumWithWellKnown(EnumerationName name) : base(name)
-        {
-        }
 
         // Well known values
         public static readonly TestEnum Value1 = new(nameof(Value1));

@@ -5,7 +5,7 @@
 /// </summary>
 public class ErrorBuilder
 {
-    private readonly List<ErrorDetail> _details = new ();
+    private readonly List<ErrorDetail> _details = new();
     private ErrorCode? _code;
     private string? _message;
     private Exception? _exception;
@@ -54,6 +54,18 @@ public class ErrorBuilder
     public ErrorBuilder WithDetail(string key, string value)
     {
         return WithDetail(new ErrorDetail(key, value));
+    }
+
+    /// <summary>
+    /// Adds error details.
+    /// </summary>
+    /// <param name="details">The details to add.</param>
+    /// <returns>The current instance of <see cref="ErrorBuilder"/>.</returns>
+    public ErrorBuilder WithDetails(params IEnumerable<ErrorDetail> details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        _details.AddRange(details);
+        return this;
     }
 
     /// <summary>

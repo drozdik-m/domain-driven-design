@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Models.Tests;
 public static class EqualityAssertions
 {
     /// <summary>
-    /// Tests all equality-related behaviors for a type implementing <see cref="IEquatable{T}"/>, 
+    /// Tests all equality-related behaviors for a type implementing <see cref="IEquatable{T}"/>,
     /// <see cref="IEqualityComparer{T}"/>, and <see cref="IEqualityOperators{T, T, TResult}"/>.
     /// </summary>
     /// <typeparam name="T">The type being tested.</typeparam>
@@ -101,7 +101,9 @@ public static class EqualityAssertions
         // Test null equality
         Assert.False(value1 == default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when compared to null.");
         Assert.True(value1 != default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when compared to null.");
+#pragma warning disable SA1131 // Use readable conditions
         Assert.True(default != value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when null is compared to a value.");
         Assert.False(default == value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when null is compared to a value.");
+#pragma warning restore SA1131 // Use readable conditions
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models;
+﻿namespace MartinDrozdik.DDD.Models.Templates;
 
 /// <summary>
 /// Represents an item that can be identified by a key.

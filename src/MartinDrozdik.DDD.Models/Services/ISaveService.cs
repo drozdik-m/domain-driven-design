@@ -1,5 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Models.Errors;
+using MartinDrozdik.DDD.Models.Templates;
 
 namespace MartinDrozdik.DDD.Models.Services;
 

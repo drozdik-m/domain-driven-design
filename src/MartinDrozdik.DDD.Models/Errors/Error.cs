@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using MartinDrozdik.DDD.Models.Templates;
 
 namespace MartinDrozdik.DDD.Models.Errors;
 

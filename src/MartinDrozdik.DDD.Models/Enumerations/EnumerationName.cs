@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using MartinDrozdik.DDD.Models.Identities;
+using MartinDrozdik.DDD.Models.Templates;
 
 namespace MartinDrozdik.DDD.Models.Enumerations;
 
