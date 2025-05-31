@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Models.Enumerations.Errors;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;

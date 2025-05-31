@@ -17,11 +17,11 @@ public partial class ValueObjectTests
 
         // Act & Assert
         EqualityAssertions.TestEqualityComparer(comparer: value1, value1, value2, differentValue);
-        EqualityAssertions.TestEqualityOperators<ValueObject>(value1, value2, differentValue);
+        EqualityAssertions.TestEqualityOperators<Templates.ValueObject>(value1, value2, differentValue);
     }
 
     private class TestEqualityValueObject(int value1, string value2)
-        : ValueObject
+        : Templates.ValueObject
     {
         protected override IEnumerable<object?> GetEqualityComponents()
         {

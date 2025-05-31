@@ -29,7 +29,7 @@ public sealed class ErrorCode : ValueObject
     /// An implicit casting from string to <see cref="ErrorCode"/>.
     /// </summary>
     /// <param name="code">The error code as string.</param>
-    public static implicit operator ErrorCode(string code) => new (code);
+    public static implicit operator ErrorCode(string code) => new(code);
 
     /// <inheritdoc />
     public override string ToString()
