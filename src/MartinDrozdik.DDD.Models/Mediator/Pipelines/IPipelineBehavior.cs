@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Represents a pipeline behavior in the Mediator pattern.

@@ -1,27 +1,11 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-using MartinDrozdik.DDD.Models.Mediator;
-using MartinDrozdik.DDD.Models.Mediator.Commands;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Models.Mediator;
 using MartinDrozdik.DDD.Models.Tests.Mediator.Requests;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator;
 
-public partial class ServiceMediatorTests
+public class ServiceMediatorTests
 {
-    private static ServiceMediator CreateMediatorWithHandlers()
-    {
-        var services = new ServiceCollection();
-        services.AddTestRequests();
-        var provider = services.BuildServiceProvider();
-        return new ServiceMediator(provider);
-    }
-
     [Fact]
     public async Task Void_command_is_sent_and_handled()
     {
@@ -39,8 +23,7 @@ public partial class ServiceMediatorTests
             () => ResultAssert.IsSuccess(result1),
             () => ResultAssert.IsSuccess(result2),
             () => command1.AssertHandled(),
-            () => command2.AssertHandled()
-        );
+            () => command2.AssertHandled());
     }
 
     [Fact]
@@ -58,8 +41,7 @@ public partial class ServiceMediatorTests
         // Assert
         Assert.Multiple(
             () => command1.AssertHandled(result1),
-            () => command2.AssertHandled(result2)
-        );
+            () => command2.AssertHandled(result2));
     }
 
     [Fact]
@@ -77,7 +59,14 @@ public partial class ServiceMediatorTests
         // Assert
         Assert.Multiple(
             () => query1.AssertHandled(result1),
-            () => query2.AssertHandled(result2)
-        );
+            () => query2.AssertHandled(result2));
+    }
+
+    private static ServiceMediator CreateMediatorWithHandlers()
+    {
+        var services = new ServiceCollection();
+        services.AddTestRequests();
+        var provider = services.BuildServiceProvider();
+        return new ServiceMediator(provider);
     }
 }

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,7 +1,4 @@
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
-using Xunit;
-using System.Collections.Generic;
-using System.Linq;
 using MartinDrozdik.DDD.Models.Enumerations;
 
 namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Statics;

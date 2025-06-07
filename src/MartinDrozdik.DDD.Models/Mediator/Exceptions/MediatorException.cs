@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Exceptions;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Exceptions;
 
 internal class MediatorException : Exception
 {
