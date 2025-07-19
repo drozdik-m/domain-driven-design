@@ -1,4 +1,7 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿using CSharpFunctionalExtensions;
+using MartinDrozdik.DDD.Models.Errors;
+
+namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Represents a pipeline that processes input through a series of behaviors.
@@ -9,7 +12,7 @@
 public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOutput>> behaviors) : IPipelineBehavior<TInput, TOutput>
 {
     /// <inheritdoc />
-    public async Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
+    public async Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
     {
         foreach (var behavior in behaviors)
         {
@@ -18,7 +21,7 @@ public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOu
                 // Check for cancellation before invoking the behavior
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return Task.FromCanceled<TOutput>(cancellationToken);
+                    return Task.FromCanceled<Result<TOutput, Error>>(cancellationToken);
                 }
 
                 // Invoke the behavior and pass the next delegate

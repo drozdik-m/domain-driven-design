@@ -1,10 +1,13 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿using CSharpFunctionalExtensions;
+using MartinDrozdik.DDD.Models.Errors;
+
+namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Represents an empty pipeline that does nothing and returns the next step in the pipeline.
 /// </summary>
 /// <typeparam name="TInput">Input request object.</typeparam>
-/// <typeparam name="TOutput">Result of the operation</typeparam>
+/// <typeparam name="TOutput">Result of the operation.</typeparam>
 public sealed class EmptyPipeline<TInput, TOutput> : IPipelineBehavior<TInput, TOutput>
 {
     private EmptyPipeline()
@@ -17,6 +20,6 @@ public sealed class EmptyPipeline<TInput, TOutput> : IPipelineBehavior<TInput, T
     public static EmptyPipeline<TInput, TOutput> Instance { get; } = new EmptyPipeline<TInput, TOutput>();
 
     /// <inheritdoc />
-    public Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
+    public Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
         => next(cancellationToken);
 }

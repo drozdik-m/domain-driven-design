@@ -1,4 +1,7 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿using CSharpFunctionalExtensions;
+using MartinDrozdik.DDD.Models.Errors;
+
+namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Delegate for the next step in the pipeline.
@@ -6,7 +9,7 @@
 /// <typeparam name="TOutput">Output of the next step.</typeparam>
 /// <param name="cancellationToken">Cancellation token.</param>
 /// <returns>The output of the next pipeline phase.</returns>
-public delegate Task<TOutput> PipelineNextDelegate<TOutput>(CancellationToken cancellationToken);
+public delegate Task<Result<TOutput, Error>> PipelineNextDelegate<TOutput>(CancellationToken cancellationToken);
 
 /// <summary>
 /// Represents a pipeline behavior in the Mediator pattern.
@@ -23,5 +26,5 @@ public interface IPipelineBehavior<in TInput, TOutput>
     /// <param name="next">The next delegate that should be handled according to this behaviours logic.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Processed output results.</returns>
-    Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken);
+    Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken);
 }

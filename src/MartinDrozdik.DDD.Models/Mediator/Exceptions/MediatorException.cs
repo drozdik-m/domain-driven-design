@@ -1,6 +1,9 @@
 ﻿namespace MartinDrozdik.DDD.Models.Mediator.Exceptions;
 
-internal class MediatorException : Exception
+/// <summary>
+/// Represents errors that occur within the Mediator framework.
+/// </summary>
+public class MediatorException : Exception
 {
     /// <inheritdoc />
     public MediatorException()
