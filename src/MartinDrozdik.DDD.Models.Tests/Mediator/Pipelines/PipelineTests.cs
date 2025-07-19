@@ -1,8 +1,5 @@
-﻿using MartinDrozdik.DDD.Models.Mediator;
-using MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿using MartinDrozdik.DDD.Models.Mediator.Pipelines;
 using MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestPipelines;
-using MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines;
 
@@ -12,14 +9,14 @@ public class PipelineTests
     public async Task Success_pipeline_passes()
     {
         // Arrange
-        var pipelines = new List<IPipelineBehavior<TestQuery1, int>>
+        var pipelines = new List<IPipelineBehavior<TestPipelineQuery, int>>
         {
-            new TestIncrementPipeline(),
-            new TestIncrementPipeline(),
+            new TestIncrementPipeline("id1"),
+            new TestIncrementPipeline("id2"),
         };
-        var pipeline = new Pipeline<TestQuery1, int>(pipelines);
-        var query = new TestQuery1(1);
-        var handler = new TestQuery1Handler();
+        var pipeline = new Pipeline<TestPipelineQuery, int>(pipelines);
+        var query = new TestPipelineQuery(1);
+        var handler = new TestPipelineQueryHandler();
 
         // Act
         var result = await pipeline.HandleAsync(
@@ -30,7 +27,7 @@ public class PipelineTests
         // Assert
         Assert.Multiple(
             () => result.IsSuccess(),
-            () => query.AssertHandled(result),
+            () => query.AssertCallStack("id1", "id2"),
             () => Assert.Equal(result.Value, query.Result + 2));
     }
 }

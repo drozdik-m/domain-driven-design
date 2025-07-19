@@ -14,21 +14,26 @@ public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOu
     /// <inheritdoc />
     public async Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
     {
+        // Compose the pipeline by wrapping each behavior around the next delegate
+        var composed = next;
+
+        // Iterate through the behaviors to compose them
         foreach (var behavior in behaviors)
         {
-            next = (cancellationToken) =>
+            var nextCopy = composed;
+            composed = (ct) =>
             {
-                // Check for cancellation before invoking the behavior
-                if (cancellationToken.IsCancellationRequested)
+                // Check if the cancellation token has been requested
+                if (ct.IsCancellationRequested)
                 {
-                    return Task.FromCanceled<Result<TOutput, Error>>(cancellationToken);
+                    return Task.FromCanceled<Result<TOutput, Error>>(ct);
                 }
 
-                // Invoke the behavior and pass the next delegate
-                return behavior.HandleAsync(input, next, cancellationToken);
+                // Call the current behavior with the input and the next delegate
+                return behavior.HandleAsync(input, nextCopy, ct);
             };
         }
 
-        return await next(cancellationToken);
+        return await composed(cancellationToken);
     }
 }
