@@ -6,7 +6,7 @@ namespace MartinDrozdik.DDD.Models.Tests;
 /// <summary>
 /// Utility class for testing equality and hash code behavior of types implementing <see cref="IEqualityComparer{T}"/> and <see cref="IEquatable{T}"/>.
 /// </summary>
-public static class EqualityAssertions
+public static class EqualityAssert
 {
     /// <summary>
     /// Tests all equality-related behaviors for a type implementing <see cref="IEquatable{T}"/>,

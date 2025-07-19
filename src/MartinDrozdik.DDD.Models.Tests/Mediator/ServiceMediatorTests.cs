@@ -1,5 +1,5 @@
 ﻿using MartinDrozdik.DDD.Models.Mediator;
-using MartinDrozdik.DDD.Models.Tests.Mediator.Requests;
+using MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator;

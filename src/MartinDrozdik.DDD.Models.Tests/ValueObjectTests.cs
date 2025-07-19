@@ -11,8 +11,8 @@ public partial class ValueObjectTests
         var differentValue = new TestEqualityValueObject(1, "TestX");
 
         // Act & Assert
-        EqualityAssertions.TestEqualityComparer(comparer: value1, value1, value2, differentValue);
-        EqualityAssertions.TestEqualityOperators<Templates.ValueObject>(value1, value2, differentValue);
+        EqualityAssert.TestEqualityComparer(comparer: value1, value1, value2, differentValue);
+        EqualityAssert.TestEqualityOperators<Templates.ValueObject>(value1, value2, differentValue);
     }
 
     private class TestEqualityValueObject(int value1, string value2)

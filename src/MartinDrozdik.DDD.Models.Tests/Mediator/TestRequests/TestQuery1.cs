@@ -2,13 +2,13 @@
 using MartinDrozdik.DDD.Models.Errors;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Requests;
+namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
 
 internal record TestQuery1(int Result) : IQuery<int>
 {
     public void AssertHandled(Result<int, Error> result)
     {
-        ResultAssert.IsSuccess(result);
+        result.IsSuccess();
         Assert.Equal(Result, result.Value);
     }
 }

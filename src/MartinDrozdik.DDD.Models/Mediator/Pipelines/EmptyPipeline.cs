@@ -5,14 +5,14 @@
 /// </summary>
 /// <typeparam name="TInput">Input request object.</typeparam>
 /// <typeparam name="TOutput">Result of the operation</typeparam>
-public class EmptyPipeline<TInput, TOutput> : IPipelineBehavior<TInput, TOutput>
+public sealed class EmptyPipeline<TInput, TOutput> : IPipelineBehavior<TInput, TOutput>
 {
     private EmptyPipeline()
     {
     }
 
     /// <summary>
-    /// Singleton instance of the empty pipeline.
+    /// Gets the singleton instance of the empty pipeline.
     /// </summary>
     public static EmptyPipeline<TInput, TOutput> Instance { get; } = new EmptyPipeline<TInput, TOutput>();
 

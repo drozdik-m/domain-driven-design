@@ -44,7 +44,7 @@ public class EnumerationNameTests
         EnumerationName differentName = "DifferentName";
 
         // Act & Assert
-        EqualityAssertions.TestAllEqualityBehaviors(
+        EqualityAssert.TestAllEqualityBehaviors(
             name1,
             name2,
             differentName);

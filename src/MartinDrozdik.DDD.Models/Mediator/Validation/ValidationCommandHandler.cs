@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.CQRS.Validation;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Validation;
 /*
 internal sealed class ValidationCommandHandler<TCommand, TResponse>(
     ICommandHandler<TCommand, TResponse> innerHandler,
