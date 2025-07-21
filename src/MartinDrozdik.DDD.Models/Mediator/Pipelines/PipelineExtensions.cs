@@ -14,6 +14,28 @@ public static class PipelineExtensions
     /// Processes a command using the provided pipeline and handler.
     /// </summary>
     /// <typeparam name="TCommand">The command to handle.</typeparam>
+    /// <param name="pipeline">The pipeline to execute before handling.</param>
+    /// <param name="command">The request command to handle.</param>
+    /// <param name="handler">The handler of the request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result of the execution.</returns>
+    public static Task<UnitResult<Error>> HandleCommandAsync<TCommand>(
+        this IPipelineBehavior<TCommand> pipeline,
+        TCommand command,
+        ICommandHandler<TCommand> handler,
+        CancellationToken cancellationToken)
+        where TCommand : ICommand
+    {
+        return pipeline.HandleAsync(
+            command,
+            async (cancellationToken) => await handler.HandleAsync(command, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Processes a command using the provided pipeline and handler.
+    /// </summary>
+    /// <typeparam name="TCommand">The command to handle.</typeparam>
     /// <typeparam name="TResponse">The type of the command response.</typeparam>
     /// <param name="pipeline">The pipeline to execute before handling.</param>
     /// <param name="command">The request command to handle.</param>

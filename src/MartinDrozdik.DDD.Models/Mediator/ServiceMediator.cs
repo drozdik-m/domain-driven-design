@@ -59,7 +59,10 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
 
         // Resolve any pipeline behaviors for the command
         var pipeline = provider.GetService<IPipelineBehavior<TRequest>>()
-            ?? EmptyPipeline<TRequest, TResponse>.Instance;
+            ?? EmptyPipeline<TRequest>.Instance;
+
+        // Handle the command
+        var result = await pipeline.HandleCommandAsync(request, handler, cancellationToken);
 
         // Return the result
         return result;
