@@ -4,7 +4,7 @@ using MartinDrozdik.DDD.Models.Mediator.Commands;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
 
-internal class TestVoidCommand1 : ICommand
+internal class TestUnitCommand1 : ICommand
 {
     public int HandleIncrement { get; set; }
 
@@ -14,9 +14,9 @@ internal class TestVoidCommand1 : ICommand
     }
 }
 
-internal class TestVoidCommand1Handler : ICommandHandler<TestVoidCommand1>
+internal class TestVoidCommand1Handler : ICommandHandler<TestUnitCommand1>
 {
-    public Task<UnitResult<Error>> HandleAsync(TestVoidCommand1 command, CancellationToken cancellationToken)
+    public Task<UnitResult<Error>> HandleAsync(TestUnitCommand1 command, CancellationToken cancellationToken)
     {
         command.HandleIncrement++;
         return Task.FromResult(UnitResult.Success<Error>());

@@ -1,8 +1,9 @@
 ﻿using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Models.Errors;
+using MartinDrozdik.DDD.Models.Mediator.Commands;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestPipelines;
+namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
 
 internal record TestPipelineQuery(int Result) : IQuery<int>
 {

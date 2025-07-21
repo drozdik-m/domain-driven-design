@@ -11,8 +11,8 @@ public class ServiceMediatorTests
     {
         // Arrange
         var mediator = CreateMediatorWithHandlers();
-        var command1 = new TestVoidCommand1();
-        var command2 = new TestVoidCommand2();
+        var command1 = new TestUnitCommand1();
+        var command2 = new TestUnitCommand2();
 
         // Act
         var result1 = await mediator.SendCommand(command1, CancellationToken.None);
