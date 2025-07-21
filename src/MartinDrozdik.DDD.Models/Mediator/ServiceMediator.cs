@@ -2,6 +2,7 @@
 using MartinDrozdik.DDD.Models.Errors;
 using MartinDrozdik.DDD.Models.Mediator.Commands;
 using MartinDrozdik.DDD.Models.Mediator.Exceptions;
+using MartinDrozdik.DDD.Models.Mediator.Pipelines;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,31 +11,6 @@ namespace MartinDrozdik.DDD.Models.Mediator;
 /// <inheritdoc cref="IMediator" />
 public class ServiceMediator(IServiceProvider provider) : IMediator
 {
-    /*/// <inheritdoc />
-    public Task<Result<TResult, Error>> SendCommandAsync<TCommand, TResult>(TResult command, CancellationToken cancellationToken)
-        where TCommand : ICommand<TResult>
-    {
-
-        var handler = provider.GetService<ICommandHandler<TCommand, TResult>>();
-        if (handler == null)
-        {
-            throw new InvalidOperationException($"No handler registered for {typeof(TCommand).Name}");
-        }
-
-        return handler.HandleAsync((TCommand)command, cancellationToken);
-
-        var behaviors = provider.GetServices<IPipelineBehavior<TCommand, TResult>>().Reverse();
-
-        Func<Task<TResult>> handlerDelegate = () => handler.HandleAsync(command, cancellationToken);
-        foreach (var behavior in behaviors)
-        {
-            var next = handlerDelegate;
-            handlerDelegate = () => behavior.HandleAsync(command, next, cancellationToken);
-        }
-
-        return await handlerDelegate();
-    }*/
-
     /// <inheritdoc />
     public async Task<Result<TResponse, Error>> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : IQuery<TResponse>
@@ -43,8 +19,12 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
         var handler = provider.GetService<IQueryHandler<TRequest, TResponse>>()
             ?? throw new MediatorException($"No {nameof(IQueryHandler<TRequest, TResponse>)} registered for {typeof(TRequest).Name}");
 
-        // Handle the query using the resolved handler
-        var result = await handler.HandleAsync(request, cancellationToken);
+        // Resolve any pipeline behaviors for the query
+        var pipeline = provider.GetService<IPipelineBehavior<TRequest, TResponse>>()
+            ?? EmptyPipeline<TRequest, TResponse>.Instance;
+
+        // Handle the query
+        var result = await pipeline.HandleQueryAsync(request, handler, cancellationToken);
 
         // Return the result
         return result;
@@ -58,8 +38,12 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
         var handler = provider.GetService<ICommandHandler<TRequest, TResponse>>()
             ?? throw new MediatorException($"No {nameof(ICommandHandler<TRequest, TResponse>)} registered for {typeof(TRequest).Name}");
 
-        // Handle the command using the resolved handler
-        var result = await handler.HandleAsync(request, cancellationToken);
+        // Resolve any pipeline behaviors for the command
+        var pipeline = provider.GetService<IPipelineBehavior<TRequest, TResponse>>()
+            ?? EmptyPipeline<TRequest, TResponse>.Instance;
+
+        // Handle the command
+        var result = await pipeline.HandleCommandAsync(request, handler, cancellationToken);
 
         // Return the result
         return result;
@@ -73,8 +57,9 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
         var handler = provider.GetService<ICommandHandler<TRequest>>()
             ?? throw new MediatorException($"No {nameof(ICommandHandler<TRequest>)} handler registered for {typeof(TRequest).Name}");
 
-        // Handle the command using the resolved handler
-        var result = await handler.HandleAsync(request, cancellationToken);
+        // Resolve any pipeline behaviors for the command
+        var pipeline = provider.GetService<IPipelineBehavior<TRequest>>()
+            ?? EmptyPipeline<TRequest, TResponse>.Instance;
 
         // Return the result
         return result;

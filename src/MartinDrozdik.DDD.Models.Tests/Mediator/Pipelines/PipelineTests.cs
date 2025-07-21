@@ -19,10 +19,7 @@ public class PipelineTests
         var handler = new TestPipelineQueryHandler();
 
         // Act
-        var result = await pipeline.HandleAsync(
-            query,
-            async (cancellationToken) => await handler.HandleAsync(query, cancellationToken),
-            CancellationToken.None);
+        var result = await pipeline.HandleQueryAsync(query, handler, CancellationToken.None);
 
         // Assert
         Assert.Multiple(
