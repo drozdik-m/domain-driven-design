@@ -14,7 +14,7 @@ internal class TestUnitCommand2 : ICommand
     }
 }
 
-internal class TestVoidCommand2Handler : ICommandHandler<TestUnitCommand2>
+internal class TestUnitCommand2Handler : ICommandHandler<TestUnitCommand2>
 {
     public Task<UnitResult<Error>> HandleAsync(TestUnitCommand2 command, CancellationToken cancellationToken)
     {

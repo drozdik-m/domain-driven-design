@@ -7,7 +7,7 @@ namespace MartinDrozdik.DDD.Models.Tests.Mediator;
 public class ServiceMediatorTests
 {
     [Fact]
-    public async Task Void_command_is_sent_and_handled()
+    public async Task Unit_command_is_sent_and_handled()
     {
         // Arrange
         var mediator = CreateMediatorWithHandlers();
