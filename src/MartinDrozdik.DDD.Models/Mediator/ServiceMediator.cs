@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Models.Mediator;
 public class ServiceMediator(IServiceProvider provider) : IMediator
 {
     /// <inheritdoc />
-    public async Task<Result<TResponse, Error>> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    public Task<Result<TResponse, Error>> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : IQuery<TResponse>
     {
         // Resolve the command handler from the service provider
@@ -24,14 +24,11 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
             ?? EmptyPipeline<TRequest, TResponse>.Instance;
 
         // Handle the query
-        var result = await pipeline.HandleQueryAsync(request, handler, cancellationToken);
-
-        // Return the result
-        return result;
+        return pipeline.HandleQueryAsync(request, handler, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<Result<TResponse, Error>> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    public Task<Result<TResponse, Error>> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand<TResponse>
     {
         // Resolve the command handler from the service provider
@@ -43,14 +40,11 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
             ?? EmptyPipeline<TRequest, TResponse>.Instance;
 
         // Handle the command
-        var result = await pipeline.HandleCommandAsync(request, handler, cancellationToken);
-
-        // Return the result
-        return result;
+        return pipeline.HandleCommandAsync(request, handler, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<UnitResult<Error>> SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
+    public Task<UnitResult<Error>> SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand
     {
         // Resolve the command handler from the service provider
@@ -62,9 +56,6 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
             ?? EmptyPipeline<TRequest>.Instance;
 
         // Handle the command
-        var result = await pipeline.HandleCommandAsync(request, handler, cancellationToken);
-
-        // Return the result
-        return result;
+        return pipeline.HandleCommandAsync(request, handler, cancellationToken);
     }
 }

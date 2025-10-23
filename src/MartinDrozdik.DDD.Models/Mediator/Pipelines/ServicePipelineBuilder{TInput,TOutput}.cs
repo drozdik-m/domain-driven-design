@@ -55,11 +55,11 @@ public class ServicePipelineBuilder<TInput, TOutput>
         }
 
         // Resolve the pipeline behaviors from the service provider
-        var reversedPipelines = _pipelineTypes
+        var pipelines = _pipelineTypes
             .Select(type => (IPipelineBehavior<TInput, TOutput>)serviceProvider.GetRequiredService(type))
             .ToArray();
 
         // Create the pipeline with the behaviors
-        return new Pipeline<TInput, TOutput>(reversedPipelines);
+        return new Pipeline<TInput, TOutput>(pipelines);
     }
 }

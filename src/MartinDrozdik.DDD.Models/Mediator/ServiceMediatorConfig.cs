@@ -68,7 +68,7 @@ public class ServiceMediatorConfig(IServiceCollection services)
         where TCommand : ICommand
         where THandler : class, ICommandHandler<TCommand>
     {
-        WithCommand<TCommand, THandler>();
+        services.AddScoped<ICommandHandler<TCommand>, THandler>();
         return this;
     }
 
@@ -83,103 +83,8 @@ public class ServiceMediatorConfig(IServiceCollection services)
         where TCommand : ICommand
         where THandler : class, ICommandHandler<TCommand>
     {
-        services.AddScoped<ICommandHandler<TCommand>, THandler>();
+        WithCommand<TCommand, THandler>();
         services.AddScoped(pipelineBuilder.Build);
         return this;
     }
-
-    /// <summary>
-    /// Searches for all request handlers in the specified assembly and registers them.
-    /// </summary>
-    /// <typeparam name="TAssembly">Type of the assembly to go throught.</typeparam>
-    /// <returns>This for chaining.</returns>
-    public ServiceMediatorConfig WithRequestsFromAssembly<TAssembly>()
-    {
-        // Get all non-abstract types in the assembly
-        var nonAbstractTypes = GetAssemblyNonAbstractTypes<TAssembly>();
-
-        // Register all handlers
-        RegisterHandlerTypes(nonAbstractTypes, typeof(IQueryHandler<,>));
-        RegisterHandlerTypes(nonAbstractTypes, typeof(ICommandHandler<,>));
-        RegisterHandlerTypes(nonAbstractTypes, typeof(ICommandHandler<>));
-
-        return this;
-
-        void RegisterHandlerTypes(IEnumerable<Type> nonAbstractTypes, Type handlerType)
-        {
-            foreach (var item in GetTypeWithSearchedInterface(nonAbstractTypes, handlerType))
-            {
-                services.AddScoped(item.Interface, item.ActualType);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Searches for all pipeline behaviours in the specified assembly and registers them for all commands and queries.
-    /// </summary>
-    /// <typeparam name="TAssembly">Type of the assembly to go throught.</typeparam>
-    /// <returns>This for chaining.</returns>
-    public ServiceMediatorConfig WithPipelinesFromAssembly<TAssembly>()
-    {
-        // Get all non-abstract types in the assembly
-        var nonAbstractTypes = GetAssemblyNonAbstractTypes<TAssembly>();
-
-        // Register all handlers
-        RegistePipelineTypes(nonAbstractTypes, typeof(IQueryHandler<,>));
-        RegistePipelineTypes(nonAbstractTypes, typeof(ICommandHandler<,>));
-        RegistePipelineTypes(nonAbstractTypes, typeof(ICommandHandler<>));
-
-        return this;
-
-        void RegistePipelineTypes(IEnumerable<Type> nonAbstractTypes, Type handlerType)
-        {
-            foreach (var item in GetTypeWithSearchedInterface(nonAbstractTypes, handlerType))
-            {
-                var pipelineBuilderType = typeof(ServicePipelineBuilder<,>).MakeGenericType(item.Interface.GetGenericArguments());
-                // TODO finish
-                //services.AddScoped(item.Interface, item.ActualType);
-            }
-
-            /*var pipelineBuilderType = typeof(ServicePipelineBuilder<,>).MakeGenericType(item.Interface.GetGenericArguments());
-                services.AddScoped(pipelineBuilderType, sp => Activator.CreateInstance(pipelineBuilderType));
-                services.AddScoped(item.Interface, item.Handler);*/
-        }
-    }
-
-    /// <summary>
-    /// Returns all non-abstract types from the specified assembly.
-    /// </summary>
-    /// <typeparam name="TAssembly">Type of the assembly</typeparam>
-    /// <returns>All non abstract types from the assembly.</returns>
-    private static Type[] GetAssemblyNonAbstractTypes<TAssembly>()
-    {
-        // Get the assembly of the specified type
-        var assembly = typeof(TAssembly).Assembly;
-
-        // Get all non-abstract types in the assembly
-        var nonAbstractTypes = assembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
-            .ToArray();
-
-        return nonAbstractTypes;
-    }
-
-    /// <summary>
-    /// Returns all types that implement the searched interface from the specified non-abstract type list.
-    /// </summary>
-    /// <param name="typeList">List of types to check.</param>
-    /// <param name="searchedInterface">The interface to look for.</param>
-    private static ClassWithInterface[] GetTypeWithSearchedInterface(IEnumerable<Type> typeList, Type searchedInterface)
-    {
-        var numberOfGenericArguments = searchedInterface.GetGenericArguments().Length;
-        var typesWithInterfaces = typeList
-                    .SelectMany(t => t.GetInterfaces()
-                        .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == searchedInterface && i.GetGenericArguments().Length == numberOfGenericArguments)
-                        .Select(i => new ClassWithInterface(t, i)))
-                    .ToArray();
-        return typesWithInterfaces;
-    }
-
-    private record struct ClassWithInterface(Type ActualType, Type Interface);
 }
