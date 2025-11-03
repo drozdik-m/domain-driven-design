@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Models.Errors;
+﻿using CSharpFunctionalExtensions;
+
+namespace MartinDrozdik.DDD.Models.Errors;
 
 /// <summary>
 /// Builder for creating instances of <see cref="Error"/>.
@@ -89,5 +91,15 @@ public class ErrorBuilder
         ArgumentNullException.ThrowIfNull(_code);
         ArgumentNullException.ThrowIfNull(_message);
         return new Error(_code, _message, _details, _exception);
+    }
+
+    /// <summary>
+    /// Builds a <see cref="UnitResult{TError}"/> representing a failure with the built <see cref="Error"/>.
+    /// </summary>
+    /// <returns>A new instance of <see cref="UnitResult{Error}"/>.</returns>
+    public UnitResult<Error> BuildUnitResult()
+    {
+        var error = Build();
+        return UnitResult.Failure(error);
     }
 }

@@ -10,7 +10,7 @@ public class DemoHost
     private readonly IHost _host;
 
     /// <summary>
-    /// Creates an instance of <see cref="DemoHost"/>.
+    /// Initializes a new instance of the <see cref="DemoHost"/> class.
     /// </summary>
     public DemoHost(IHost host)
     {
@@ -20,6 +20,7 @@ public class DemoHost
     /// <summary>
     /// Creates a default instance of <see cref="DemoHost"/>.
     /// </summary>
+    /// <returns>The created <see cref="DemoHost"/> instance.</returns>
     public static DemoHost CreateDefault()
     {
         var app = Host.CreateApplicationBuilder();

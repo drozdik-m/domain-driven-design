@@ -4,17 +4,17 @@
 /// An entity that represents an object which identity is defined by its Id.
 /// </summary>
 /// <remarks>
-/// In constrast to value objects, entities have an identity that distinguishes them from other entities.
+/// In constrast to value objects, domain entities have an identity that distinguishes them from other entities.
 /// </remarks>
 /// <typeparam name="TIdentity">The type of the entities' identity.</typeparam>
-public abstract class Entity<TIdentity> : IIdentifiable<TIdentity>
+public abstract class DomainEntity<TIdentity> : IIdentifiable<TIdentity>
     where TIdentity : notnull
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="Entity{TIdentity}"/> class.
+    /// Initializes a new instance of the <see cref="DomainEntity{TIdentity}"/> class.
     /// </summary>
     /// <param name="id">The entity ID.</param>
-    protected Entity(TIdentity id)
+    protected DomainEntity(TIdentity id)
     {
         Id = id;
     }

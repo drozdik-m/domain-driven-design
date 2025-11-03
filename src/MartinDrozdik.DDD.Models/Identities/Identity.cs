@@ -8,31 +8,20 @@ namespace MartinDrozdik.DDD.Models.Identities;
 /// <typeparam name="TSelf">Self-referencing generic type.</typeparam>
 [DebuggerDisplay("{Key}")]
 public abstract class Identity<TSelf, TKey> : ValueObject, IIdentity<TKey>
-    where TSelf : Identity<TSelf, TKey>, new()
+    where TSelf : Identity<TSelf, TKey>
     where TKey : notnull
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Identity{TSelf, TValue}"/> class.
     /// </summary>
-    protected Identity()
+    /// <param name="key">The actual value of the identifier.</param>
+    protected Identity(TKey key)
     {
+        Key = key;
     }
 
     /// <inheritdoc />
-    public required TKey Key { get; init; }
-
-    /// <summary>
-    /// Creates a new instance of the strongly typed ID.
-    /// </summary>
-    /// <param name="key">The actual value of the new identifier.</param>
-    /// <returns>New <typeparamref name="TSelf"/>.</returns>
-    public static TSelf Create(TKey key)
-    {
-        return new TSelf
-        {
-            Key = key,
-        };
-    }
+    public TKey Key { get; }
 
     /// <inheritdoc />
     protected override IEnumerable<object?> GetEqualityComponents()
