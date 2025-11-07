@@ -12,11 +12,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MartinDrozdik.DDD.Models.Tests", "MartinDrozdik.DDD.Models.Tests\MartinDrozdik.DDD.Models.Tests.csproj", "{9FAD6BD9-2392-2565-F019-159C28DE6C62}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MartinDrozdik.DDD.Demo", "MartinDrozdik.DDD.Demo\MartinDrozdik.DDD.Demo.csproj", "{F5A9C879-9842-4A1B-AC0B-339ECB790C90}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demo", "Demo", "{8D6D8381-0189-43B1-9D4E-F5502A1A212D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MartinDrozdik.DDD.Demo.Tests", "MartinDrozdik.DDD.Demo.Tests\MartinDrozdik.DDD.Demo.Tests.csproj", "{90DBE75B-8EEA-AC78-287B-0B88311FBEF9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MartinDrozdik.DDD.Demo", "MartinDrozdik.DDD.Demo\MartinDrozdik.DDD.Demo.csproj", "{41AF4728-FD6B-43FA-8B88-74F20DB550D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,21 +32,21 @@ Global
 		{9FAD6BD9-2392-2565-F019-159C28DE6C62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9FAD6BD9-2392-2565-F019-159C28DE6C62}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9FAD6BD9-2392-2565-F019-159C28DE6C62}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F5A9C879-9842-4A1B-AC0B-339ECB790C90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F5A9C879-9842-4A1B-AC0B-339ECB790C90}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F5A9C879-9842-4A1B-AC0B-339ECB790C90}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F5A9C879-9842-4A1B-AC0B-339ECB790C90}.Release|Any CPU.Build.0 = Release|Any CPU
 		{90DBE75B-8EEA-AC78-287B-0B88311FBEF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{90DBE75B-8EEA-AC78-287B-0B88311FBEF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{90DBE75B-8EEA-AC78-287B-0B88311FBEF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{90DBE75B-8EEA-AC78-287B-0B88311FBEF9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41AF4728-FD6B-43FA-8B88-74F20DB550D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41AF4728-FD6B-43FA-8B88-74F20DB550D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41AF4728-FD6B-43FA-8B88-74F20DB550D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41AF4728-FD6B-43FA-8B88-74F20DB550D1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{F5A9C879-9842-4A1B-AC0B-339ECB790C90} = {8D6D8381-0189-43B1-9D4E-F5502A1A212D}
 		{90DBE75B-8EEA-AC78-287B-0B88311FBEF9} = {8D6D8381-0189-43B1-9D4E-F5502A1A212D}
+		{41AF4728-FD6B-43FA-8B88-74F20DB550D1} = {8D6D8381-0189-43B1-9D4E-F5502A1A212D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {1371B5FC-AF5C-47FE-9337-0877BF8BFF52}

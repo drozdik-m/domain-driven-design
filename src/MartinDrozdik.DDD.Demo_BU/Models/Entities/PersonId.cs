@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Demo.Models.Entities;
+﻿using MartinDrozdik.DDD.Models.Identities.Primitive;
+
+namespace MartinDrozdik.DDD.Demo.Models.Entities;
 
 /// <summary>
 /// Identity of <see cref="Person"/> entity.
