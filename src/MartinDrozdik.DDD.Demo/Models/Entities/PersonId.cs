@@ -4,3 +4,4 @@
 /// Identity of <see cref="Person"/> entity.
 /// </summary>
 public class PersonId(Guid key) : GuidIdentity<PersonId>(key);
+

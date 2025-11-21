@@ -5,6 +5,8 @@
 /// </summary>
 public class Person : DomainEntity<PersonId>
 {
+    public const int FullNameMaxLength = 255;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="Person"/> class.
     /// </summary>
@@ -36,7 +38,7 @@ public class Person : DomainEntity<PersonId>
     /// <returns>New instance of <see cref="Person"/> or an <see cref="Error"/>.</returns>
     public static Result<Person, Error> Create(string fullName, DateTimeOffset dateOfBirth)
     {
-        return new Person(new PersonId(Guid.NewGuid()), fullName, dateOfBirth);
+        return new Person(new PersonId(Guid.CreateVersion7()), fullName, dateOfBirth);
     }
 
     /// <summary>
@@ -46,7 +48,7 @@ public class Person : DomainEntity<PersonId>
     {
         public Validator()
         {
-            RuleFor(x => x.FullName).NotEmpty();
+            RuleFor(x => x.FullName).MaximumLength(FullNameMaxLength).NotEmpty();
             RuleFor(x => x.DateOfBirth).LessThan(TimeProvider.System.GetUtcNow().LocalDateTime);
         }
 
