@@ -1,12 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+﻿namespace MartinDrozdik.DDD.Demo.Tests.Invoice;
 
-namespace MartinDrozdik.DDD.Demo.Tests.Invoices;
-
-public class Test(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class InvoicesTests(DemoAppFactory factory)
+    : IClassFixture<DemoAppFactory>
 {
     [Fact]
-    public async Task SampleTest()
+    public async Task GetInvoices()
     {
         // Arrange
         var client = factory.CreateClient();

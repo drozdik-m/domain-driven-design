@@ -40,6 +40,12 @@ public class InvoiceNumber : ValueObject
     }
 
     /// <inheritdoc />
+    public override string ToString()
+    {
+        return $"{Year}/{Order}";
+    }
+
+    /// <inheritdoc />
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Year;
