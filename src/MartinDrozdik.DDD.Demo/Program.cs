@@ -1,6 +1,9 @@
+using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Requests.Invoice;
 using MartinDrozdik.DDD.Models.Mediator;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -36,11 +39,48 @@ builder.Services.AddMediator(config =>
 // --- APP ---
 var app = builder.Build();
 
+// Ensure DB is created
+try
+{
+    await using var context = app.Services.CreateAsyncScope();
+    await context.ServiceProvider.GetRequiredService<InvoiceDbContext>().Database.EnsureCreatedAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "An error occurred creating the DB.");
+    throw;
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+// Set up handler for json error responses
+// TODO make this more robust and reusable
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = MediaTypeNames.Application.Json;
+
+        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+
+        var problemDetails = new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "An error occurred",
+            Detail = app.Environment.IsDevelopment()
+                ? exceptionHandlerPathFeature?.Error.ToString()
+                : "An unexpected error occurred while processing your request.",
+            Instance = context.Request.Path
+        };
+
+        await context.Response.WriteAsJsonAsync(problemDetails);
+    });
+});
 
 //app.UseHttpsRedirection();
 

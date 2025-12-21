@@ -10,28 +10,37 @@ namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
 /// </summary>
 public class Invoice : AggregateRoot<InvoiceId>
 {
-    public Invoice(InvoiceId id, Person? issuer, Person recipient, InvoiceNumber number, InvoiceState state)
+    public Invoice(
+        InvoiceId id
+        /*Person? issuer,
+        Person recipient,
+        InvoiceNumber number,
+        InvoiceState state*/)
         : base(id)
     {
-        Issuer = issuer;
+        /*Issuer = issuer;
+        IssuerId = issuer?.Id;
         Recipient = recipient;
-        Number = number;
-        State = state;
+        RecipientId = recipient.Id;*/
+        //Number = number;
+        //State = state;
     }
 
-    public Person? Issuer { get; private set; }
+    //public PersonId? IssuerId { get; private set; }
+    //public Person? Issuer { get; private set; }
 
-    public Person Recipient { get; }
+    //public PersonId RecipientId { get; private set; }
+    //public Person Recipient { get; private set; }
 
-    public InvoiceNumber Number { get; }
+    //public InvoiceNumber Number { get; private set; }
 
-    public InvoiceState State { get; private set; }
+    //public InvoiceState State { get; private set; }
 
     /// <summary>
     /// Creates a new valid instance of the <see cref="Invoice"/> class.
     /// </summary>
     /// <returns>New instance of <see cref="Invoice"/> or an <see cref="Error"/>.</returns>
-    public static Result<Invoice, Error> CreateDraft(Person issuer, Person recipient, InvoiceNumber number)
+    /*public static Result<Invoice, Error> CreateDraft(Person issuer, Person recipient, InvoiceNumber number)
     {
         var id = new InvoiceId(Guid.CreateVersion7());
         return new Invoice(id, issuer, recipient, number, InvoiceState.Draft);
@@ -53,5 +62,5 @@ public class Invoice : AggregateRoot<InvoiceId>
         Issuer = issuerId;
         State = InvoiceState.Issued;
         return UnitResult.Success<Error>();
-    }
+    }*/
 }

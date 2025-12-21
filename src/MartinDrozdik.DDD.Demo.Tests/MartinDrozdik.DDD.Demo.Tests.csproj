@@ -47,6 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MartinDrozdik.DDD.Demo.Client\MartinDrozdik.DDD.Demo.Client.csproj" />
     <ProjectReference Include="..\MartinDrozdik.DDD.Demo\MartinDrozdik.DDD.Demo.csproj" />
   </ItemGroup>
 

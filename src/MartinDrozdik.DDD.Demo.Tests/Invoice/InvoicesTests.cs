@@ -17,4 +17,19 @@ public class InvoicesTests(DemoAppFactory factory)
         //Assert.Equal("text/html; charset=utf-8",
         //    response.Content.Headers.ContentType.ToString());
     }
+
+    [Fact]
+    public async Task GetInvoicesKiota()
+    {
+        // Arrange
+        var client = factory.CreateDddClient();
+
+        // Act
+        var response = await client.V1.Invoice.GetAsync(cancellationToken: CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(response);
+        //Assert.Equal("text/html; charset=utf-8",
+        //    response.Content.Headers.ContentType.ToString());
+    }
 }

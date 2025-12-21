@@ -16,7 +16,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddMediator(this IServiceCollection services, Action<ServiceMediatorConfig> config)
     {
         // Add the Mediator service
-        services.AddSingleton<IMediator, ServiceMediator>();
+        services.AddScoped<IMediator, ServiceMediator>();
 
         // Add handlers for requests
         var mediatorBuilder = new ServiceMediatorConfig(services);

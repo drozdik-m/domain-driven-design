@@ -17,14 +17,20 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.Id)
             .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
 
-        builder
+        /*builder
             .HasOne(i => i.Issuer)
             .WithMany()
             .HasForeignKey("IssuerId")
             .HasConstraintName("FK_Invoice_IssuerId_Person_PersonId")
-            .IsRequired();
+            .IsRequired();*/
 
-        builder
+        /*builder.Property(i => i.IssuerId)
+            .HasColumnName("IssuerId");
+        builder.Property(i => i.RecipientId)
+            .HasColumnName("RecipientId")
+            .IsRequired();*/
+
+        /*builder
             .HasOne(i => i.Recipient)
             .WithMany()
             .HasForeignKey("RecipientId")
@@ -46,6 +52,6 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
                 e => e.Name.Key,
                 e => new Models.Enumerations.InvoiceState(e))
             .HasColumnName("State")
-            .IsRequired();
+            .IsRequired();*/
     }
 }
