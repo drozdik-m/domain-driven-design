@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Demo/">
+    <Project Path="MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj" />
+    <Project Path="MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj" />
+    <Project Path="MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="MartinDrozdik.DDD.Models.Tests/MartinDrozdik.DDD.Models.Tests.csproj" />
+  <Project Path="MartinDrozdik.DDD.Models/MartinDrozdik.DDD.Models.csproj" />
+</Solution>
