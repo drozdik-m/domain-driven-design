@@ -27,6 +27,14 @@ public class InvoiceNumber : ValueObject
     public int Order { get; }
 
     /// <summary>
+    /// Gets an empty or default invoice number instance.
+    /// </summary>
+    /// <remarks>
+    /// Use this property to represent an uninitialized or placeholder invoice number when no valid value is available.
+    /// </remarks>
+    public static InvoiceNumber Empty { get; } = new(2000, 1);
+
+    /// <summary>
     /// Creates a new valid instance of the <see cref="InvoiceNumber"/> class.
     /// </summary>
     public static Result<InvoiceNumber, Error> Create(int year, int order)

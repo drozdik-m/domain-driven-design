@@ -3,4 +3,6 @@
 /// <summary>
 /// A base mediator message for all requests.
 /// </summary>
-public interface IMessage;
+public interface IMessage
+{
+}

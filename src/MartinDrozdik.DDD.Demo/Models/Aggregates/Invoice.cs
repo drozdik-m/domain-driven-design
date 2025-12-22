@@ -1,5 +1,4 @@
-﻿using MartinDrozdik.DDD.Demo.Models.Entities;
-using MartinDrozdik.DDD.Demo.Models.Enumerations;
+﻿using MartinDrozdik.DDD.Demo.Models.Enumerations;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
 
 namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
@@ -8,24 +7,13 @@ namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
 /// Represents an invoice issued by an issuer to a recipient.
 /// Each invoice has a unique invoice number.
 /// </summary>
-public class Invoice : AggregateRoot<InvoiceId>
+public class Invoice : IAggregateRoot<InvoiceId>
 {
-    public Invoice(
-        InvoiceId id
-        //Person? issuer,
-        //Person recipient,
-        //InvoiceNumber number,
-        //InvoiceState state
-        )
-        : base(id)
+    private Invoice()
     {
-        //Issuer = issuer;
-        //IssuerId = issuer?.Id;
-        //Recipient = recipient;
-        //RecipientId = recipient.Id;
-        //Number = number;
-        //State = state;
     }
+
+    public InvoiceId Id { get; private set; } = new InvoiceId(Guid.NewGuid());
 
     //public PersonId? IssuerId { get; private set; }
     //public Person? Issuer { get; private set; }
@@ -33,9 +21,9 @@ public class Invoice : AggregateRoot<InvoiceId>
     //public PersonId RecipientId { get; private set; }
     //public Person Recipient { get; private set; }
 
-    //public InvoiceNumber Number { get; private set; }
+    public InvoiceNumber Number { get; private set; } = InvoiceNumber.Empty;
 
-    //public InvoiceState State { get; private set; }
+    public InvoiceState State { get; private set; } = InvoiceState.Draft;
 
     /// <summary>
     /// Creates a new valid instance of the <see cref="Invoice"/> class.

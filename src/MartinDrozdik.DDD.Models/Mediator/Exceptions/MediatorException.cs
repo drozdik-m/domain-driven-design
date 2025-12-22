@@ -5,18 +5,27 @@
 /// </summary>
 public class MediatorException : Exception
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MediatorException"/> class.
+    /// </summary>
     public MediatorException()
     {
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MediatorException"/> class.
+    /// </summary>
+    /// <param name="message">The exception message.</param>
     public MediatorException(string? message)
         : base(message)
     {
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MediatorException"/> class.
+    /// </summary>
+    /// <param name="message">The exception message.</param>
+    /// <param name="innerException">Inner exception if any.</param>
     public MediatorException(string? message, Exception? innerException)
         : base(message, innerException)
     {

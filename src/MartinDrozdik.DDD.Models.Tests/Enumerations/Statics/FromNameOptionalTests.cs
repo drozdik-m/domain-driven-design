@@ -1,21 +1,11 @@
-using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Models.Enumerations;
 using MartinDrozdik.DDD.Models.Enumerations.Errors;
+using MartinDrozdik.DDD.Models.Enumerations.Statics;
 
 namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Statics;
 
 public class FromNameOptionalTests
 {
-    private class TestEnum : StaticEnumeration<TestEnum>
-    {
-        private TestEnum(EnumerationName name) : base(name)
-        {
-        }
-
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
-    }
-
     [Fact]
     public void Should_return_null_when_name_is_null()
     {
@@ -57,5 +47,16 @@ public class FromNameOptionalTests
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
         Assert.Equal(EnumerationErrorCodes.EnumerationNameNotFound, result.Error.Code);
+    }
+
+    private class TestEnum : StaticEnumeration<TestEnum>
+    {
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
+
+        private TestEnum(EnumerationName name)
+            : base(name)
+        {
+        }
     }
 }

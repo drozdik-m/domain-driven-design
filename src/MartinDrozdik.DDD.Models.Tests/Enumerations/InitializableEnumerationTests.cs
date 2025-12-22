@@ -1,45 +1,12 @@
 using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Models.Enumerations;
+using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Models.Tests.Enumerations.Assertions;
 
 namespace MartinDrozdik.DDD.Models.Tests.Enumerations;
 
 public class InitializableEnumerationTests
 {
-    private class TestEnum(EnumerationName name): InitializableEnumeration<TestEnum>(name)
-    {
-        // Well known values
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
-
-        public static List<TestEnum> Values = [
-                Value1,
-                Value2,
-                new ("Value3"),
-                new ("Value4")
-            ];
-    }
-
-    private class TestEnumWithWellKnown(EnumerationName name): InitializableEnumeration<TestEnum>(name)
-    {
-
-        // Well known values
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
-    }
-
-    private class UninitializedEnum : InitializableEnumeration<TestEnum>
-    {
-        public UninitializedEnum(EnumerationName name) : base(name)
-        {
-        }
-
-        // Well known values
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
-    }
-
     [Fact]
     public void Uninitialized_enum_can_not_operate()
     {
@@ -95,5 +62,40 @@ public class InitializableEnumerationTests
 
         // Act & Assert
         EnumerationEnumeratorAssertions.AssertGetAll(TestEnum.Values);
+    }
+
+    private class TestEnum(EnumerationName name)
+    : InitializableEnumeration<TestEnum>(name)
+    {
+        // Well known values
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
+
+        public static List<TestEnum> Values { get; } = [
+                Value1,
+                Value2,
+                new ("Value3"),
+                new ("Value4")
+            ];
+    }
+
+    private class TestEnumWithWellKnown(EnumerationName name)
+        : InitializableEnumeration<TestEnum>(name)
+    {
+        // Well known values
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
+    }
+
+    private class UninitializedEnum : InitializableEnumeration<TestEnum>
+    {
+        public UninitializedEnum(EnumerationName name)
+            : base(name)
+        {
+        }
+
+        // Well known values
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
     }
 }

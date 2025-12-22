@@ -4,7 +4,7 @@ using MartinDrozdik.DDD.Models.Mediator.Queries;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
 
-internal record TestQuery1(int Result) : IQuery<int>
+internal record TestQuery1(int Result): IQuery<int>
 {
     public void AssertHandled(Result<int, Error> result)
     {

@@ -30,6 +30,12 @@ dotnet_diagnostic.SA1206.severity = none
 # IDE1006: Naming Styles
 dotnet_diagnostic.SA1010.severity = none
 
+# SA1000: new() clashes with modern C# syntax
+dotnet_diagnostic.SA1000.severity = none
+
+# SA1009: closing parenthesis should be spaced correctly clashes with modern C# syntax
+dotnet_diagnostic.SA1009.severity = none
+
 # Default severity for analyzer diagnostics with category 'StyleCop.CSharp.NamingRules'
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.NamingRules.severity = none
 

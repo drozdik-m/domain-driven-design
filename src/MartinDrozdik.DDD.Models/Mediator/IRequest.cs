@@ -3,4 +3,6 @@
 /// <summary>
 /// A mediator request with a unit response.
 /// </summary>
-public interface IRequest : IMessage;
+public interface IRequest : IMessage
+{
+}

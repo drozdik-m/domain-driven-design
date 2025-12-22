@@ -1,5 +1,5 @@
-using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Models.Enumerations;
+using MartinDrozdik.DDD.Models.Enumerations.Statics;
 
 namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Statics;
 

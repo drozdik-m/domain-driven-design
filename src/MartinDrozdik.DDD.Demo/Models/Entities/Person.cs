@@ -3,7 +3,7 @@
 /// <summary>
 /// Represents a legal/actual person entity in the domain.
 /// </summary>
-public class Person : DomainEntity<PersonId>
+public class Person : IDomainEntity<PersonId>
 {
     public const int FullNameMaxLength = 255;
 
@@ -14,11 +14,14 @@ public class Person : DomainEntity<PersonId>
     /// <param name="fullName">The full name of the person.</param>
     /// <param name="dateOfBirth">The date of birth of the person.</param>
     public Person(PersonId id, string fullName, DateTimeOffset dateOfBirth)
-        : base(id)
     {
+        Id = id;
         FullName = fullName;
         DateOfBirth = dateOfBirth;
     }
+
+    /// <inheritdoc />
+    public PersonId Id { get; }
 
     /// <summary>
     /// Gets the full name of the person.

@@ -35,7 +35,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .WithMany()
             .HasForeignKey("RecipientId")
             .HasConstraintName("FK_Invoice_RecipientId_Person_PersonId");
-
+        */
         builder.ComplexProperty(i => i.Number, builder =>
         {
             builder.Property(e => e.Year)
@@ -52,6 +52,6 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
                 e => e.Name.Key,
                 e => new Models.Enumerations.InvoiceState(e))
             .HasColumnName("State")
-            .IsRequired();*/
+            .IsRequired();
     }
 }
