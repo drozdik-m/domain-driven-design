@@ -17,6 +17,12 @@
   <Target Name="OpenApi" AfterTargets="Build" Condition="$(Configuration)=='Debug'">
     <Exec Command="kiota generate -l CSharp --output ../MartinDrozdik.DDD.Demo.Client/Generated --namespace-name MartinDrozdik.DDD.Demo.Client.Generated --class-name DddClient --exclude-backward-compatible --openapi ./OpenApi/DemoApi.json" WorkingDirectory="$(ProjectDir)" />
   </Target>
+  <ItemGroup>
+    <None Remove="app.db" />
+    <None Remove="dev.db" />
+    <None Remove="dev.db-shm" />
+    <None Remove="dev.db-wal" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />

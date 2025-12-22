@@ -12,16 +12,17 @@ public class Invoice : AggregateRoot<InvoiceId>
 {
     public Invoice(
         InvoiceId id
-        /*Person? issuer,
-        Person recipient,
-        InvoiceNumber number,
-        InvoiceState state*/)
+        //Person? issuer,
+        //Person recipient,
+        //InvoiceNumber number,
+        //InvoiceState state
+        )
         : base(id)
     {
-        /*Issuer = issuer;
-        IssuerId = issuer?.Id;
-        Recipient = recipient;
-        RecipientId = recipient.Id;*/
+        //Issuer = issuer;
+        //IssuerId = issuer?.Id;
+        //Recipient = recipient;
+        //RecipientId = recipient.Id;
         //Number = number;
         //State = state;
     }
