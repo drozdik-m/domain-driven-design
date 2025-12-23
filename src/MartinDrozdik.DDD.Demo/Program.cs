@@ -1,6 +1,6 @@
 using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Demo.Requests.Invoice;
+using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Models.Mediator;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +43,9 @@ var app = builder.Build();
 try
 {
     await using var context = app.Services.CreateAsyncScope();
-    await context.ServiceProvider.GetRequiredService<InvoiceDbContext>().Database.EnsureCreatedAsync();
+    using var dbContext = context.ServiceProvider.GetRequiredService<InvoiceDbContext>();
+    await dbContext.Database.EnsureCreatedAsync();
+
 }
 catch (Exception ex)
 {

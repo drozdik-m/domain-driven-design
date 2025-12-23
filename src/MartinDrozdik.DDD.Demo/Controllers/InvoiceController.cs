@@ -1,5 +1,5 @@
 using System.Net.Mime;
-using MartinDrozdik.DDD.Demo.Requests.Invoice;
+using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Models.Mediator;
 using Microsoft.AspNetCore.Mvc;
 

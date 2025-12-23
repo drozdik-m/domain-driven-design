@@ -2,13 +2,13 @@
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 using Microsoft.EntityFrameworkCore;
 
-namespace MartinDrozdik.DDD.Demo.Requests.Invoice;
+namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
 public class GetInvoicesQueryHandler(InvoiceDbContext context) : IQueryHandler<GetInvoicesQuery, GetInvoicesQuery.Response>
 {
     public async Task<Result<GetInvoicesQuery.Response, Error>> HandleAsync(GetInvoicesQuery query, CancellationToken cancellationToken)
     {
-        /*var invoices = await context.Invoices
+        var invoices = await context.Invoices
             .Select(i => new GetInvoicesQuery.Item
             {
                 Id = i.Id.Key,
@@ -24,7 +24,6 @@ public class GetInvoicesQueryHandler(InvoiceDbContext context) : IQueryHandler<G
             Items = invoices
         };
 
-        return Result.Success<GetInvoicesQuery.Response, Error>(response);*/
-        throw new NotImplementedException();
+        return Result.Success<GetInvoicesQuery.Response, Error>(response);
     }
 }

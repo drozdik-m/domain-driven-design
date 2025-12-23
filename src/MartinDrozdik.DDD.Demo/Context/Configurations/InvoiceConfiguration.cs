@@ -1,4 +1,5 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
+using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Models.Identities.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,25 +18,26 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.Id)
             .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
 
-        /*builder
+        const string issuerIdShadowProperty = "IssuerId";
+        builder.Property<PersonId?>(issuerIdShadowProperty)
+            .HasColumnName(issuerIdShadowProperty);
+        builder
             .HasOne(i => i.Issuer)
             .WithMany()
-            .HasForeignKey("IssuerId")
+            .HasForeignKey(issuerIdShadowProperty)
             .HasConstraintName("FK_Invoice_IssuerId_Person_PersonId")
-            .IsRequired();*/
+            .IsRequired();
 
-        /*builder.Property(i => i.IssuerId)
-            .HasColumnName("IssuerId");
-        builder.Property(i => i.RecipientId)
-            .HasColumnName("RecipientId")
-            .IsRequired();*/
-
-        /*builder
+        const string recipientIdShadowProperty = "RecipientId";
+        builder.Property<PersonId>(recipientIdShadowProperty)
+            .HasColumnName(recipientIdShadowProperty)
+            .IsRequired();
+        builder
             .HasOne(i => i.Recipient)
             .WithMany()
-            .HasForeignKey("RecipientId")
+            .HasForeignKey(recipientIdShadowProperty)
             .HasConstraintName("FK_Invoice_RecipientId_Person_PersonId");
-        */
+        
         builder.ComplexProperty(i => i.Number, builder =>
         {
             builder.Property(e => e.Year)

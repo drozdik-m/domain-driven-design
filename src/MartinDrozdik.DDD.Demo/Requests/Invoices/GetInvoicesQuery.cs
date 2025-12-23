@@ -1,8 +1,8 @@
 ﻿using MartinDrozdik.DDD.Models.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Demo.Requests.Invoice;
+namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
-public class GetInvoicesQuery : IQuery<GetInvoicesQuery.Response>
+public record GetInvoicesQuery : IQuery<GetInvoicesQuery.Response>
 {
     public class Response
     {

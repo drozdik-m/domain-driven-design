@@ -19,6 +19,8 @@
   </Target>
   <ItemGroup>
     <None Remove="app.db" />
+    <None Remove="app.db-shm" />
+    <None Remove="app.db-wal" />
     <None Remove="dev.db" />
     <None Remove="dev.db-shm" />
     <None Remove="dev.db-wal" />

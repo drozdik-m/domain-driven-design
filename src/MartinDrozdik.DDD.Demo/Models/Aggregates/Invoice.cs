@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Demo.Models.Enumerations;
+﻿using MartinDrozdik.DDD.Demo.Models.Entities;
+using MartinDrozdik.DDD.Demo.Models.Enumerations;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
 
 namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
@@ -15,11 +16,11 @@ public class Invoice : IAggregateRoot<InvoiceId>
 
     public InvoiceId Id { get; private set; } = new InvoiceId(Guid.NewGuid());
 
-    //public PersonId? IssuerId { get; private set; }
-    //public Person? Issuer { get; private set; }
+    public PersonId? IssuerId { get; private set; }
+    public Person? Issuer { get; private set; }
 
-    //public PersonId RecipientId { get; private set; }
-    //public Person Recipient { get; private set; }
+    public PersonId RecipientId { get; init; } = null!;
+    public Person Recipient { get; init; } = null!;
 
     public InvoiceNumber Number { get; private set; } = InvoiceNumber.Empty;
 
@@ -29,10 +30,19 @@ public class Invoice : IAggregateRoot<InvoiceId>
     /// Creates a new valid instance of the <see cref="Invoice"/> class.
     /// </summary>
     /// <returns>New instance of <see cref="Invoice"/> or an <see cref="Error"/>.</returns>
-    /*public static Result<Invoice, Error> CreateDraft(Person issuer, Person recipient, InvoiceNumber number)
+    public static Result<Invoice, Error> CreateDraft(Person? issuer, Person recipient, InvoiceNumber number)
     {
         var id = new InvoiceId(Guid.CreateVersion7());
-        return new Invoice(id, issuer, recipient, number, InvoiceState.Draft);
+        return new Invoice()
+        {
+            Id = id,
+            IssuerId = issuer?.Id,
+            Issuer = issuer,
+            RecipientId = recipient.Id,
+            Recipient = recipient,
+            Number = number,
+            State = InvoiceState.Draft,
+        };
     }
 
     /// <summary>
@@ -51,5 +61,5 @@ public class Invoice : IAggregateRoot<InvoiceId>
         Issuer = issuerId;
         State = InvoiceState.Issued;
         return UnitResult.Success<Error>();
-    }*/
+    }
 }
