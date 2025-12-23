@@ -8,7 +8,7 @@ namespace MartinDrozdik.DDD.Models.Templates.Errors;
 public static class TemplateErrorCodes
 {
     /// <summary>
-    /// Gets the error code that represents a value object can not be created to a valid state.
+    /// Gets the error code that represents an object can not be created to a valid state.
     /// </summary>
-    public static ErrorCode InvalidValueObject { get; } = new ErrorCode(nameof(InvalidValueObject));
+    public static ErrorCode InvalidObject { get; } = new ErrorCode(nameof(InvalidObject));
 }

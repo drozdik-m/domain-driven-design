@@ -15,7 +15,7 @@ public class AggregateError : Error
     /// <param name="message">The human-readable description.</param>
     /// <param name="errors">The collection of errors.</param>
     public AggregateError(ErrorCode code, string message, IEnumerable<Error> errors)
-        : base(code, message, Enumerable.Empty<ErrorDetail>(), null)
+        : base(code, message, [], null)
     {
         Errors = errors.ToArray();
     }

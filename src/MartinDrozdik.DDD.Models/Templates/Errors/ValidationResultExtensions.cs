@@ -36,7 +36,7 @@ public static class ValidationResultExtensions
 
         error = new ErrorBuilder()
             .WithMessage(message)
-            .WithCode(TemplateErrorCodes.InvalidValueObject)
+            .WithCode(TemplateErrorCodes.InvalidObject)
             .WithDetails(details)
             .Build();
         return true;
