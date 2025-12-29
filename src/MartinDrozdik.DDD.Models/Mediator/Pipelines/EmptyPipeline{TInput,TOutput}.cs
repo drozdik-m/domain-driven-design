@@ -20,6 +20,6 @@ public sealed class EmptyPipeline<TInput, TOutput> : IPipelineBehavior<TInput, T
     public static EmptyPipeline<TInput, TOutput> Instance { get; } = new EmptyPipeline<TInput, TOutput>();
 
     /// <inheritdoc />
-    public Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
+    public Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
         => next(cancellationToken);
 }

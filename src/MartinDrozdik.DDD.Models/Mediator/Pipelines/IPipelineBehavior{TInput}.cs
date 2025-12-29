@@ -7,8 +7,8 @@ namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 /// Delegate for the next step in the pipeline.
 /// </summary>
 /// <param name="cancellationToken">Cancellation token.</param>
-/// <returns>The output of the next pipeline phase.</returns>
-public delegate Task<UnitResult<Error>> PipelineNextDelegate(CancellationToken cancellationToken);
+/// <returns><see cref="Task"/>.</returns>
+public delegate Task PipelineNextDelegate(CancellationToken cancellationToken);
 
 /// <summary>
 /// Represents a pipeline behavior in the Mediator pattern.
@@ -23,6 +23,6 @@ public interface IPipelineBehavior<in TInput>
     /// <param name="input">Pipeline input.</param>
     /// <param name="next">The next delegate that should be handled according to this behaviours logic.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Processed output results.</returns>
-    Task<UnitResult<Error>> HandleAsync(TInput input, PipelineNextDelegate next, CancellationToken cancellationToken);
+    /// <returns><see cref="Task"/>.</returns>
+    Task HandleAsync(TInput input, PipelineNextDelegate next, CancellationToken cancellationToken);
 }

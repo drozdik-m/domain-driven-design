@@ -15,13 +15,11 @@ public class ServiceMediatorTests
         var command2 = new TestUnitCommand2();
 
         // Act
-        var result1 = await mediator.SendCommand(command1, CancellationToken.None);
-        var result2 = await mediator.SendCommand(command2, CancellationToken.None);
+        await mediator.SendCommand(command1, CancellationToken.None);
+        await mediator.SendCommand(command2, CancellationToken.None);
 
         // Assert
         Assert.Multiple(
-            () => ResultAssert.IsSuccess(result1),
-            () => ResultAssert.IsSuccess(result2),
             () => command1.AssertHandled(),
             () => command2.AssertHandled());
     }

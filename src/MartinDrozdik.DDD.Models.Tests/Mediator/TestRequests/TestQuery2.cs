@@ -15,9 +15,8 @@ internal record TestQuery2(int Result) : IQuery<int>
 
 internal class TestQuery2Handler : IQueryHandler<TestQuery2, int>
 {
-    public Task<Result<int, Error>> HandleAsync(TestQuery2 query, CancellationToken cancellationToken)
+    public Task<int> HandleAsync(TestQuery2 query, CancellationToken cancellationToken)
     {
-        var result = Result.Success<int, Error>(query.Result);
-        return Task.FromResult(result);
+        return Task.FromResult(query.Result);
     }
 }

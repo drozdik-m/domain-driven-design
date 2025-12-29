@@ -20,9 +20,8 @@ public class EmptyPipelineTests
 
         // Assert
         Assert.Multiple(
-            () => result.IsSuccess(),
             () => query.AssertCallStack(),
-            () => Assert.Equal(result.Value, query.Result));
+            () => Assert.Equal(result, query.Result));
     }
 
     [Fact]
@@ -40,9 +39,8 @@ public class EmptyPipelineTests
 
         // Assert
         Assert.Multiple(
-            () => result.IsSuccess(),
             () => command.AssertCallStack(),
-            () => Assert.Equal(result.Value, command.Result));
+            () => Assert.Equal(result, command.Result));
     }
 
     [Fact]
@@ -53,14 +51,12 @@ public class EmptyPipelineTests
         var command = new TestPipelineUnitCommand();
 
         // Act
-        var result = await pipeline.HandleCommandAsync(
+        await pipeline.HandleCommandAsync(
             command,
             new TestPipelineUnitCommandHandler(),
             CancellationToken.None);
 
         // Assert
-        Assert.Multiple(
-            () => result.IsSuccess(),
-            () => command.AssertCallStack());
+        command.AssertCallStack();
     }
 }

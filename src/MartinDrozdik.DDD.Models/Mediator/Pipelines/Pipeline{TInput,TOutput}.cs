@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOutput>> behaviors) : IPipelineBehavior<TInput, TOutput>
 {
     /// <inheritdoc />
-    public async Task<Result<TOutput, Error>> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
+    public async Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
     {
         // Compose the pipeline by wrapping each behavior around the next delegate
         var composed = next;
@@ -26,7 +26,7 @@ public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOu
                 // Check if the cancellation token has been requested
                 if (ct.IsCancellationRequested)
                 {
-                    return Task.FromCanceled<Result<TOutput, Error>>(ct);
+                    return Task.FromCanceled<TOutput>(ct);
                 }
 
                 // Call the current behavior with the input and the next delegate

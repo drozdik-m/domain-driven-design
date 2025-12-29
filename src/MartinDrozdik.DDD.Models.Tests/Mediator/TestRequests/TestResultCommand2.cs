@@ -15,9 +15,8 @@ internal record TestResultCommand2(int Result) : ICommand<int>
 
 internal class TestResultCommand2Handler : ICommandHandler<TestResultCommand2, int>
 {
-    public Task<Result<int, Error>> HandleAsync(TestResultCommand2 command, CancellationToken cancellationToken)
+    public Task<int> HandleAsync(TestResultCommand2 command, CancellationToken cancellationToken)
     {
-        var result = Result.Success<int, Error>(command.Result);
-        return Task.FromResult(result);
+        return Task.FromResult(command.Result);
     }
 }

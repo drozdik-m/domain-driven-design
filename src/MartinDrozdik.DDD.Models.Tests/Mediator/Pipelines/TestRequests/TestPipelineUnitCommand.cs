@@ -21,9 +21,8 @@ internal record TestPipelineUnitCommand : ICommand
 
 internal class TestPipelineUnitCommandHandler : ICommandHandler<TestPipelineUnitCommand>
 {
-    public Task<UnitResult<Error>> HandleAsync(TestPipelineUnitCommand Command, CancellationToken cancellationToken)
+    public Task HandleAsync(TestPipelineUnitCommand Command, CancellationToken cancellationToken)
     {
-        var result = UnitResult.Success<Error>();
-        return Task.FromResult(result);
+        return Task.CompletedTask;
     }
 }

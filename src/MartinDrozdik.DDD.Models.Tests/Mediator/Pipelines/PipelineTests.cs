@@ -24,9 +24,8 @@ public class PipelineTests
 
         // Assert
         Assert.Multiple(
-            () => result.IsSuccess(),
             () => query.AssertCallStack("id1", "id2"),
-            () => Assert.Equal(result.Value, query.Result + 2));
+            () => Assert.Equal(result, query.Result + 2));
     }
 
     [Fact]
@@ -47,9 +46,8 @@ public class PipelineTests
 
         // Assert
         Assert.Multiple(
-            () => result.IsSuccess(),
             () => command.AssertCallStack("id1", "id2"),
-            () => Assert.Equal(result.Value, command.Result + 2));
+            () => Assert.Equal(result, command.Result + 2));
     }
 
     [Fact]
@@ -66,11 +64,9 @@ public class PipelineTests
         var handler = new TestPipelineUnitCommandHandler();
 
         // Act
-        var result = await pipeline.HandleCommandAsync(command, handler, CancellationToken.None);
+        await pipeline.HandleCommandAsync(command, handler, CancellationToken.None);
 
         // Assert
-        Assert.Multiple(
-            () => result.IsSuccess(),
-            () => command.AssertCallStack("id1", "id2"));
+        command.AssertCallStack("id1", "id2");
     }
 }

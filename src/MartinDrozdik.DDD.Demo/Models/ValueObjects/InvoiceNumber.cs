@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Demo.Models.ValueObjects;
+﻿using MartinDrozdik.DDD.Models.Extensions;
+
+namespace MartinDrozdik.DDD.Demo.Models.ValueObjects;
 
 /// <summary>
 /// Represents a business identifier for an invoice.
@@ -11,7 +13,6 @@ public class InvoiceNumber : ValueObject
     /// </summary>
     private InvoiceNumber(int year, int order)
     {
-        Validator.Instance.ValidateAndThrow((year, order));
         Year = year;
         Order = order;
     }
@@ -37,13 +38,9 @@ public class InvoiceNumber : ValueObject
     /// <summary>
     /// Creates a new valid instance of the <see cref="InvoiceNumber"/> class.
     /// </summary>
-    public static Result<InvoiceNumber, Error> Create(int year, int order)
+    public static InvoiceNumber Create(int year, int order)
     {
-        if (Validator.Instance.Validate((year, order)).TryGetError(out var error))
-        {
-            return error;
-        }
-
+        Validator.Instance.ValidateAndThrowBusiness((year, order));
         return new InvoiceNumber(year, order);
     }
 

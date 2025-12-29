@@ -4,7 +4,8 @@ using MartinDrozdik.DDD.Models.Mediator.Queries;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
 
-internal record TestQuery1(int Result): IQuery<int>
+internal record TestQuery1(int Result)
+    : IQuery<int>
 {
     public void AssertHandled(Result<int, Error> result)
     {
@@ -15,9 +16,8 @@ internal record TestQuery1(int Result): IQuery<int>
 
 internal class TestQuery1Handler : IQueryHandler<TestQuery1, int>
 {
-    public Task<Result<int, Error>> HandleAsync(TestQuery1 query, CancellationToken cancellationToken)
+    public Task<int> HandleAsync(TestQuery1 query, CancellationToken cancellationToken)
     {
-        var result = Result.Success<int, Error>(query.Result);
-        return Task.FromResult(result);
+        return Task.FromResult(query.Result);
     }
 }

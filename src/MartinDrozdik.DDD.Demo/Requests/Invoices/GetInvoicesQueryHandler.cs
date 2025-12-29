@@ -6,7 +6,7 @@ namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
 public class GetInvoicesQueryHandler(InvoiceDbContext context) : IQueryHandler<GetInvoicesQuery, GetInvoicesQuery.Response>
 {
-    public async Task<Result<GetInvoicesQuery.Response, Error>> HandleAsync(GetInvoicesQuery query, CancellationToken cancellationToken)
+    public async Task<GetInvoicesQuery.Response> HandleAsync(GetInvoicesQuery query, CancellationToken cancellationToken)
     {
         var invoices = await context.Invoices
             .Select(i => new GetInvoicesQuery.Item
@@ -19,11 +19,9 @@ public class GetInvoicesQueryHandler(InvoiceDbContext context) : IQueryHandler<G
             })
             .ToListAsync(cancellationToken);
 
-        var response = new GetInvoicesQuery.Response
+        return new GetInvoicesQuery.Response
         {
             Items = invoices
         };
-
-        return Result.Success<GetInvoicesQuery.Response, Error>(response);
     }
 }

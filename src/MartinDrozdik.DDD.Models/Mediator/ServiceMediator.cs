@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Models.Mediator;
 public class ServiceMediator(IServiceProvider provider) : IMediator
 {
     /// <inheritdoc />
-    public Task<Result<TResponse, Error>> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    public Task<TResponse> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : IQuery<TResponse>
     {
         // Resolve the command handler from the service provider
@@ -28,7 +28,7 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
     }
 
     /// <inheritdoc />
-    public Task<Result<TResponse, Error>> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    public Task<TResponse> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand<TResponse>
     {
         // Resolve the command handler from the service provider
@@ -44,7 +44,7 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
     }
 
     /// <inheritdoc />
-    public Task<UnitResult<Error>> SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
+    public Task SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand
     {
         // Resolve the command handler from the service provider

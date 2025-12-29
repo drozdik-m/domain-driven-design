@@ -21,9 +21,8 @@ internal record TestPipelineQuery(int Result) : IQuery<int>
 
 internal class TestPipelineQueryHandler : IQueryHandler<TestPipelineQuery, int>
 {
-    public Task<Result<int, Error>> HandleAsync(TestPipelineQuery query, CancellationToken cancellationToken)
+    public Task<int> HandleAsync(TestPipelineQuery query, CancellationToken cancellationToken)
     {
-        var result = Result.Success<int, Error>(query.Result);
-        return Task.FromResult(result);
+        return Task.FromResult(query.Result);
     }
 }

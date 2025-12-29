@@ -18,8 +18,8 @@ public static class PipelineExtensions
     /// <param name="command">The request command to handle.</param>
     /// <param name="handler">The handler of the request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Result of the execution.</returns>
-    public static Task<UnitResult<Error>> HandleCommandAsync<TCommand>(
+    /// <returns><see cref="Task"/>.</returns>
+    public static Task HandleCommandAsync<TCommand>(
         this IPipelineBehavior<TCommand> pipeline,
         TCommand command,
         ICommandHandler<TCommand> handler,
@@ -42,7 +42,7 @@ public static class PipelineExtensions
     /// <param name="handler">The handler of the request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result of the execution.</returns>
-    public static Task<Result<TResponse, Error>> HandleCommandAsync<TCommand, TResponse>(
+    public static Task<TResponse> HandleCommandAsync<TCommand, TResponse>(
         this IPipelineBehavior<TCommand, TResponse> pipeline,
         TCommand command,
         ICommandHandler<TCommand, TResponse> handler,
@@ -65,7 +65,7 @@ public static class PipelineExtensions
     /// <param name="handler">The handler of the request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result of the execution.</returns>
-    public static Task<Result<TResponse, Error>> HandleQueryAsync<TQuery, TResponse>(
+    public static Task<TResponse> HandleQueryAsync<TQuery, TResponse>(
         this IPipelineBehavior<TQuery, TResponse> pipeline,
         TQuery query,
         IQueryHandler<TQuery, TResponse> handler,

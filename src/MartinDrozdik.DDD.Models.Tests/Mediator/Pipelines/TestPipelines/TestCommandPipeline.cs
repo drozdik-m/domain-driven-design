@@ -7,10 +7,10 @@ namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestPipelines;
 
 internal class TestCommandPipeline(string id) : IPipelineBehavior<TestPipelineCommand, int>
 {
-    public async Task<Result<int, Error>> HandleAsync(TestPipelineCommand input, PipelineNextDelegate<int> next, CancellationToken cancellationToken)
+    public async Task<int> HandleAsync(TestPipelineCommand input, PipelineNextDelegate<int> next, CancellationToken cancellationToken)
     {
         var result = await next(cancellationToken);
         input.AddCall(id);
-        return result.Value + 1;
+        return result + 1;
     }
 }

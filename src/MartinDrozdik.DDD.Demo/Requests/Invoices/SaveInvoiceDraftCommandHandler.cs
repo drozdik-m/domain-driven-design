@@ -2,6 +2,7 @@
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
+using MartinDrozdik.DDD.Models.Extensions;
 using MartinDrozdik.DDD.Models.Mediator.Commands;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +10,7 @@ namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
 public class SaveInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommandHandler<SaveInvoiceDraftCommand, InvoiceId>
 {
-    public async Task<Result<InvoiceId, Error>> HandleAsync(SaveInvoiceDraftCommand command, CancellationToken cancellationToken)
+    public async Task<InvoiceId> HandleAsync(SaveInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
         // Handle it in a transaction
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -18,27 +19,19 @@ public class SaveInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommand
         Person? issuer = null;
         if (command.Data.Issuer is not null)
         {
-            var issuerResult = await GetPerson(command.Data.Issuer, cancellationToken);
-            if (!issuerResult.TryGetValue(out issuer))
-            {
-                return Result.Failure<InvoiceId, Error>(issuerResult.Error);
-            }
+            issuer = await GetPerson(command.Data.Issuer, cancellationToken);
         }
 
-        var recipientResult = await GetPerson(command.Data.Recipient, cancellationToken);
-        if (!recipientResult.TryGetValue(out var recipient))
-        {
-            return Result.Failure<InvoiceId, Error>(recipientResult.Error);
-        }
+        var recipient = await GetPerson(command.Data.Recipient, cancellationToken);
 
         // The invoice already exists
         var existingInvoice = await context.Invoices.FindAsync(command.Data.Id, cancellationToken);
         if (existingInvoice is not null)
         {
-            return new ErrorBuilder()
+            throw new ErrorBuilder()
                 .WithCode("Invoice.AlreadyExists")
                 .WithMessage($"Invoice with ID '{command.Data.Id}' already exists.")
-                .Build();
+                .BuildBusinessException();
         }
 
         // Get invoice number
@@ -46,36 +39,27 @@ public class SaveInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommand
         var maxOrder = await context.Invoices
             .Where(i => i.Number.Year == now.Year)
             .MaxAsync(i => i.Number.Order, cancellationToken);
-        var invoiceNumberResult = InvoiceNumber.Create(now.Year, maxOrder);
-        if (!invoiceNumberResult.TryGetValue(out var invoiceNumber))
-        {
-            return Result.Failure<InvoiceId, Error>(invoiceNumberResult.Error);
-        }
+        var invoiceNumber = InvoiceNumber.Create(now.Year, maxOrder);
 
         // Get invoice
         var invoiceId = new InvoiceId(command.Data.Id);
-        var invoiceResult = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
-        if (!invoiceResult.TryGetValue(out var invoice))
-        {
-            return Result.Failure<InvoiceId, Error>(invoiceResult.Error);
-        }
+        var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
 
         // Save invoice
         await context.Invoices.AddAsync(invoice, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
-        return Result.Success<InvoiceId, Error>(invoice.Id);
+        return invoice.Id;
     }
 
-    private async Task<Result<Person, Error>> GetPerson(SaveInvoiceDraftCommand.Person person, CancellationToken cancellationToken)
+    private async Task<Person> GetPerson(SaveInvoiceDraftCommand.Person person, CancellationToken cancellationToken)
     {
         var dbPerson = await context.People.SingleOrDefaultAsync(e => e.FullName == person.Name && e.DateOfBirth == person.DateOfBirth, cancellationToken);
         if (dbPerson is not null)
         {
-            return Result.Success<Person, Error>(dbPerson);
+            return dbPerson;
         }
 
-        var createResult = Person.Create(person.Name, person.DateOfBirth);
-        return createResult;
+        return Person.Create(person.Name, person.DateOfBirth);
     }
 }

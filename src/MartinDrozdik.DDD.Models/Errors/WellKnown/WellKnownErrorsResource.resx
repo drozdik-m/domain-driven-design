@@ -120,6 +120,12 @@
   <data name="AlreadyExists" xml:space="preserve">
     <value>The item already exists.</value>
   </data>
+  <data name="InvariantError" xml:space="preserve">
+    <value>An invariant has been violated.</value>
+  </data>
+  <data name="InvariantErrors" xml:space="preserve">
+    <value>Invariants have been violated.</value>
+  </data>
   <data name="NotFound" xml:space="preserve">
     <value>The requested item was not found.</value>
   </data>

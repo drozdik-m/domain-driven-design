@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using MartinDrozdik.DDD.Models.Templates;
 
 namespace MartinDrozdik.DDD.Models.Errors;
@@ -56,6 +57,31 @@ public class Error : ValueObject
     /// Gets the details of the error.
     /// </summary>
     public IReadOnlyCollection<ErrorDetail> Details { get; }
+
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.Append($"{Code.Key}: {Message}");
+        if (Details.Count != 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Details:");
+            foreach (var detail in Details)
+            {
+                sb.AppendLine($" - {detail}");
+            }
+        }
+
+        if (Exception is not null)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Exception:");
+            sb.AppendLine(Exception.ToString()!);
+        }
+
+        return sb.ToString();
+    }
 
     /// <inheritdoc />
     protected override IEnumerable<object?> GetEqualityComponents()

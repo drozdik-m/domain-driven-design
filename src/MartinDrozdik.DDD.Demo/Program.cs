@@ -60,7 +60,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Set up handler for json error responses
-// TODO make this more robust and reusable
+// TODO make this more robust and reusable, handle validation exceptions correctly
 app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async context =>

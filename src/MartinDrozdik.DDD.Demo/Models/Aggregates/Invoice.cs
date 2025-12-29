@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.Enumerations;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
+using MartinDrozdik.DDD.Models.Extensions;
 
 namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
 
@@ -30,7 +31,7 @@ public class Invoice : IAggregateRoot<InvoiceId>
     /// Creates a new valid instance of the <see cref="Invoice"/> class.
     /// </summary>
     /// <returns>New instance of <see cref="Invoice"/> or an <see cref="Error"/>.</returns>
-    public static Result<Invoice, Error> CreateDraft(Person? issuer, Person recipient, InvoiceNumber number)
+    public static Invoice CreateDraft(Person? issuer, Person recipient, InvoiceNumber number)
     {
         var id = new InvoiceId(Guid.CreateVersion7());
         return new Invoice()
@@ -48,18 +49,17 @@ public class Invoice : IAggregateRoot<InvoiceId>
     /// <summary>
     /// Issues the invoice, changing its state from Draft to Issued.
     /// </summary>
-    public UnitResult<Error> IssueTo(Person issuerId)
+    public void IssueTo(Person issuerId)
     {
         if (State != InvoiceState.Draft)
         {
-            return new ErrorBuilder()
+            throw new ErrorBuilder()
                 .WithCode("OnlyDraftsCanBeIssued")
                 .WithMessage($"Only draft invoices can be issued. This invoice is in the {State} state.")
-                .BuildUnitResult();
+                .BuildValidationException();
         }
 
         Issuer = issuerId;
         State = InvoiceState.Issued;
-        return UnitResult.Success<Error>();
     }
 }

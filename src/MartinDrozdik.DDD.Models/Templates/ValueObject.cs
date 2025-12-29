@@ -60,7 +60,7 @@ public abstract class ValueObject : IEqualityComparer<ValueObject>, IEqualityOpe
     public int GetHashCode([DisallowNull] ValueObject obj)
     {
         return obj.GetEqualityComponents()
-            .Select(x => x != null ? x.GetHashCode() : 0)
+            .Select(e => e?.GetHashCode() ?? 0)
             .Aggregate(0, (acc, item) => HashCode.Combine(acc, item));
     }
 

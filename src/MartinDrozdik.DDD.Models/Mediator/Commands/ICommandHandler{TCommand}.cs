@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Commands;
 
 /// <summary>
 /// Represents a command handler in the CQRS pattern.
@@ -16,6 +13,6 @@ public interface ICommandHandler<in TCommand>
     /// </summary>
     /// <param name="command">The command to be executed.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Result of the execution.</returns>
-    Task<UnitResult<Error>> HandleAsync(TCommand command, CancellationToken cancellationToken);
+    /// <returns><see cref="Task"/>.</returns>
+    Task HandleAsync(TCommand command, CancellationToken cancellationToken);
 }

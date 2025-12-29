@@ -9,8 +9,7 @@ namespace MartinDrozdik.DDD.Demo.Controllers;
 [Route("v1/invoice")]
 [Produces(MediaTypeNames.Application.Json)]
 public class InvoiceController(
-    IMediator mediator,
-    ILogger<InvoiceController> logger) : ControllerBase
+    IMediator mediator) : ControllerBase
 {
     [HttpGet]
     [Produces("application/json")]
@@ -21,14 +20,6 @@ public class InvoiceController(
     {
         var query = new GetInvoicesQuery();
         var result = await mediator.SendQuery<GetInvoicesQuery, GetInvoicesQuery.Response>(query, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            // TODO: Handle errors properly, add error responses and middlewares and error handlers
-            logger.LogError("Error occurred while getting invoices: {Error}", result.Error);
-            return StatusCode(500, result.Error);
-        }
-
-        return Ok(result.Value);
+        return Ok(result);
     }
 }

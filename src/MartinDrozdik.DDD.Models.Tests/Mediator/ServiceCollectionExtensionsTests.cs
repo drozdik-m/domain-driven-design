@@ -165,9 +165,8 @@ public class ServiceCollectionExtensionsTests
 
         // Assert
         Assert.Multiple(
-            () => ResultAssert.IsSuccess(result),
             () => query.AssertCallStack(expectedCallStack),
-            () => Assert.Equal(result.Value, hasPipeline ? query.Result + 1 : query.Result));
+            () => Assert.Equal(result, hasPipeline ? query.Result + 1 : query.Result));
     }
 
     private static async Task RunTestCommandRequests(ServiceCollection services, string pipelineId = "")
@@ -184,9 +183,8 @@ public class ServiceCollectionExtensionsTests
 
         // Assert
         Assert.Multiple(
-            () => ResultAssert.IsSuccess(result),
             () => command.AssertCallStack(expectedCallStack),
-            () => Assert.Equal(result.Value, hasPipeline ? command.Result + 1 : command.Result));
+            () => Assert.Equal(result, hasPipeline ? command.Result + 1 : command.Result));
     }
 
     private static async Task RunTestUnitCommandRequests(ServiceCollection services, string pipelineId = "")
@@ -199,12 +197,10 @@ public class ServiceCollectionExtensionsTests
         var expectedCallStack = hasPipeline ? new[] { pipelineId } : [];
 
         // Act
-        var result = await mediator.SendCommand(command, CancellationToken.None);
+        await mediator.SendCommand(command, CancellationToken.None);
 
         // Assert
-        Assert.Multiple(
-            () => ResultAssert.IsSuccess(result),
-            () => command.AssertCallStack(expectedCallStack));
+        command.AssertCallStack(expectedCallStack);
     }
 
     private static async Task RunTestRequests(ServiceCollection services, string pipelineId = "")

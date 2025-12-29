@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Commands;
 
 /// <inheritdoc cref="ICommandHandler{TCommand}"/>
 /// <typeparam name="TCommand">The command to be handled.</typeparam>
@@ -10,5 +7,6 @@ public interface ICommandHandler<in TCommand, TResponse>
     where TCommand : ICommand<TResponse>
 {
     /// <inheritdoc cref="ICommandHandler{TCommand}.HandleAsync(TCommand, CancellationToken)" />
-    Task<Result<TResponse, Error>> HandleAsync(TCommand command, CancellationToken cancellationToken);
+    /// <returns>Result of the execution.</returns>
+    Task<TResponse> HandleAsync(TCommand command, CancellationToken cancellationToken);
 }

@@ -120,6 +120,12 @@
   <data name="AlreadyExists" xml:space="preserve">
     <value>Položka již existuje.</value>
   </data>
+  <data name="InvariantError" xml:space="preserve">
+    <value>Invariant byl porušen.</value>
+  </data>
+  <data name="InvariantErrors" xml:space="preserve">
+    <value>Invarianty byly porušeny</value>
+  </data>
   <data name="NotFound" xml:space="preserve">
     <value>Požadovaná položka nebyla nalezena.</value>
   </data>

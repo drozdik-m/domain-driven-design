@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Demo.Models.Entities;
+﻿using MartinDrozdik.DDD.Models.Extensions;
+
+namespace MartinDrozdik.DDD.Demo.Models.Entities;
 
 /// <summary>
 /// Represents a legal/actual person entity in the domain.
@@ -39,8 +41,9 @@ public class Person : IDomainEntity<PersonId>
     /// <param name="fullName">The full name of the person.</param>
     /// <param name="dateOfBirth">The date of birth of the person.</param>
     /// <returns>New instance of <see cref="Person"/> or an <see cref="Error"/>.</returns>
-    public static Result<Person, Error> Create(string fullName, DateTimeOffset dateOfBirth)
+    public static Person Create(string fullName, DateTimeOffset dateOfBirth)
     {
+        Validator.Instance.ValidateAndThrowBusiness((fullName, dateOfBirth));
         return new Person(new PersonId(Guid.CreateVersion7()), fullName, dateOfBirth);
     }
 

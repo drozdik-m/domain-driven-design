@@ -43,11 +43,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>WellKnownErrorsResource.resx</DependentUpon>
     </Compile>
-    <Compile Update="Templates\Errors\TemplateErrorsResource.Designer.cs">
-      <DependentUpon>TemplateErrorsResource.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-    </Compile>
   </ItemGroup>
 
   <ItemGroup>
@@ -66,14 +61,6 @@
     <EmbeddedResource Update="Errors\WellKnown\WellKnownErrorsResource.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>WellKnownErrorsResource.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Templates\Errors\TemplateErrorsResource.cs.resx">
-      <LastGenOutput>WellKnownErrorsResource.cs.Designer.cs</LastGenOutput>
-      <Generator>ResXFileCodeGenerator</Generator>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Templates\Errors\TemplateErrorsResource.resx">
-      <LastGenOutput>TemplateErrorsResource.Designer.cs</LastGenOutput>
-      <Generator>ResXFileCodeGenerator</Generator>
     </EmbeddedResource>
   </ItemGroup>
 

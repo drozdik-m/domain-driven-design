@@ -16,9 +16,9 @@ internal class TestUnitCommand2 : ICommand
 
 internal class TestUnitCommand2Handler : ICommandHandler<TestUnitCommand2>
 {
-    public Task<UnitResult<Error>> HandleAsync(TestUnitCommand2 command, CancellationToken cancellationToken)
+    public Task HandleAsync(TestUnitCommand2 command, CancellationToken cancellationToken)
     {
         command.HandleDecrement--;
-        return Task.FromResult(UnitResult.Success<Error>());
+        return Task.CompletedTask;
     }
 }

@@ -18,7 +18,7 @@ public interface IMediator
     /// <param name="request">The request to be sent.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that represents the send operation. The task result contains the handler response.</returns>
-    Task<Result<TResponse, Error>> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    Task<TResponse> SendQuery<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : IQuery<TResponse>;
 
     /// <summary>
@@ -29,7 +29,7 @@ public interface IMediator
     /// <param name="request">The request to be sent.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that represents the send operation. The task result contains the handler response.</returns>
-    Task<Result<TResponse, Error>> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
+    Task<TResponse> SendCommand<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand<TResponse>;
 
     /// <summary>
@@ -39,6 +39,6 @@ public interface IMediator
     /// <param name="request">Type of the response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that represents the send operation.</returns>
-    Task<UnitResult<Error>> SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
+    Task SendCommand<TRequest>(TRequest request, CancellationToken cancellationToken)
         where TRequest : ICommand;
 }
