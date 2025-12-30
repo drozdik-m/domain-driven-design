@@ -1,6 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-using MartinDrozdik.DDD.Models.Templates;
+﻿using MartinDrozdik.DDD.Models.Templates;
 
 namespace MartinDrozdik.DDD.Models.Services;
 
@@ -15,9 +13,10 @@ public interface ISaveService<TIdentity, in TItem>
 {
     /// <summary>
     /// Upserts an item.
+    /// The operation is idempotent - upserting the same item multiple times has the same effect as upserting it once.
     /// </summary>
     /// <param name="item">The item to upsert.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Asynchronous task with the items' ID or an <see cref="Error"/>.</returns>
-    Task<IResult<TIdentity, Error>> SaveAsync(TItem item, CancellationToken cancellationToken);
+    /// <returns><see cref="Task"/> with the items' ID.</returns>
+    Task<TIdentity> SaveAsync(TItem item, CancellationToken cancellationToken);
 }

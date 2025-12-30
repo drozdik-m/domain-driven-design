@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Services;
+﻿namespace MartinDrozdik.DDD.Models.Services;
 
 /// <summary>
 /// Represents a service that deletes an instance by its key.
@@ -12,9 +9,10 @@ public interface IDeleteByIdService<in TIdentity>
 {
     /// <summary>
     /// Deletes an item by its key.
+    /// The operation is idempotent – deleting a non-existing item is considered a success.
     /// </summary>
     /// <param name="id">Identifier of the deleted item.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Asynchronous task with a success or an <see cref="Error"/>.</returns>
-    Task<IUnitResult<Error>> DeleteAsync(TIdentity id, CancellationToken cancellationToken);
+    /// <returns><see cref="Task"/>.</returns>
+    Task DeleteAsync(TIdentity id, CancellationToken cancellationToken);
 }
