@@ -37,4 +37,28 @@ public class BusinessRuleException : Exception
     /// Gets the details of the business rule violation.
     /// </summary>
     public IEnumerable<ExceptionDetail> Details { get; init; } = [];
+
+    /// <summary>
+    /// Gets <see cref="Details"/> in dictionary form.
+    /// </summary>
+    public IDictionary<string, string[]> DetailsDictionary
+    {
+        get
+        {
+            var dictionary = new Dictionary<string, string[]>();
+            foreach (var detail in Details)
+            {
+                if (dictionary.TryGetValue(detail.Key, out var existingValues))
+                {
+                    dictionary[detail.Key] = [.. existingValues, detail.Value];
+                }
+                else
+                {
+                    dictionary[detail.Key] = [detail.Value];
+                }
+            }
+
+            return dictionary;
+        }
+    }
 }

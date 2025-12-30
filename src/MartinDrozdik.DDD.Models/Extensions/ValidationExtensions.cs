@@ -29,20 +29,42 @@ public static class ValidationExtensions
         }
 
         // Build the error
-        var message = validationResult.Errors.Count == 1
+        error = validationResult.Errors.GetError();
+        return true;
+    }
+
+    /// <summary>
+    /// Converts a collection of <see cref="ValidationFailure"/> to an <see cref="Error"/>.
+    /// </summary>
+    /// <param name="failures">List of failures.</param>
+    /// <returns>New <see cref="Error"/>.</returns>
+    public static Error GetError(this IEnumerable<ValidationFailure> failures)
+    {
+        // Build the error
+        var message = failures.Count() == 1
             ? WellKnownErrorsResource.InvariantError
             : WellKnownErrorsResource.InvariantErrors;
 
-        var details = validationResult.Errors
-            .Select(x => new ErrorDetail($"{x.ErrorCode}:{x.PropertyName}:{x.ErrorMessage}", x.AttemptedValue?.ToString() ?? "`null`"))
+        var details = failures
+            .Select(x => new ErrorDetail(x.PropertyName, $"{x.ErrorCode}: {x.ErrorMessage} {x.AttemptedValue?.ToString() ?? "`null`"}"))
             .ToArray();
 
-        error = new ErrorBuilder()
+        return new ErrorBuilder()
             .WithMessage(message)
             .WithCode(ErrorCodes.InvalidObject)
             .WithDetails(details)
             .Build();
-        return true;
+    }
+
+    /// <summary>
+    /// Converts a collection of <see cref="ValidationFailure"/> to a <see cref="BusinessRuleValidationException"/>.
+    /// </summary>
+    /// <param name="failures">List of failures.</param>
+    /// <returns>New <see cref="Error"/>.</returns>
+    public static BusinessRuleValidationException GetException(this IEnumerable<ValidationFailure> failures)
+    {
+        var error = failures.GetError();
+        return error.ToValidationException();
     }
 
     /// <summary>

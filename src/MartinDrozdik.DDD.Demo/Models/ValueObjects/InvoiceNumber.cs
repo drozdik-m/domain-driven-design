@@ -40,8 +40,9 @@ public class InvoiceNumber : ValueObject
     /// </summary>
     public static InvoiceNumber Create(int year, int order)
     {
-        Validator.Instance.ValidateAndThrowBusiness((year, order));
-        return new InvoiceNumber(year, order);
+        var result = new InvoiceNumber(year, order);
+        Validator.Instance.ValidateAndThrowBusiness(result);
+        return result;
     }
 
     /// <inheritdoc />
@@ -60,7 +61,7 @@ public class InvoiceNumber : ValueObject
     /// <summary>
     /// State validator for <see cref="InvoiceNumber"/>.
     /// </summary>
-    private sealed class Validator : AbstractValidator<(int Year, int Order)>
+    private sealed class Validator : AbstractValidator<InvoiceNumber>
     {
         public Validator()
         {

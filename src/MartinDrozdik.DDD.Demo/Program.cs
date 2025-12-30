@@ -1,5 +1,6 @@
 using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Context;
+using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Models.Mediator;
 using Microsoft.AspNetCore.Diagnostics;
@@ -12,6 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add logging
 builder.Logging.AddConsole();
+
+// Add error handling
+builder.Services.AddProblemDetails()
+    .AddExceptionHandler<BusinessRuleValidationExceptionHandler>()
+    .AddExceptionHandler<ValidationExceptionHandler>()
+    .AddExceptionHandler<GlobalExceptionHandler>();
 
 // Add DbContext with SQLite
 builder.Services.AddDbContext<InvoiceDbContext>(options =>

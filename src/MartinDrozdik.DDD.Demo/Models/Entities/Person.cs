@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Models.Extensions;
+﻿using System.ComponentModel;
+using MartinDrozdik.DDD.Models.Extensions;
 
 namespace MartinDrozdik.DDD.Demo.Models.Entities;
 
@@ -43,14 +44,20 @@ public class Person : IDomainEntity<PersonId>
     /// <returns>New instance of <see cref="Person"/> or an <see cref="Error"/>.</returns>
     public static Person Create(string fullName, DateTimeOffset dateOfBirth)
     {
-        Validator.Instance.ValidateAndThrowBusiness((fullName, dateOfBirth));
+        Validator.Instance.ValidateAndThrowBusiness(new State(fullName, dateOfBirth));
         return new Person(new PersonId(Guid.CreateVersion7()), fullName, dateOfBirth);
     }
 
     /// <summary>
+    /// In case of mutable state, we need to validate the state before applying changes.
+    /// This record represents the state to be validated.
+    /// </summary>
+    private record State(string FullName, DateTimeOffset DateOfBirth);
+
+    /// <summary>
     /// State validator for <see cref="Person"/>.
     /// </summary>
-    private sealed class Validator : AbstractValidator<(string FullName, DateTimeOffset DateOfBirth)>
+    private sealed class Validator : AbstractValidator<State>
     {
         public Validator()
         {
