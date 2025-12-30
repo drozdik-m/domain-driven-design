@@ -1,5 +1,4 @@
-﻿using System.Net.Http;
-using MartinDrozdik.DDD.Demo.Client.Generated;
+﻿using MartinDrozdik.DDD.Demo.Client.Generated;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Logging;

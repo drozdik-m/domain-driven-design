@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using MartinDrozdik.DDD.Models.Extensions;
+﻿using MartinDrozdik.DDD.Models.Extensions;
 
 namespace MartinDrozdik.DDD.Demo.Models.Entities;
 

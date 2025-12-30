@@ -1,6 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Models.Mediator.Queries;
 
 namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
 

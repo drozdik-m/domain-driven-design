@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Delegate for the next step in the pipeline.

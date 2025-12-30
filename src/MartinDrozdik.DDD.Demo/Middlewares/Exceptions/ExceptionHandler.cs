@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
 using MartinDrozdik.DDD.Models.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 

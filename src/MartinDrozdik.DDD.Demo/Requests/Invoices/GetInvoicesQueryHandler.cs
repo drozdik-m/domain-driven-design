@@ -1,6 +1,4 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Demo.Models.Entities;
-using MartinDrozdik.DDD.Models.Exceptions;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 using Microsoft.EntityFrameworkCore;
 

@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
 
 /// <summary>
 /// Represents a pipeline that processes input through a series of behaviors.

@@ -1,7 +1,4 @@
-﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿namespace MartinDrozdik.DDD.Models.Mediator.Queries;
 
 /// <summary>
 /// Represents a query handler in the CQRS pattern.

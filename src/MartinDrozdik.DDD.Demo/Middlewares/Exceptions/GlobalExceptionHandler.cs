@@ -1,8 +1,4 @@
-﻿using System.Diagnostics;
-using MartinDrozdik.DDD.Models.Exceptions;
-using Microsoft.AspNetCore.Diagnostics;
-
-namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
+﻿namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 
 public partial class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : ExceptionHandler
 {
