@@ -61,39 +61,6 @@ public abstract class DbContextIntegrationTests<TContext>
         Assert.True(true);
     }
 
-    /*/// <summary>
-    /// Tests navigation property by including it in query
-    /// Validates foreign keys and relationships are properly configured
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(GetEntityTableNames))]
-    public void NavigationProperty_CanBeIncludedInQuery(string entityName, string navigationName)
-    {
-        // Arrange
-        using var disposeContext = GetContext(out var context);
-
-        var entityType = context.Model.GetEntityTypes()
-            .FirstOrDefault(e => e.ClrType.Name == entityName);
-
-        if (entityType == null) return;
-
-        var dbSetProp = context.GetType()
-            .GetProperties()
-            .FirstOrDefault(p => p.PropertyType.IsGenericType &&
-                                 p.PropertyType.GetGenericArguments()[0] == entityType.ClrType);
-
-        if (dbSetProp == null) return;
-
-        var dbSet = dbSetProp.GetValue(context) as IQueryable<object>;
-        var query = dbSet.Take(1);
-
-        // Try to include the navigation property
-        query = EntityFrameworkQueryableExtensions.Include(query, navigationName);
-        query.ToList(); // Execute query
-
-        Assert.True(true);
-    }*/
-
     /// <summary>
     /// Tests that the database schema matches the model.
     /// </summary>

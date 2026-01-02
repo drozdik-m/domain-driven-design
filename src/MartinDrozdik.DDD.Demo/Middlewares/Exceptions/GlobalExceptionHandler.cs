@@ -8,7 +8,7 @@ public partial class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logg
         Exception exception,
         CancellationToken cancellationToken)
     {
-        ExceptionHandlerLogging.LogError(logger, context, exception);
+        MiddlewareLogging.LogError(logger, context, exception);
 
         await Results.Problem(
             title: "An error occurred while processing the request.",

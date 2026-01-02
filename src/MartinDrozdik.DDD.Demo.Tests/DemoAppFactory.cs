@@ -4,10 +4,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
+using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 
-public class DemoAppFactory : WebApplicationFactory<Program>
+public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<Program>
 {
     public DddClient CreateDddClient()
     {
@@ -29,8 +30,8 @@ public class DemoAppFactory : WebApplicationFactory<Program>
         {
             logging.ClearProviders();
             logging.AddConsole();
-            logging.AddDebug();
-            logging.SetMinimumLevel(LogLevel.Debug);
+            logging.SetMinimumLevel(LogLevel.Information);
+            logging.AddXUnit(testOutputHelper);
         });
     }
 }

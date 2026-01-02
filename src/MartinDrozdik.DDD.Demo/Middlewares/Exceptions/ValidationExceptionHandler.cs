@@ -17,7 +17,7 @@ public class ValidationExceptionHandler(ILogger<ValidationExceptionHandler> logg
 
         var businessException = validationException.Errors.GetException();
 
-        ExceptionHandlerLogging.LogError(logger, context, exception);
+        MiddlewareLogging.LogError(logger, context, exception);
 
         await Results.ValidationProblem(
             title: "A validation error occurred while processing the request.",

@@ -11,12 +11,12 @@
           "Invoice"
         ],
         "responses": {
-          "200": {
-            "description": "OK",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Response"
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -40,6 +40,83 @@
                 }
               }
             }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetInvoicesQueryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invoice"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDraftCommandRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDraftCommandRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDraftCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceId"
+                }
+              }
+            }
           }
         }
       }
@@ -47,7 +124,12 @@
   },
   "components": {
     "schemas": {
-      "Item": {
+      "CreateInvoiceDraftCommandRequest": {
+        "title": "CreateInvoiceDraftCommandRequest",
+        "type": "object"
+      },
+      "GetInvoicesQueryItem": {
+        "title": "GetInvoicesQueryItem",
         "required": [
           "id",
           "issuerName",
@@ -78,7 +160,37 @@
           }
         }
       },
+      "GetInvoicesQueryResponse": {
+        "title": "GetInvoicesQueryResponse",
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GetInvoicesQueryItem"
+            }
+          }
+        }
+      },
+      "InvoiceId": {
+        "title": "InvoiceId",
+        "required": [
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "description": "Identity of InvoiceId aggregate."
+      },
       "ProblemDetails": {
+        "title": "ProblemDetails",
         "type": "object",
         "properties": {
           "type": {
@@ -113,20 +225,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "Response": {
-        "required": [
-          "items"
-        ],
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Item"
-            }
           }
         }
       }

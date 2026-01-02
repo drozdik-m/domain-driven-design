@@ -89,13 +89,13 @@ public class InitializableEnumerationTests
 
     private class UninitializedEnum : InitializableEnumeration<TestEnum>
     {
+        // Well known values
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
+
         public UninitializedEnum(EnumerationName name)
             : base(name)
         {
         }
-
-        // Well known values
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
     }
 }

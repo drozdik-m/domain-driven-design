@@ -15,7 +15,7 @@ public class BusinessRuleValidationExceptionHandler(ILogger<BusinessRuleValidati
             return false;
         }
 
-        ExceptionHandlerLogging.LogError(logger, context, validationException);
+        MiddlewareLogging.LogError(logger, context, validationException);
 
         await Results.ValidationProblem(
             title: "A validation error occurred while processing the request.",

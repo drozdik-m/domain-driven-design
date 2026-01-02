@@ -1,12 +1,19 @@
 using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
+using MartinDrozdik.DDD.Demo.Middlewares.OpenApi;
+using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
+using MartinDrozdik.DDD.Demo.Requests.Pipelines;
 using MartinDrozdik.DDD.Models.Mediator;
+using MartinDrozdik.DDD.Models.Mediator.Commands;
+using MartinDrozdik.DDD.Models.Mediator.Pipelines;
+using MartinDrozdik.DDD.Models.Mediator.Queries;
+using MartinDrozdik.Hosting.Observability.Logging;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using ICommand = MartinDrozdik.DDD.Models.Mediator.Commands.ICommand;
 
 // --- BUILDER ---
 var builder = WebApplication.CreateBuilder(args);
@@ -36,11 +43,16 @@ builder.Services.AddDbContext<InvoiceDbContext>(options =>
 });
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.ParentDeclarationSchemaIds();
+});
 
 builder.Services.AddMediator(config =>
 {
-    config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>();
+    var pipelineBuilder = new PipelineAssistant();
+    config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(pipelineBuilder);
+    config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
 });
 
 // --- APP ---
@@ -66,30 +78,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-// Set up handler for json error responses
-// TODO make this more robust and reusable, handle validation exceptions correctly
-app.UseExceptionHandler(exceptionHandlerApp =>
-{
-    exceptionHandlerApp.Run(async context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = MediaTypeNames.Application.Json;
-
-        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
-
-        var problemDetails = new ProblemDetails
-        {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "An error occurred",
-            Detail = app.Environment.IsDevelopment()
-                ? exceptionHandlerPathFeature?.Error.ToString()
-                : "An unexpected error occurred while processing your request.",
-            Instance = context.Request.Path
-        };
-
-        await context.Response.WriteAsJsonAsync(problemDetails);
-    });
-});
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 //app.UseHttpsRedirection();
 
@@ -98,3 +87,49 @@ app.UseAuthorization();
 app.MapControllers();
 
 await app.RunAsync();
+
+
+class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
+{
+    /// <inheritdoc />
+    public IServiceCollection RegisterQueryPipeline<TQuery, TOutput>(IServiceCollection services) where TQuery : IQuery<TOutput>
+    {
+        services.AddScoped<LoggingPipeline<TQuery, TOutput>>();
+        return services;
+    }
+
+    /// <inheritdoc />
+    public ServicePipelineBuilder<TQuery, TOutput> BuildQueryPipeline<TQuery, TOutput>() where TQuery : IQuery<TOutput>
+    {
+        return new ServicePipelineBuilder<TQuery, TOutput>()
+            .Add<LoggingPipeline<TQuery, TOutput>>();
+    }
+
+    /// <inheritdoc />
+    public IServiceCollection RegisterCommandPipeline<TCommand, TOutput>(IServiceCollection services) where TCommand : ICommand<TOutput>
+    {
+        services.AddScoped<LoggingPipeline<TCommand, TOutput>>();
+        return services;
+    }
+
+    /// <inheritdoc />
+    public ServicePipelineBuilder<TCommand, TOutput> BuildCommandPipeline<TCommand, TOutput>() where TCommand : ICommand<TOutput>
+    {
+        return new ServicePipelineBuilder<TCommand, TOutput>()
+            .Add<LoggingPipeline<TCommand, TOutput>>();
+    }
+
+    /// <inheritdoc />
+    public IServiceCollection RegisterUnitCommandPipeline<TCommand>(IServiceCollection services) where TCommand : ICommand
+    {
+        services.AddScoped<LoggingPipeline<TCommand>>();
+        return services;
+    }
+
+    /// <inheritdoc />
+    public ServicePipelineBuilder<TCommand> BuildUnitCommandPipeline<TCommand>() where TCommand : ICommand
+    {
+        return new ServicePipelineBuilder<TCommand>()
+            .Add<LoggingPipeline<TCommand>>();
+    }
+}

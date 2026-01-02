@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.Models
 {
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     #pragma warning disable CS1591
-    public partial class Item : IAdditionalDataHolder, IParsable
+    public partial class GetInvoicesQueryItem : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
@@ -49,21 +49,21 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.Models
         public string State { get; set; }
 #endif
         /// <summary>
-        /// Instantiates a new <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.Item"/> and sets the default values.
+        /// Instantiates a new <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.GetInvoicesQueryItem"/> and sets the default values.
         /// </summary>
-        public Item()
+        public GetInvoicesQueryItem()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.Item"/></returns>
+        /// <returns>A <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.GetInvoicesQueryItem"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::MartinDrozdik.DDD.Demo.Client.Generated.Models.Item CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::MartinDrozdik.DDD.Demo.Client.Generated.Models.GetInvoicesQueryItem CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::MartinDrozdik.DDD.Demo.Client.Generated.Models.Item();
+            return new global::MartinDrozdik.DDD.Demo.Client.Generated.Models.GetInvoicesQueryItem();
         }
         /// <summary>
         /// The deserialization information for the current model

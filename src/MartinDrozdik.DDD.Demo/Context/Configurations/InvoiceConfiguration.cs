@@ -20,13 +20,14 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
 
         const string issuerIdShadowProperty = "IssuerId";
         builder.Property<PersonId?>(issuerIdShadowProperty)
-            .HasColumnName(issuerIdShadowProperty);
+            .HasColumnName(issuerIdShadowProperty)
+            .IsRequired(false);
         builder
             .HasOne(i => i.Issuer)
             .WithMany()
             .HasForeignKey(issuerIdShadowProperty)
             .HasConstraintName("FK_Invoice_IssuerId_Person_PersonId")
-            .IsRequired();
+            .IsRequired(false);
 
         const string recipientIdShadowProperty = "RecipientId";
         builder.Property<PersonId>(recipientIdShadowProperty)

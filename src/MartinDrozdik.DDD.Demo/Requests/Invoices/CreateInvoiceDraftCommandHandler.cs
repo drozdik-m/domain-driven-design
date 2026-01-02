@@ -8,31 +8,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
-public class SaveInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommandHandler<SaveInvoiceDraftCommand, InvoiceId>
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
-    public async Task<InvoiceId> HandleAsync(SaveInvoiceDraftCommand command, CancellationToken cancellationToken)
+    public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
-        // Handle it in a transaction
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
         // Get persons
-        Person? issuer = null;
+        /*Person? issuer = null;
         if (command.Data.Issuer is not null)
         {
             issuer = await GetPerson(command.Data.Issuer, cancellationToken);
         }
 
         var recipient = await GetPerson(command.Data.Recipient, cancellationToken);
-
-        // The invoice already exists
-        var existingInvoice = await context.Invoices.FindAsync(command.Data.Id, cancellationToken);
-        if (existingInvoice is not null)
-        {
-            throw new ErrorBuilder()
-                .WithCode("Invoice.AlreadyExists")
-                .WithMessage($"Invoice with ID '{command.Data.Id}' already exists.")
-                .BuildBusinessException();
-        }
 
         // Get invoice number
         var now = TimeProvider.System.GetLocalNow();
@@ -42,17 +29,18 @@ public class SaveInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommand
         var invoiceNumber = InvoiceNumber.Create(now.Year, maxOrder);
 
         // Get invoice
-        var invoiceId = new InvoiceId(command.Data.Id);
+        var invoiceId = new InvoiceId(Guid.CreateVersion7());
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
 
         // Save invoice
         await context.Invoices.AddAsync(invoice, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
-        return invoice.Id;
+        return invoice.Id;*/
+        return new InvoiceId(Guid.NewGuid());
     }
 
-    private async Task<Person> GetPerson(SaveInvoiceDraftCommand.Person person, CancellationToken cancellationToken)
+    private async Task<Person> GetPerson(CreateInvoiceDraftCommand.Person person, CancellationToken cancellationToken)
     {
         var dbPerson = await context.People.SingleOrDefaultAsync(e => e.FullName == person.Name && e.DateOfBirth == person.DateOfBirth, cancellationToken);
         if (dbPerson is not null)

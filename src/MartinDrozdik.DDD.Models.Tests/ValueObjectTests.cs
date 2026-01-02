@@ -1,6 +1,6 @@
 ﻿namespace MartinDrozdik.DDD.Models.Tests;
 
-public partial class ValueObjectTests
+public class ValueObjectTests
 {
     [Fact]
     public void Equality_by_value_works_correctly()
