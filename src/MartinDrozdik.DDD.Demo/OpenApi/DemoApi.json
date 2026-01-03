@@ -124,9 +124,44 @@
   },
   "components": {
     "schemas": {
+      "CreateInvoiceDraftCommandPerson": {
+        "title": "CreateInvoiceDraftCommandPerson",
+        "required": [
+          "name",
+          "dateOfBirth"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CreateInvoiceDraftCommandRequest": {
         "title": "CreateInvoiceDraftCommandRequest",
-        "type": "object"
+        "required": [
+          "recipient"
+        ],
+        "type": "object",
+        "properties": {
+          "issuer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreateInvoiceDraftCommandPerson"
+              }
+            ]
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/CreateInvoiceDraftCommandPerson"
+          }
+        }
       },
       "GetInvoicesQueryItem": {
         "title": "GetInvoicesQueryItem",

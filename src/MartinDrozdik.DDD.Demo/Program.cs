@@ -1,4 +1,3 @@
-using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Demo.Middlewares.OpenApi;
@@ -10,7 +9,7 @@ using MartinDrozdik.DDD.Models.Mediator.Commands;
 using MartinDrozdik.DDD.Models.Mediator.Pipelines;
 using MartinDrozdik.DDD.Models.Mediator.Queries;
 using MartinDrozdik.Hosting.Observability.Logging;
-using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using ICommand = MartinDrozdik.DDD.Models.Mediator.Commands.ICommand;
@@ -55,6 +54,15 @@ builder.Services.AddMediator(config =>
     config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
 });
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHttpLogging(options =>
+    {
+        options.LoggingFields = HttpLoggingFields.All;
+        options.CombineLogs = true;
+    });
+}
+
 // --- APP ---
 var app = builder.Build();
 
@@ -78,6 +86,10 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpLogging();
+}
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 //app.UseHttpsRedirection();
@@ -85,6 +97,8 @@ app.UseMiddleware<RequestResponseLoggingMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseStatusCodePages();
 
 await app.RunAsync();
 

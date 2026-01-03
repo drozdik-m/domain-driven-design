@@ -56,18 +56,18 @@ public class InvoicesTests
     }
 
     [Fact]
-    public async Task Save_invoice_draft()
+    public async Task Save_invoice_draft_without_issuer()
     {
         // Arrange
         var client = _factory.CreateDddClient();
         var request = new CreateInvoiceDraftCommandRequest()
         {
-            /*Recipient = new CreateInvoiceDraftCommandPerson()
+            Recipient = new CreateInvoiceDraftCommandPerson()
             {
                 Name = Guid.NewGuid().ToString(),
                 DateOfBirth = DateTimeOffset.UtcNow.AddYears(-25),
             },
-            Issuer = null,*/
+            Issuer = null,
         };
 
         // Act
@@ -76,15 +76,59 @@ public class InvoicesTests
         // Assert
         Assert.NotNull(response);
         Assert.NotNull(response.Key);
+        var responseKey = new Models.Aggregates.InvoiceId(response.Key.Value);
 
-        /*using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-        var invoice = await context.Invoices.SingleAsync(e => e.Id.Key == response.Key);
+        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey);
         Assert.NotNull(invoice);
         Assert.Multiple(
             () => Assert.Null(invoice.Issuer),
             () => Assert.Equal(request.Recipient.Name, invoice.Recipient.FullName),
             () => Assert.Equal(request.Recipient.DateOfBirth, invoice.Recipient.DateOfBirth),
-            () => Assert.Equal(InvoiceState.Draft, invoice.State));*/
+            () => Assert.Equal(InvoiceState.Draft, invoice.State));
+    }
+
+    [Fact]
+    public async Task Save_invoice_draft_with_issuer()
+    {
+        // Arrange
+        var client = _factory.CreateDddClient();
+        var request = new CreateInvoiceDraftCommandRequest()
+        {
+            Recipient = new CreateInvoiceDraftCommandPerson()
+            {
+                Name = Guid.NewGuid().ToString(),
+                DateOfBirth = DateTimeOffset.UtcNow.AddYears(-25),
+            },
+            Issuer = new CreateInvoiceDraftCommandRequest.CreateInvoiceDraftCommandRequest_issuer()
+            {
+                CreateInvoiceDraftCommandPerson = new CreateInvoiceDraftCommandPerson()
+                {
+                    Name = Guid.NewGuid().ToString(),
+                    DateOfBirth = DateTimeOffset.UtcNow.AddYears(-40),
+                },
+            },
+        };
+
+        // Act
+        var response = await client.V1.Invoice.PostAsync(request, cancellationToken: CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.NotNull(response.Key);
+        var responseKey = new Models.Aggregates.InvoiceId(response.Key.Value);
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
+        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey);
+        Assert.NotNull(invoice);
+        Assert.NotNull(invoice.Issuer);
+        Assert.Multiple(
+            () => Assert.Equal(request.Recipient.Name, invoice.Recipient.FullName),
+            () => Assert.Equal(request.Recipient.DateOfBirth, invoice.Recipient.DateOfBirth),
+            () => Assert.Equal(request.Issuer.CreateInvoiceDraftCommandPerson.Name, invoice.Issuer.FullName),
+            () => Assert.Equal(request.Issuer.CreateInvoiceDraftCommandPerson.DateOfBirth, invoice.Issuer.DateOfBirth),
+            () => Assert.Equal(InvoiceState.Draft, invoice.State));
     }
 }

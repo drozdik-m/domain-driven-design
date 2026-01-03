@@ -15,8 +15,6 @@ public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<Requ
         // Call the next middleware in the pipeline
         try
         {
-            //var bodyStream = new StreamReader(context.Request.Body);
-            //var bodyText = await bodyStream.ReadToEndAsync();
             await _next(context);
 
             // Check success

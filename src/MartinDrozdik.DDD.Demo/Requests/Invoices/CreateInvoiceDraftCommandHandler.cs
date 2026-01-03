@@ -2,7 +2,6 @@
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
-using MartinDrozdik.DDD.Models.Extensions;
 using MartinDrozdik.DDD.Models.Mediator.Commands;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +12,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : IComma
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
         // Get persons
-        /*Person? issuer = null;
+        Person? issuer = null;
         if (command.Data.Issuer is not null)
         {
             issuer = await GetPerson(command.Data.Issuer, cancellationToken);
@@ -23,10 +22,13 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : IComma
 
         // Get invoice number
         var now = TimeProvider.System.GetLocalNow();
-        var maxOrder = await context.Invoices
+        var maxOrderQuery = context.Invoices
             .Where(i => i.Number.Year == now.Year)
-            .MaxAsync(i => i.Number.Order, cancellationToken);
-        var invoiceNumber = InvoiceNumber.Create(now.Year, maxOrder);
+            .Select(i => i.Number.Order);
+        var maxOrder = await maxOrderQuery.AnyAsync(cancellationToken)
+            ? await maxOrderQuery.MaxAsync(cancellationToken)
+            : 0;
+        var invoiceNumber = InvoiceNumber.Create(now.Year, maxOrder + 1);
 
         // Get invoice
         var invoiceId = new InvoiceId(Guid.CreateVersion7());
@@ -36,8 +38,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : IComma
         await context.Invoices.AddAsync(invoice, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
-        return invoice.Id;*/
-        return new InvoiceId(Guid.NewGuid());
+        return invoice.Id;
     }
 
     private async Task<Person> GetPerson(CreateInvoiceDraftCommand.Person person, CancellationToken cancellationToken)

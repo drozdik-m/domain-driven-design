@@ -28,6 +28,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasForeignKey(issuerIdShadowProperty)
             .HasConstraintName("FK_Invoice_IssuerId_Person_PersonId")
             .IsRequired(false);
+        builder.Navigation(i => i.Issuer).AutoInclude();
 
         const string recipientIdShadowProperty = "RecipientId";
         builder.Property<PersonId>(recipientIdShadowProperty)
@@ -38,7 +39,8 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .WithMany()
             .HasForeignKey(recipientIdShadowProperty)
             .HasConstraintName("FK_Invoice_RecipientId_Person_PersonId");
-        
+        builder.Navigation(i => i.Recipient).AutoInclude();
+
         builder.ComplexProperty(i => i.Number, builder =>
         {
             builder.Property(e => e.Year)

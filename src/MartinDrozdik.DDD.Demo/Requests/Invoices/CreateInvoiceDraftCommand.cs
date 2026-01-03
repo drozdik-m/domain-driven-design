@@ -7,8 +7,8 @@ public record CreateInvoiceDraftCommand(CreateInvoiceDraftCommand.Request Data) 
 {
     public class Request
     {
-        //public required Person? Issuer { get; init; }
-        //public required Person Recipient { get; init; }
+        public Person? Issuer { get; init; }
+        public required Person Recipient { get; init; }
     }
 
     public class Person
