@@ -99,7 +99,7 @@ public static class ValidationExtensions
     /// <param name="validationResult">The result to be parsed.</param>
     /// <param name="exception">Output exception if the validation failed.</param>
     /// <returns>True for invalid results, else false.</returns>
-    public static bool TryGetException(this ValidationResult validationResult, [NotNullWhen(true)] out Exception? exception)
+    public static bool TryGetException(this ValidationResult validationResult, [NotNullWhen(true)] out BusinessRuleValidationException? exception)
     {
         if (validationResult.TryGetError(out var error))
         {

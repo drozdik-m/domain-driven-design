@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Models.Tests;
+﻿using MartinDrozdik.DDD.Models.Templates;
+
+namespace MartinDrozdik.DDD.Models.Tests.Templates;
 
 public class ValueObjectTests
 {
@@ -12,11 +14,11 @@ public class ValueObjectTests
 
         // Act & Assert
         EqualityAssert.TestEqualityComparer(comparer: value1, value1, value2, differentValue);
-        EqualityAssert.TestEqualityOperators<Templates.ValueObject>(value1, value2, differentValue);
+        EqualityAssert.TestEqualityOperators<ValueObject>(value1, value2, differentValue);
     }
 
     private class TestEqualityValueObject(int value1, string value2)
-        : Templates.ValueObject
+        : ValueObject
     {
         protected override IEnumerable<object?> GetEqualityComponents()
         {

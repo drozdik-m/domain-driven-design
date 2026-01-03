@@ -7,7 +7,7 @@ namespace MartinDrozdik.DDD.Models.Errors;
 /// </summary>
 public class ErrorBuilder
 {
-    private readonly List<ErrorDetail> _details = new();
+    private readonly List<ErrorDetail> _details = [];
     private ErrorCode? _code;
     private string? _message;
     private Exception? _exception;
