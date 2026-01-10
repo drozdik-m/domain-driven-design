@@ -59,6 +59,8 @@ public class StringExtensionsTests
     }
 
     [Theory]
+    [InlineData(Dashes512, "-", "-")]
+    [InlineData(Dashes512 + "-", "-", "-")]
     [InlineData("aaabcaa", "a", "abca")]
     [InlineData("aaa", "a", "a")]
     [InlineData("abc", "a", "abc")]
@@ -94,7 +96,7 @@ public class StringExtensionsTests
     [InlineData("testtesttest", "test", "test")]
     [InlineData("aabbaabb", "aa", "aabbaabb")]
     [InlineData("aaaaaa", "aa", "aa")]
-    [InlineData("aaaaaaa", "aa", "aaa")] // 7 'a's with pattern "aa" -> "aa" + "a"
+    [InlineData("aaaaaaa", "aa", "aaa")]
     [InlineData("aaaa", "aa", "aa")]
     [InlineData("hello world", "xyz", "hello world")]
     [InlineData("test", "abc", "test")]
