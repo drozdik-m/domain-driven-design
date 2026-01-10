@@ -14,7 +14,7 @@ public class CurrencyFormatExtensionsTests
     [InlineData(-1234, "-1 234,00 Kč")]
     [InlineData(-123, "-123,00 Kč")]
     [InlineData(-12, "-12,00 Kč")]
-    [InlineData(-1, "1,00 Kč")]
+    [InlineData(-1, "-1,00 Kč")]
     [InlineData(0, "0,00 Kč")]
     [InlineData(1, "1,00 Kč")]
     [InlineData(12, "12,00 Kč")]
