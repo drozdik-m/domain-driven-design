@@ -32,7 +32,7 @@ public class UrlExtensionsTests
     [InlineData("ě!!!ščřžýáíé", "e-scrzyaie")]
     [InlineData("___", "")]
     [InlineData("a--b--c", "a-b-c")]
-    [InlineData("ÄÖÜß", "aou")]
+    [InlineData("ÄÖÜß", "aouss")]
     [InlineData("中文文件", "")]
     [InlineData("123___456", "123-456")]
     [InlineData("   ", "")]
@@ -74,11 +74,11 @@ public class UrlExtensionsTests
     [InlineData("file.backup.old.txt", "file-backup-old.txt")]
     [InlineData("archive.tar.gz", "archive-tar.gz")]
     [InlineData("ěščřžýáíé.txt", "escrzyaie.txt")]
-    [InlineData(".hiddenfile", "hiddenfile")]
+    [InlineData(".hiddenfile", ".hiddenfile")]
     [InlineData("file.", "file")]
     [InlineData("file..txt", "file.txt")]
     [InlineData("file.###", "file")]
-    [InlineData("...txt", "t.txt")]
+    [InlineData("...txt", ".txt")]
     public void ToUrlFriendlyFileName_valid_filenames_return_expected_result(string input, string expected)
     {
         Assert.Equal(expected, input.ToUrlFriendlyFileName());
@@ -86,25 +86,24 @@ public class UrlExtensionsTests
 
     [Theory]
     [InlineData("my-document.pdf", 20, "my-document.pdf")]
-    [InlineData("my-document.pdf", 10, "my-docu.pdf")]
+    [InlineData("my-document.pdf", 10, "my-doc.pdf")]
     [InlineData("Photo 2024.jpg", 12, "photo-20.jpg")]
     [InlineData("file name.txt", 8, "file.txt")]
     [InlineData("file name.txt", 7, "fil.txt")]
-    [InlineData("archive.tar.gz", 12, "archive.gz")]
-    [InlineData("archive.tar.gz", 10, "archiv.gz")]
-    [InlineData("ěščřžýáíé.txt", 10, "escrz.txt")]
+    [InlineData("archive.tar.gz", 12, "archive-t.gz")]
+    [InlineData("archive.tar.gz", 10, "archive.gz")]
+    [InlineData("ěščřžýáíé.txt", 10, "escrzy.txt")]
     [InlineData("a.txt", 5, "a.txt")]
     [InlineData("Very Long File Name", 10, "very-long")]
+    [InlineData(" Very Lon File Name", 10, "very-lon-f")]
     [InlineData("Document", 50, "document")]
     [InlineData("Document", 3, "doc")]
     [InlineData("ěščřžýáíé", 4, "escr")]
     [InlineData("file.###", 10, "file")]
     [InlineData("file..txt", 10, "file.txt")]
-    [InlineData(".hiddenfile", 20, "hiddenfile")]
-    [InlineData("...txt", 5, "t.txt")]
-    [InlineData("a.txt", 4, "a.txt")]
-    [InlineData("a.txt", 3, "a.txt")]
-    [InlineData("longfilename.txt", 8, "l.txt")]
+    [InlineData(".hiddenfile", 20, ".hiddenfile")]
+    [InlineData("...txt", 5, ".txt")]
+    [InlineData("longfilename.txt", 8, "long.txt")]
     [InlineData("file.###", 5, "file")]
     public void ToUrlFriendlyFileName_with_max_length_crops_name_preserving_extension(string input, int maxLength, string expected)
     {
@@ -118,6 +117,8 @@ public class UrlExtensionsTests
     [InlineData("file.supercalifragilisticexpialidocious", 20)]
     [InlineData("test.longextension", 5)]
     [InlineData("a.extremelylongextension", 5)]
+    [InlineData("a.txt", 3)]
+    [InlineData("a.txt", 4)]
     public void ToUrlFriendlyFileName_throws_when_extension_too_long(
     string input,
     int maxLength)

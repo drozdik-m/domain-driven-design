@@ -32,7 +32,7 @@ public static class UrlExtensions
         // No extension
         if (lastDotIndex < 0)
         {
-            var friendly = fileName.ToFriendlyFileName().ToUrlFriendly();
+            var friendly = fileName.ToFriendlyFileName().ToUrlFriendly(maxLength: maxLength);
             return friendly.Length > maxLength
                 ? friendly.Substring(0, maxLength)
                 : friendly;
@@ -48,7 +48,7 @@ public static class UrlExtensions
         if (string.IsNullOrEmpty(friendlyExtension))
         {
             return friendlyName.Length > maxLength
-                ? friendlyName.Substring(0, maxLength)
+                ? friendlyName.Substring(0, maxLength).Trim('-')
                 : friendlyName;
         }
 
@@ -65,7 +65,7 @@ public static class UrlExtensions
 
         if (friendlyName.Length > allowedNameLength)
         {
-            friendlyName = friendlyName.Substring(0, allowedNameLength);
+            friendlyName = friendlyName.Substring(0, allowedNameLength).Trim('-');
         }
 
         return $"{friendlyName}.{friendlyExtension}";
@@ -129,19 +129,20 @@ public static class UrlExtensions
                 result.Append('-');
                 previousWasDash = true;
             }
-
-            // Check max length
-            if (maxLength > 0 && result.Length >= maxLength)
-            {
-                break;
-            }
         }
 
         // Trim dashes from start and end
         var slug = result.ToString().Trim('-');
 
         // Remove duplicate dashes
-        return slug.RemoveNeighbourlyRepeatingString("-");
+        slug = slug.RemoveNeighbourlyRepeatingString("-");
+
+        // Limit length
+        slug = slug.Length <= maxLength
+            ? slug
+            : slug.Substring(0, maxLength).Trim('-');
+
+        return slug;
     }
 
     /// <summary>
