@@ -28,13 +28,13 @@ public class ThrowIfDuplicateMembersTests
 
     private class TestEnum : StaticEnumeration<TestEnum>
     {
+        public static readonly TestEnum Value1 = new(nameof(Value1));
+        public static readonly TestEnum Value2 = new(nameof(Value2));
+        public static readonly TestEnum DuplicateValue1 = new(nameof(Value1)); // Duplicate of Value1
+
         private TestEnum(EnumerationName name)
             : base(name)
         {
         }
-
-        public static readonly TestEnum Value1 = new(nameof(Value1));
-        public static readonly TestEnum Value2 = new(nameof(Value2));
-        public static readonly TestEnum DuplicateValue1 = new(nameof(Value1)); // Duplicate of Value1
     }
 }
