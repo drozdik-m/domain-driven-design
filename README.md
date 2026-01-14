@@ -1,6 +1,10 @@
 # DDD library
 
+# MartinDrozdik.DDD
 
+[![Build, test and publish nuget package](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml/badge.svg)](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml)
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Models.svg)](https://www.nuget.org/packages/MartinDrozdik.DDD.Models/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Models.svg)](https://www.nuget.org/packages/MartinDrozdik.DDD.Models/)
 
 ## Result vs Exception
 

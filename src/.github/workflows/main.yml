@@ -1,0 +1,123 @@
+name: Build, test and publish nuget package
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  SOLUTION_PATH: './src/MartinDrozdik.DDD.slnx'
+
+  MODELS_PROJECT: './src/MartinDrozdik.DDD.Models/MartinDrozdik.DDD.Models.csproj'
+  MODELS_PROJECT_TESTS: './src/MartinDrozdik.DDD.Models.Tests/MartinDrozdik.DDD.Models.Tests.csproj'
+
+  DEMO_PROJECT_PATH: './src/MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj'
+  DEMO_PROJECT_CLIENT_PATH: './src/MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj'
+  DEMO_PROJECT_TESTS: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Display .NET version
+      run: dotnet --version
+        
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+      
+    - name: Build solution
+      run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          src/**/bin/Release/**
+          src/**/obj/Release/**
+        retention-days: 1
+
+#  publish-nuget:
+#    needs: build-and-test
+#    runs-on: ubuntu-latest
+#    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      with:
+#        fetch-depth: 0
+#        
+#    - name: Setup .NET
+#      uses: actions/setup-dotnet@v4
+#      with:
+#        dotnet-version: ${{ env.DOTNET_VERSION }}
+#        
+#    - name: Restore dependencies
+#      run: dotnet restore ${{ env.SOLUTION_PATH }}
+#      
+#    - name: Build NuGet project
+#      run: dotnet build ${{ env.NUGET_PROJECT }} --configuration Release --no-restore
+#      
+#    - name: Check if version exists on NuGet
+#      id: check_version
+#      run: |
+#        VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" ${{ env.NUGET_PROJECT }})
+#        echo "version=$VERSION" >> $GITHUB_OUTPUT
+#        
+#        PACKAGE_NAME=$(grep -oPm1 "(?<=<PackageId>)[^<]+" ${{ env.NUGET_PROJECT }})
+#        if [ -z "$PACKAGE_NAME" ]; then
+#          PACKAGE_NAME=$(basename ${{ env.NUGET_PROJECT }} .csproj)
+#        fi
+#        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+#        
+#        if dotnet nuget list source | grep -q "nuget.org"; then
+#          echo "NuGet.org source already configured"
+#        else
+#          dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+#        fi
+#        
+#        # Check if version exists
+#        SEARCH_RESULT=$(dotnet package search $PACKAGE_NAME --exact-match --take 1 2>/dev/null || echo "")
+#        
+#        if echo "$SEARCH_RESULT" | grep -q "$VERSION"; then
+#          echo "should_publish=false" >> $GITHUB_OUTPUT
+#          echo "Version $VERSION already exists on NuGet.org"
+#        else
+#          echo "should_publish=true" >> $GITHUB_OUTPUT
+#          echo "Version $VERSION is new, will publish"
+#        fi
+#        
+#    - name: Pack NuGet package
+#      if: steps.check_version.outputs.should_publish == 'true'
+#      run: dotnet pack ${{ env.NUGET_PROJECT }} --configuration Release --no-build --output ./nupkg
+#      
+#    - name: Publish to NuGet
+#      if: steps.check_version.outputs.should_publish == 'true'
+#      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+#      
+#    - name: Create GitHub Release
+#      if: steps.check_version.outputs.should_publish == 'true'
+#      uses: actions/create-release@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        tag_name: v${{ steps.check_version.outputs.version }}
+#        release_name: Release ${{ steps.check_version.outputs.version }}
+#        body: |
+#          NuGet package version ${{ steps.check_version.outputs.version }} published
+#          Package: ${{ steps.check_version.outputs.package_name }}
+#        draft: false
+#        prerelease: false
