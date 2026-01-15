@@ -10,8 +10,8 @@ env:
   DOTNET_VERSION: '10.0.x'
   SOLUTION_PATH: './src/MartinDrozdik.DDD.slnx'
 
-  MODELS_PROJECT: './src/MartinDrozdik.DDD.Models/MartinDrozdik.DDD.csproj'
-  MODELS_PROJECT_TESTS: './src/MartinDrozdik.DDD.Models.Tests/MartinDrozdik.DDD.Tests.csproj'
+  MODELS_PROJECT: './src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj'
+  MODELS_PROJECT_TESTS: './src/MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj'
 
   DEMO_PROJECT_PATH: './src/MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj'
   DEMO_PROJECT_CLIENT_PATH: './src/MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj'
