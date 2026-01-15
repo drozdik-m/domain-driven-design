@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Models.Errors.WellKnown;
+﻿using MartinDrozdik.DDD.Errors.WellKnown;
+
+namespace MartinDrozdik.DDD.Models.Errors.WellKnown;
 
 /// <summary>
 /// Provides a set of predefined service errors.

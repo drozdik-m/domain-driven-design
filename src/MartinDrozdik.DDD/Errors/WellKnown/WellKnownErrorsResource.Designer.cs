@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MartinDrozdik.DDD.Models.Enumerations.Errors {
+namespace MartinDrozdik.DDD.Errors.WellKnown {
     using System;
     
     
@@ -19,17 +19,17 @@ namespace MartinDrozdik.DDD.Models.Enumerations.Errors {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class EnumerationErrorsResource {
+    internal class WellKnownErrorsResource {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal EnumerationErrorsResource() {
+        internal WellKnownErrorsResource() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace MartinDrozdik.DDD.Models.Enumerations.Errors {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("MartinDrozdik.DDD.Models.Enumerations.Errors.EnumerationErrorsResource", typeof(EnumerationErrorsResource).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("MartinDrozdik.DDD.Errors.WellKnown.WellKnownErrorsResource", typeof(WellKnownErrorsResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -61,11 +61,38 @@ namespace MartinDrozdik.DDD.Models.Enumerations.Errors {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Enumeration value {0} not found for {1}..
+        ///   Looks up a localized string similar to The item already exists..
         /// </summary>
-        internal static string EnumerationNameNotFoundError {
+        internal static string AlreadyExists {
             get {
-                return ResourceManager.GetString("EnumerationNameNotFoundError", resourceCulture);
+                return ResourceManager.GetString("AlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An invariant has been violated..
+        /// </summary>
+        internal static string InvariantError {
+            get {
+                return ResourceManager.GetString("InvariantError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invariants have been violated..
+        /// </summary>
+        internal static string InvariantErrors {
+            get {
+                return ResourceManager.GetString("InvariantErrors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested item was not found..
+        /// </summary>
+        internal static string NotFound {
+            get {
+                return ResourceManager.GetString("NotFound", resourceCulture);
             }
         }
     }

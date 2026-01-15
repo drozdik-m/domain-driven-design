@@ -64,8 +64,7 @@ public class InitializableEnumerationTests
         EnumerationEnumeratorAssertions.AssertGetAll(TestEnum.Values);
     }
 
-    private class TestEnum(EnumerationName name)
-    : InitializableEnumeration<TestEnum>(name)
+    private class TestEnum(EnumerationName name) : InitializableEnumeration<TestEnum>(name)
     {
         // Well known values
         public static readonly TestEnum Value1 = new(nameof(Value1));
@@ -79,15 +78,14 @@ public class InitializableEnumerationTests
             ];
     }
 
-    private class TestEnumWithWellKnown(EnumerationName name)
-        : InitializableEnumeration<TestEnum>(name)
+    private class TestEnumWithWellKnown(EnumerationName name) : InitializableEnumeration<TestEnumWithWellKnown>(name)
     {
         // Well known values
         public static readonly TestEnum Value1 = new(nameof(Value1));
         public static readonly TestEnum Value2 = new(nameof(Value2));
     }
 
-    private class UninitializedEnum : InitializableEnumeration<TestEnum>
+    private class UninitializedEnum : InitializableEnumeration<UninitializedEnum>
     {
         // Well known values
         public static readonly TestEnum Value1 = new(nameof(Value1));

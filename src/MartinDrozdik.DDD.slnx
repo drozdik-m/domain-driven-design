@@ -7,6 +7,6 @@
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
   </Folder>
-  <Project Path="MartinDrozdik.DDD.Models.Tests/MartinDrozdik.DDD.Models.Tests.csproj" />
-  <Project Path="MartinDrozdik.DDD.Models/MartinDrozdik.DDD.Models.csproj" />
+  <Project Path="MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj" />
+  <Project Path="MartinDrozdik.DDD/MartinDrozdik.DDD.csproj" />
 </Solution>

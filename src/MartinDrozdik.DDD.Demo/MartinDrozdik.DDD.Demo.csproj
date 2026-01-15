@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MartinDrozdik.DDD.Models\MartinDrozdik.DDD.Models.csproj" />
+    <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
   </ItemGroup>
 
 </Project>
