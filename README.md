@@ -1,5 +1,7 @@
 # DDD library
 
+README IN PROGRESS
+
 # MartinDrozdik.DDD
 
 [![Build, test and publish nuget package](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml/badge.svg)](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml)
