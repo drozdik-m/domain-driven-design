@@ -89,7 +89,7 @@ jobs:
         comment_mode: off
         files: |
           TestResults/**/*.trx
-        check_name: .NET Test Results
+        check_name: Test results
 
   publish-nuget:
     name: Publish NuGet Package
@@ -116,4 +116,4 @@ jobs:
       run: dotnet pack ${{ env.MODELS_PROJECT }} --configuration Release --no-build --output ./packages
       
     - name: Publish to NuGet
-      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
