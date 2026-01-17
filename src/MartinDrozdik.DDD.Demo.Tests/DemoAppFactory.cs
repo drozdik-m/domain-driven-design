@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
@@ -10,6 +11,8 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<Program>
 {
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"test_db_{Guid.NewGuid()}.db");
+
     public DddClient CreateDddClient()
     {
         var httpClient = CreateClient();
@@ -26,6 +29,15 @@ public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplication
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            // Add your test-specific configuration
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}",
+            });
+        });
+
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
@@ -33,5 +45,23 @@ public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplication
             logging.SetMinimumLevel(LogLevel.Information);
             logging.AddXUnit(testOutputHelper);
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && File.Exists(_dbPath))
+        {
+            // Clean up the test database file
+            try
+            {
+                File.Delete(_dbPath);
+            }
+            catch
+            {
+                // Ignore errors during cleanup
+            }
+        }
+
+        base.Dispose(disposing);
     }
 }
