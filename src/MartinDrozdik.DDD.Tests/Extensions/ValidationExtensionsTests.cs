@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
+using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Errors.WellKnown;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Extensions;

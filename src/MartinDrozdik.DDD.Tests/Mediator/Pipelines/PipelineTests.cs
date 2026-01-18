@@ -1,4 +1,5 @@
 ﻿using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestPipelines;
 using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 
 namespace MartinDrozdik.DDD.Tests.Mediator.Pipelines;

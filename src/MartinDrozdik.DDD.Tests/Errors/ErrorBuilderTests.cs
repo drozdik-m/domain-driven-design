@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Tests.Errors;
+﻿using MartinDrozdik.DDD.Errors;
+
+namespace MartinDrozdik.DDD.Tests.Errors;
 
 public class ErrorBuilderTests
 {
