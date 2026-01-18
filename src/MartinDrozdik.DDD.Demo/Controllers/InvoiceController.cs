@@ -1,7 +1,7 @@
 using System.Net.Mime;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
-using MartinDrozdik.DDD.Models.Mediator;
+using MartinDrozdik.DDD.Mediator;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MartinDrozdik.DDD.Demo.Controllers;

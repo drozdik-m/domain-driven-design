@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+namespace MartinDrozdik.DDD.Mediator.Pipelines;
 
 /// <summary>
 /// Extensions for the pipeline behavior to process requests.

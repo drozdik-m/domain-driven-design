@@ -1,4 +1,4 @@
-﻿using MartinDrozdik.DDD.Models.Exceptions;
+﻿using MartinDrozdik.DDD.Exceptions;
 
 namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 

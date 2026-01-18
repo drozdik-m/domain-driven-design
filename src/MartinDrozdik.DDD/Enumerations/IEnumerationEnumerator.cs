@@ -1,4 +1,4 @@
-namespace MartinDrozdik.DDD.Models.Enumerations;
+namespace MartinDrozdik.DDD.Enumerations;
 
 /// <summary>
 /// An enumeration that can list all its members.

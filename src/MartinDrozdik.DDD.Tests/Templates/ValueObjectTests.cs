@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Templates;
+﻿using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Tests.Templates;
+namespace MartinDrozdik.DDD.Tests.Templates;
 
 public class ValueObjectTests
 {

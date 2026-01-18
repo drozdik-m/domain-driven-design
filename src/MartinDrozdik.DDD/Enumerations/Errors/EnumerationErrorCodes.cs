@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Errors;
+﻿using MartinDrozdik.DDD.Errors;
 
-namespace MartinDrozdik.DDD.Models.Enumerations.Errors;
+namespace MartinDrozdik.DDD.Enumerations.Errors;
 
 /// <summary>
 /// Provides a set of predefined error codes.

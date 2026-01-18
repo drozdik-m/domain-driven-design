@@ -1,6 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 
-namespace MartinDrozdik.DDD.Models.Errors;
+namespace MartinDrozdik.DDD.Errors;
 
 /// <summary>
 /// Builder for creating instances of <see cref="Error"/>.

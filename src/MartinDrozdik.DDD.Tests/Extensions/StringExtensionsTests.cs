@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Extensions;
+﻿using MartinDrozdik.DDD.Extensions;
 
-namespace MartinDrozdik.DDD.Models.Tests.Extensions;
+namespace MartinDrozdik.DDD.Tests.Extensions;
 
 public class StringExtensionsTests
 {

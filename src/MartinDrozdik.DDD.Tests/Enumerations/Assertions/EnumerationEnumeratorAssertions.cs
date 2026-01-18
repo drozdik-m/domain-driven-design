@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Enumerations;
+﻿using MartinDrozdik.DDD.Enumerations;
 
-namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Assertions;
+namespace MartinDrozdik.DDD.Tests.Enumerations.Assertions;
 
 /// <summary>
 /// Assertions for <see cref="IEnumerationEnumerator{TEnumeration}"/> implementations.

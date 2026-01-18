@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
+namespace MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 
 internal record TestPipelineQuery(int Result) : IQuery<int>
 {

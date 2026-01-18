@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
+﻿using MartinDrozdik.DDD.Identities.Primitive;
+
+namespace MartinDrozdik.DDD.Demo.Models.Aggregates;
 
 /// <summary>
 /// Identity of <see cref="InvoiceId"/> aggregate.

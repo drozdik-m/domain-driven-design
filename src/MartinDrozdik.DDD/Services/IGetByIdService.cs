@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
+using MartinDrozdik.DDD.Errors;
 
-namespace MartinDrozdik.DDD.Models.Services;
+namespace MartinDrozdik.DDD.Services;
 
 /// <summary>
 /// Service for getting specific item.

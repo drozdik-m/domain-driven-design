@@ -1,4 +1,6 @@
-﻿namespace MartinDrozdik.DDD.Demo.Models.Enumerations;
+﻿using MartinDrozdik.DDD.Enumerations;
+
+namespace MartinDrozdik.DDD.Demo.Models.Enumerations;
 
 public class InvoiceState(EnumerationName name) : Enumeration(name)
 {

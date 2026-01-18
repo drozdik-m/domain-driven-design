@@ -1,6 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 
-namespace MartinDrozdik.DDD.Models.Tests;
+namespace MartinDrozdik.DDD.Tests;
 
 internal static class ResultAssert
 {

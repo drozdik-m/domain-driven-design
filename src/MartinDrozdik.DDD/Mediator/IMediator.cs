@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Mediator;
+namespace MartinDrozdik.DDD.Mediator;
 
 /// <summary>
 /// Mediator for sending and handling requests.

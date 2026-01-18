@@ -1,8 +1,8 @@
-using MartinDrozdik.DDD.Models.Enumerations;
+using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
-using MartinDrozdik.DDD.Models.Tests.Enumerations.Assertions;
+using MartinDrozdik.DDD.Tests.Enumerations.Assertions;
 
-namespace MartinDrozdik.DDD.Models.Tests.Enumerations;
+namespace MartinDrozdik.DDD.Tests.Enumerations;
 
 public class StaticEnumerationTests
 {

@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
 
-namespace MartinDrozdik.DDD.Models.Extensions;
+namespace MartinDrozdik.DDD.Extensions;
 
 /// <summary>
 /// Provides extension methods for url manipulation.

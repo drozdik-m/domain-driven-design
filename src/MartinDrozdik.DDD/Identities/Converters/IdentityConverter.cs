@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
+using MartinDrozdik.DDD.Identities;
 
-namespace MartinDrozdik.DDD.Models.Identities.Converters;
+namespace MartinDrozdik.DDD.Identities.Converters;
 
 /// <summary>
 /// Provides factory and conversion expressions for Identity types.

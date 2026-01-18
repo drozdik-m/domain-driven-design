@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator;
+﻿namespace MartinDrozdik.DDD.Mediator;
 
 /// <summary>
 /// A mediator request with a unit response.

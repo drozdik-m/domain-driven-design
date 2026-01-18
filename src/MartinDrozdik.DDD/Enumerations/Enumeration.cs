@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using MartinDrozdik.DDD.Models.Templates;
+using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Enumerations;
+namespace MartinDrozdik.DDD.Enumerations;
 
 /// <summary>
 /// Base class for enumeration types.

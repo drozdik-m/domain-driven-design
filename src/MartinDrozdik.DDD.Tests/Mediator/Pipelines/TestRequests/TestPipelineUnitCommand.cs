@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
+namespace MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 
 internal record TestPipelineUnitCommand : ICommand
 {

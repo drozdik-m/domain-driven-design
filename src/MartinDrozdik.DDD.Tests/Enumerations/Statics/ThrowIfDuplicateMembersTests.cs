@@ -1,7 +1,7 @@
-using MartinDrozdik.DDD.Models.Enumerations;
+using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
 
-namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Statics;
+namespace MartinDrozdik.DDD.Tests.Enumerations.Statics;
 
 public class ThrowIfDuplicateMembersTests
 {

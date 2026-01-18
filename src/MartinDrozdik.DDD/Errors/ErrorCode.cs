@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
-using MartinDrozdik.DDD.Models.Templates;
+using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Errors;
+namespace MartinDrozdik.DDD.Errors;
 
 /// <summary>
 /// An error code that represents a specific identifier of an error type in the system.

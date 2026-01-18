@@ -1,8 +1,8 @@
 ﻿using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Mediator.Queries;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
+namespace MartinDrozdik.DDD.Tests.Mediator.TestRequests;
 
 internal record TestQuery1(int Result)
     : IQuery<int>

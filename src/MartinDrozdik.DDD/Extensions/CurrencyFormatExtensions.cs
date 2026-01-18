@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace MartinDrozdik.DDD.Models.Extensions;
+namespace MartinDrozdik.DDD.Extensions;
 
 /// <summary>
 /// Extensions for currency formatting.

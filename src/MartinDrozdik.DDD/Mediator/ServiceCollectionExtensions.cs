@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace MartinDrozdik.DDD.Models.Mediator;
+namespace MartinDrozdik.DDD.Mediator;
 
 /// <summary>
 /// Extension methods for adding Mediator services to the service collection.

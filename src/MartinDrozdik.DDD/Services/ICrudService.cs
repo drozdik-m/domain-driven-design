@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Templates;
+﻿using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Services;
+namespace MartinDrozdik.DDD.Services;
 
 /// <summary>
 /// Service combining CRUD operations.

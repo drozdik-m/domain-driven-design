@@ -1,5 +1,5 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+using MartinDrozdik.DDD.Mediator.Queries;
 using Microsoft.EntityFrameworkCore;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;

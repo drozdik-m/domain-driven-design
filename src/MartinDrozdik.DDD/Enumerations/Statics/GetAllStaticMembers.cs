@@ -1,5 +1,6 @@
 using System.Reflection;
 using CSharpFunctionalExtensions;
+using MartinDrozdik.DDD.Enumerations;
 
 namespace MartinDrozdik.DDD.Models.Enumerations.Statics;
 

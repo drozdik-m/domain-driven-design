@@ -1,6 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
-using MartinDrozdik.DDD.Models.Identities.Converters;
+using MartinDrozdik.DDD.Identities.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

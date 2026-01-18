@@ -1,8 +1,8 @@
-﻿using MartinDrozdik.DDD.Models.Mediator;
-using MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
+﻿using MartinDrozdik.DDD.Mediator;
+using MartinDrozdik.DDD.Tests.Mediator.TestRequests;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator;
+namespace MartinDrozdik.DDD.Tests.Mediator;
 
 public class ServiceMediatorTests
 {

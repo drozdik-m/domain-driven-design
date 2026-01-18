@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Templates;
+﻿namespace MartinDrozdik.DDD.Templates;
 
 /// <summary>
 /// An aggregate that represents a single usecase unit in a domain-driven design context.

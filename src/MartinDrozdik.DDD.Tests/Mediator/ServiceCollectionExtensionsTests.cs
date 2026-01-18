@@ -1,10 +1,10 @@
-﻿using MartinDrozdik.DDD.Models.Mediator;
+﻿using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Models.Mediator.Pipelines;
-using MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestPipelines;
-using MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
+using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestPipelines;
+using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator;
+namespace MartinDrozdik.DDD.Tests.Mediator;
 
 public class ServiceCollectionExtensionsTests
 {

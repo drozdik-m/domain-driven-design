@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Identities;
+﻿namespace MartinDrozdik.DDD.Identities;
 
 /// <summary>
 /// Strongly typed identifier for domain entities and aggregates.

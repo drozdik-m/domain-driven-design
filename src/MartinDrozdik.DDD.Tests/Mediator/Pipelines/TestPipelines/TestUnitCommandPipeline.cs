@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Pipelines;
-using MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
+﻿using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestPipelines;
+namespace MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestPipelines;
 
 internal class TestUnitCommandPipeline(string id) : IPipelineBehavior<TestPipelineUnitCommand>
 {

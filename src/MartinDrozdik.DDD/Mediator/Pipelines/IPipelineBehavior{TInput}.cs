@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Mediator.Pipelines;
 
 /// <summary>
 /// Delegate for the next step in the pipeline.

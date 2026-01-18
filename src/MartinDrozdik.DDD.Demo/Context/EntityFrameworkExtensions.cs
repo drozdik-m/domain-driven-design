@@ -1,5 +1,5 @@
-﻿using MartinDrozdik.DDD.Models.Identities;
-using MartinDrozdik.DDD.Models.Identities.Converters;
+﻿using MartinDrozdik.DDD.Identities;
+using MartinDrozdik.DDD.Identities.Converters;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace MartinDrozdik.DDD.Demo.Context;

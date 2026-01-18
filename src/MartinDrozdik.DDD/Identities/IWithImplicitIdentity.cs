@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Identities;
+﻿namespace MartinDrozdik.DDD.Identities;
 
 /// <summary>
 /// Complement interface for <see cref="IIdentity{TValue}"/> that provides an implicit casting from <typeparamref name="TValue"/> to the strongly typed ID.

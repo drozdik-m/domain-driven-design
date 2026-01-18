@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Errors;
+﻿namespace MartinDrozdik.DDD.Errors;
 
 /// <summary>
 /// Represents a detail of the error.

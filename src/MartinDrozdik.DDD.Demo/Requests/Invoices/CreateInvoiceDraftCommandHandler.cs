@@ -2,7 +2,7 @@
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
-using MartinDrozdik.DDD.Models.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Commands;
 using Microsoft.EntityFrameworkCore;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;

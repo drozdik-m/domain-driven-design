@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Pipelines;
-using MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines.TestRequests;
+﻿using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.Pipelines;
+namespace MartinDrozdik.DDD.Tests.Mediator.Pipelines;
 
 public class EmptyPipelineTests
 {

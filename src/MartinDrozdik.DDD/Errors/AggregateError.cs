@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace MartinDrozdik.DDD.Models.Errors;
+namespace MartinDrozdik.DDD.Errors;
 
 /// <summary>
 /// Represents an aggregate error that contains multiple errors.

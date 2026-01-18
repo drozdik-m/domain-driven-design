@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Exceptions;
+﻿namespace MartinDrozdik.DDD.Mediator.Exceptions;
 
 /// <summary>
 /// Represents errors that occur within the Mediator framework.

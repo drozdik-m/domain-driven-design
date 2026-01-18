@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Services;
+﻿namespace MartinDrozdik.DDD.Services;
 
 /// <summary>
 /// Represents a service that deletes an instance by its key.

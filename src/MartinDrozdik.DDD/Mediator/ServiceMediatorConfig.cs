@@ -1,9 +1,9 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
-using MartinDrozdik.DDD.Models.Mediator.Pipelines;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Mediator.Queries;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MartinDrozdik.DDD.Models.Mediator;
+namespace MartinDrozdik.DDD.Mediator;
 
 /// <summary>
 /// Configuration class for the Mediator service.

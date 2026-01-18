@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Mediator.Pipelines;
 
 /// <summary>
 /// Represents an empty pipeline that does nothing and returns the next step in the pipeline.

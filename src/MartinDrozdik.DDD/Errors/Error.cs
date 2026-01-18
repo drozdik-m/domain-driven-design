@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using MartinDrozdik.DDD.Models.Templates;
+using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Errors;
+namespace MartinDrozdik.DDD.Errors;
 
 /// <summary>
 /// Represents an error that occurred during the execution of the application.

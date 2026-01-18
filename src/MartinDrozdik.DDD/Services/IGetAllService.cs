@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Services;
+﻿namespace MartinDrozdik.DDD.Services;
 
 /// <summary>
 /// Represents a service that gets all saved items.

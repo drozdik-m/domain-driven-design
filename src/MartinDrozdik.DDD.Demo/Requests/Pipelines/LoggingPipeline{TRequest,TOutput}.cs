@@ -1,5 +1,5 @@
-﻿using MartinDrozdik.DDD.Models.Mediator;
-using MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿using MartinDrozdik.DDD.Mediator;
+using MartinDrozdik.DDD.Mediator.Pipelines;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Pipelines;
 

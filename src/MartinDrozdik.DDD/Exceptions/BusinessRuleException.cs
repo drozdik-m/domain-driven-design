@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Exceptions;
+﻿namespace MartinDrozdik.DDD.Exceptions;
 
 /// <summary>
 /// Represents errors that occured within business rules.

@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Mediator.Commands;
 
 /// <inheritdoc cref="ICommandHandler{TCommand}"/>
 /// <typeparam name="TCommand">The command to be handled.</typeparam>

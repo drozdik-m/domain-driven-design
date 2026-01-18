@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿namespace MartinDrozdik.DDD.Mediator.Queries;
 
 /// <summary>
 /// Represents a query in the CQRS pattern.

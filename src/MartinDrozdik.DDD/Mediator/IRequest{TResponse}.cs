@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator;
+﻿namespace MartinDrozdik.DDD.Mediator;
 
 #pragma warning disable S2326 // Unused type parameters should be removed
 /// <summary>

@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Enumerations.Errors;
+using MartinDrozdik.DDD.Enumerations.Errors;
+using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
-using MartinDrozdik.DDD.Models.Errors;
 
-namespace MartinDrozdik.DDD.Models.Enumerations;
+namespace MartinDrozdik.DDD.Enumerations;
 
 /// <summary>
 /// Static enumeration, where all members are known at compile time as static properties.

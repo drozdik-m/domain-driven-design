@@ -1,4 +1,4 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Queries;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 

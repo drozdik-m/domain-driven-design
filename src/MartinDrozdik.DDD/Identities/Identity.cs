@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
-using MartinDrozdik.DDD.Models.Templates;
+using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Identities;
+namespace MartinDrozdik.DDD.Identities;
 
 /// <inheritdoc cref="IIdentity{TValue}"/>
 /// <typeparam name="TKey">Actual value of the ID.</typeparam>

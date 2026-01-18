@@ -1,8 +1,8 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
-using MartinDrozdik.DDD.Models.Mediator.Queries;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Queries;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
+namespace MartinDrozdik.DDD.Tests.Mediator.TestRequests;
 
 internal static class ServiceCollectionExtensions
 {

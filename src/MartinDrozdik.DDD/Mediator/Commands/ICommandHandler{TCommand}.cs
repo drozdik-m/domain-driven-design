@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Mediator.Commands;
 
 /// <summary>
 /// Represents a command handler in the CQRS pattern.

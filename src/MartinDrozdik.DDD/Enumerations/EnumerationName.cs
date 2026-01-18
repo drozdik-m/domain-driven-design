@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
-using MartinDrozdik.DDD.Models.Identities;
-using MartinDrozdik.DDD.Models.Templates;
+using MartinDrozdik.DDD.Identities;
+using MartinDrozdik.DDD.Templates;
 
-namespace MartinDrozdik.DDD.Models.Enumerations;
+namespace MartinDrozdik.DDD.Enumerations;
 
 /// <summary>
 /// Enumeration name acting as a unique identifier for an enumeration value.

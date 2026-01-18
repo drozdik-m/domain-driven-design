@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 
-namespace MartinDrozdik.DDD.Models.Tests;
+namespace MartinDrozdik.DDD.Tests;
 
 /// <summary>
 /// Utility class for testing equality and hash code behavior of types implementing <see cref="IEqualityComparer{T}"/> and <see cref="IEquatable{T}"/>.

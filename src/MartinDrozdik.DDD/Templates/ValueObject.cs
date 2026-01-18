@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 
-namespace MartinDrozdik.DDD.Models.Templates;
+namespace MartinDrozdik.DDD.Templates;
 
 /// <summary>
 /// Represents a base class for value objects in a domain-driven design context.

@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Models.Enumerations;
-using MartinDrozdik.DDD.Models.Enumerations.Errors;
+﻿using MartinDrozdik.DDD.Enumerations;
+using MartinDrozdik.DDD.Enumerations.Errors;
 
-namespace MartinDrozdik.DDD.Models.Tests.Enumerations.Assertions;
+namespace MartinDrozdik.DDD.Tests.Enumerations.Assertions;
 
 /// <summary>
 /// Assertions for <see cref="IEnumerationDeserializer{TEnumeration}"/> implementations.

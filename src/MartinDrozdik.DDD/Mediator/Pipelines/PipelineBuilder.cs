@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Mediator.Pipelines;
+﻿namespace MartinDrozdik.DDD.Mediator.Pipelines;
 
 /// <summary>
 /// Builds a pipeline of behaviors that can process input and produce output.

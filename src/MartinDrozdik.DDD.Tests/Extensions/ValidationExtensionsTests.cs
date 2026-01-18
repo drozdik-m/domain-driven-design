@@ -1,12 +1,11 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using MartinDrozdik.DDD.Errors.WellKnown;
+using MartinDrozdik.DDD.Exceptions;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Models.Errors;
-using MartinDrozdik.DDD.Models.Errors.WellKnown;
-using MartinDrozdik.DDD.Models.Exceptions;
-using MartinDrozdik.DDD.Models.Extensions;
 
-namespace MartinDrozdik.DDD.Models.Tests.Extensions;
+namespace MartinDrozdik.DDD.Tests.Extensions;
 
 public class ValidationExtensionsTests
 {

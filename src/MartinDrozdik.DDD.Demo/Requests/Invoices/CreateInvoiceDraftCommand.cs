@@ -1,5 +1,5 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
-using MartinDrozdik.DDD.Models.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Commands;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 

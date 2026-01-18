@@ -1,6 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 
-namespace MartinDrozdik.Hosting.Observability.Logging;
+namespace MartinDrozdik.DDD.Demo.Middlewares;
 
 public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<RequestResponseLoggingMiddleware> logger)
 {

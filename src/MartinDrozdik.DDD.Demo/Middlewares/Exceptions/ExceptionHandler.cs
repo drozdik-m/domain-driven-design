@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using MartinDrozdik.DDD.Models.Exceptions;
+using MartinDrozdik.DDD.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;

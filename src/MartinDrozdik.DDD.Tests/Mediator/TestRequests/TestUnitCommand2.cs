@@ -1,6 +1,6 @@
-﻿using MartinDrozdik.DDD.Models.Mediator.Commands;
+﻿using MartinDrozdik.DDD.Mediator.Commands;
 
-namespace MartinDrozdik.DDD.Models.Tests.Mediator.TestRequests;
+namespace MartinDrozdik.DDD.Tests.Mediator.TestRequests;
 
 internal class TestUnitCommand2 : ICommand
 {

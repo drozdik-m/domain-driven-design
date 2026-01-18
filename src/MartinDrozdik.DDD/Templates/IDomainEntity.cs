@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Models.Templates;
+﻿namespace MartinDrozdik.DDD.Templates;
 
 /// <summary>
 /// An entity that represents an object which identity is defined by its Id.

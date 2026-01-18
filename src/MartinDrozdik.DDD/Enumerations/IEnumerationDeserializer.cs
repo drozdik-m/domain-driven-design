@@ -1,7 +1,7 @@
 using CSharpFunctionalExtensions;
-using MartinDrozdik.DDD.Models.Errors;
+using MartinDrozdik.DDD.Errors;
 
-namespace MartinDrozdik.DDD.Models.Enumerations;
+namespace MartinDrozdik.DDD.Enumerations;
 
 /// <summary>
 /// Deserializes enumeration members from a name ID.
