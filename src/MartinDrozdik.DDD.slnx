@@ -8,5 +8,6 @@
     <File Path=".editorconfig" />
   </Folder>
   <Project Path="MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj" />
+  <Project Path="MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj" />
   <Project Path="MartinDrozdik.DDD/MartinDrozdik.DDD.csproj" />
 </Solution>

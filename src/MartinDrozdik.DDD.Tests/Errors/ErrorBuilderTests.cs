@@ -1,6 +1,4 @@
-﻿using MartinDrozdik.DDD.Models.Errors;
-
-namespace MartinDrozdik.DDD.Tests.Errors;
+﻿namespace MartinDrozdik.DDD.Tests.Errors;
 
 public class ErrorBuilderTests
 {

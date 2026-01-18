@@ -1,6 +1,4 @@
-﻿using MartinDrozdik.DDD.Mediator;
-
-namespace MartinDrozdik.DDD.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Mediator.Commands;
 
 /// <summary>
 /// Represents a command in the CQRS pattern.

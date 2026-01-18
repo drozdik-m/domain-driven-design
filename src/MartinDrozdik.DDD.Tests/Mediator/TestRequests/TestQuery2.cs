@@ -1,7 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Mediator.Queries;
-using MartinDrozdik.DDD.Tests;
 
 namespace MartinDrozdik.DDD.Tests.Mediator.TestRequests;
 

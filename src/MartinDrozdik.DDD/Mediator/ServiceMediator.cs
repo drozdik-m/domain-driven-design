@@ -1,7 +1,7 @@
 ﻿using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Mediator.Exceptions;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Queries;
-using MartinDrozdik.DDD.Models.Mediator.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Mediator;

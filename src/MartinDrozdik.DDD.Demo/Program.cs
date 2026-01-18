@@ -3,12 +3,14 @@ using MartinDrozdik.DDD.Demo.Middlewares;
 using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Demo.Middlewares.OpenApi;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
+using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Demo.Requests.Pipelines;
 using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Queries;
+using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -16,6 +18,9 @@ using ICommand = MartinDrozdik.DDD.Mediator.Commands.ICommand;
 
 // --- BUILDER ---
 var builder = WebApplication.CreateBuilder(args);
+
+// Add options
+builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
 // Add logging
 builder.Logging.AddConsole();

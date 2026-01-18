@@ -1,6 +1,4 @@
-﻿using MartinDrozdik.DDD.Mediator;
-
-namespace MartinDrozdik.DDD.Mediator.Commands;
+﻿namespace MartinDrozdik.DDD.Mediator.Commands;
 
 /// <inheritdoc cref="ICommand"/>
 /// <typeparam name="TResponse">The type of the response expected from the command.</typeparam>

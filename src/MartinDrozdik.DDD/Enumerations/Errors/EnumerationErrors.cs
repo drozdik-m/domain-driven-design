@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Errors;
-using MartinDrozdik.DDD.Models.Errors;
 
 namespace MartinDrozdik.DDD.Enumerations.Errors;
 

@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Mediator;
-using MartinDrozdik.DDD.Models.Mediator.Pipelines;
 using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestPipelines;
 using MartinDrozdik.DDD.Tests.Mediator.Pipelines.TestRequests;
 using Microsoft.Extensions.DependencyInjection;

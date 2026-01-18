@@ -3,7 +3,6 @@ using FluentValidation.Results;
 using MartinDrozdik.DDD.Errors.WellKnown;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Extensions;
-using MartinDrozdik.DDD.Models.Errors;
 
 namespace MartinDrozdik.DDD.Tests.Extensions;
 

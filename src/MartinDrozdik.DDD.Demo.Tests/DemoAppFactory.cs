@@ -9,9 +9,22 @@ using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 
-public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<Program>
+public class DemoAppFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"test_db_{Guid.NewGuid()}.db");
+    private readonly ITestOutputHelper _testOutputHelper;
+    private readonly Action<IWebHostBuilder>? _config;
+
+    public DemoAppFactory(ITestOutputHelper testOutputHelper)
+    {
+        _testOutputHelper = testOutputHelper;
+    }
+
+    public DemoAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
+        : this(testOutputHelper)
+    {
+        _config = config;
+    }
 
     public DddClient CreateDddClient()
     {
@@ -43,8 +56,10 @@ public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplication
             logging.ClearProviders();
             logging.AddConsole();
             logging.SetMinimumLevel(LogLevel.Information);
-            logging.AddXUnit(testOutputHelper);
+            logging.AddXUnit(_testOutputHelper);
         });
+
+        _config?.Invoke(builder);
     }
 
     protected override void Dispose(bool disposing)

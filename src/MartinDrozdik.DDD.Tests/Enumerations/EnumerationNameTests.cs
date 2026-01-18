@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Enumerations;
-using MartinDrozdik.DDD.Tests;
 
 namespace MartinDrozdik.DDD.Tests.Enumerations;
 

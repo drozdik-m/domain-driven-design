@@ -2,12 +2,14 @@
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
+using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Mediator.Commands;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions<InvoiceOptions> options) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
@@ -27,7 +29,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context) : IComma
             .Select(i => i.Number.Order);
         var maxOrder = await maxOrderQuery.AnyAsync(cancellationToken)
             ? await maxOrderQuery.MaxAsync(cancellationToken)
-            : 0;
+            : options.Value.StartingId;
         var invoiceNumber = InvoiceNumber.Create(now.Year, maxOrder + 1);
 
         // Get invoice
