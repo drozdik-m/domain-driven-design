@@ -10,9 +10,9 @@ public static class PathExtensions
     /// Windows + generally unsafe characters across filesystems.
     /// </summary>
     private static readonly char[] s_crossPlatformInvalidFileNameChars =
-    {
+    [
         '<', '>', ':', '"', '/', '\\', '|', '?', '*',
-    };
+    ];
 
     private static readonly char[] s_invalidFileNameChars = BuildInvalidCharSet();
 
