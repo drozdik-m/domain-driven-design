@@ -221,8 +221,7 @@
             "type": "string",
             "format": "uuid"
           }
-        },
-        "description": "Identity of InvoiceId aggregate."
+        }
       },
       "ProblemDetails": {
         "title": "ProblemDetails",

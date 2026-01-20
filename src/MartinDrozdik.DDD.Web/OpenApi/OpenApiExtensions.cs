@@ -1,17 +1,21 @@
 ﻿using Microsoft.AspNetCore.OpenApi;
 
-namespace MartinDrozdik.DDD.Demo.Middlewares.OpenApi;
+namespace MartinDrozdik.DDD.Web.OpenApi;
 
+/// <summary>
+/// Extensions for OpenApi configuration.
+/// </summary>
 public static class OpenApiExtensions
 {
     /// <summary>
     /// Customizes schema IDs using the provided transformer function.
     /// </summary>
-    /// <remarks>Inspiration: https://azuregems.io/net9-openapi-fulltypenames/</remarks>
+    /// <remarks>Inspiration: https://azuregems.io/net9-openapi-fulltypenames/.</remarks>
     /// <param name="config">The OpenApi options to transform.</param>
     /// <param name="typeSchemaTransformer">The name transformer.</param>
     /// <returns>Updated <see cref="OpenApiOptions"/>.</returns>
-    public static OpenApiOptions CustomSchemaIds(this OpenApiOptions config,
+    public static OpenApiOptions CustomSchemaIds(
+        this OpenApiOptions config,
         Func<Type, string?> typeSchemaTransformer)
     {
         return config.AddSchemaTransformer((schema, context, _) =>
@@ -23,7 +27,7 @@ public static class OpenApiExtensions
             }
 
             // Skip if the schema ID is not already set because we don't want to decorate the schema multiple times
-            if (schema.Metadata == null || !schema.Metadata.TryGetValue("x-schema-id", out var _))
+            if (schema.Metadata?.TryGetValue("x-schema-id", out var _) != true)
             {
                 return Task.CompletedTask;
             }
@@ -62,7 +66,7 @@ public static class OpenApiExtensions
                 return type.Name;
             }
 
-            return $"{GatherDeclaringTypes(type.DeclaringType)}{type.Name}";
+            return GatherDeclaringTypes(type.DeclaringType) + type.Name;
         }
 
         return config.CustomSchemaIds(GatherDeclaringTypes);

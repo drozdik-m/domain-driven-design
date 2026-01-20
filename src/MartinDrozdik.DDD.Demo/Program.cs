@@ -1,7 +1,6 @@
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Middlewares;
 using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
-using MartinDrozdik.DDD.Demo.Middlewares.OpenApi;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
@@ -11,6 +10,7 @@ using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Mediator.Queries;
+using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
@@ -48,10 +48,7 @@ builder.Services.AddDbContext<InvoiceDbContext>(options =>
 });
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi(options =>
-{
-    options.ParentDeclarationSchemaIds();
-});
+builder.Services.AddAppOpenApi();
 
 builder.Services.AddMediator(config =>
 {

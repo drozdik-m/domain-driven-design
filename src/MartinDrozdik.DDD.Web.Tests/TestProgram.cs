@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Web.OpenApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,9 +19,6 @@ public class TestProgram
 
         // --- BUILDER ---
         var builder = WebApplication.CreateBuilder(args);
-
-        // Add options
-        //builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
         // Add logging
         builder.Logging.AddConsole();
@@ -46,11 +44,8 @@ public class TestProgram
             }
         });*/
 
-        builder.Services.AddControllers();
-        /*builder.Services.AddOpenApi(options =>
-        {
-            options.ParentDeclarationSchemaIds();
-        });*/
+        // TODO builder.Services.AddAppOpenApi();
+
         /*
         builder.Services.AddMediator(config =>
         {
@@ -87,11 +82,7 @@ public class TestProgram
 
         //app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
-        app.UseAuthorization();
-
-        app.MapControllers();
-
-        app.UseStatusCodePages();
+        // TODO make tests app.MapOpenApi();
 
         app.MapGet("/", () => "Hello World!");
 

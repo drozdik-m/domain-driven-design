@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
 
-namespace MartinDrozdik.DDD.Demo.Tests.Options;
+namespace MartinDrozdik.DDD.Web.Tests.Options;
 
 public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
 {
