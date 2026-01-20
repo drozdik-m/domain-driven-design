@@ -9,6 +9,7 @@ using MartinDrozdik.DDD.Demo.Requests.Pipelines;
 using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Mediator.Queries;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.HttpLogging;
@@ -114,6 +115,7 @@ class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
     public IServiceCollection RegisterQueryPipeline<TQuery, TOutput>(IServiceCollection services) where TQuery : IQuery<TOutput>
     {
         services.AddScoped<LoggingPipeline<TQuery, TOutput>>();
+        services.AddScoped<ValidationPipeline<TQuery, TOutput>>();
         return services;
     }
 
@@ -121,13 +123,15 @@ class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
     public ServicePipelineBuilder<TQuery, TOutput> BuildQueryPipeline<TQuery, TOutput>() where TQuery : IQuery<TOutput>
     {
         return new ServicePipelineBuilder<TQuery, TOutput>()
-            .Add<LoggingPipeline<TQuery, TOutput>>();
+            .Add<LoggingPipeline<TQuery, TOutput>>()
+            .Add<ValidationPipeline<TQuery, TOutput>>();
     }
 
     /// <inheritdoc />
     public IServiceCollection RegisterCommandPipeline<TCommand, TOutput>(IServiceCollection services) where TCommand : ICommand<TOutput>
     {
         services.AddScoped<LoggingPipeline<TCommand, TOutput>>();
+        services.AddScoped<ValidationPipeline<TCommand, TOutput>>();
         return services;
     }
 
@@ -135,13 +139,15 @@ class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
     public ServicePipelineBuilder<TCommand, TOutput> BuildCommandPipeline<TCommand, TOutput>() where TCommand : ICommand<TOutput>
     {
         return new ServicePipelineBuilder<TCommand, TOutput>()
-            .Add<LoggingPipeline<TCommand, TOutput>>();
+            .Add<LoggingPipeline<TCommand, TOutput>>()
+            .Add<ValidationPipeline<TCommand, TOutput>>();
     }
 
     /// <inheritdoc />
     public IServiceCollection RegisterUnitCommandPipeline<TCommand>(IServiceCollection services) where TCommand : ICommand
     {
         services.AddScoped<LoggingPipeline<TCommand>>();
+        services.AddScoped<ValidationPipeline<TCommand>>();
         return services;
     }
 
@@ -149,6 +155,7 @@ class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
     public ServicePipelineBuilder<TCommand> BuildUnitCommandPipeline<TCommand>() where TCommand : ICommand
     {
         return new ServicePipelineBuilder<TCommand>()
-            .Add<LoggingPipeline<TCommand>>();
+            .Add<LoggingPipeline<TCommand>>()
+            .Add<ValidationPipeline<TCommand>>();
     }
 }
