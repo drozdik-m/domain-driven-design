@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Web.Options;
-using Microsoft.EntityFrameworkCore;
+using MartinDrozdik.DDD.Web.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
@@ -13,7 +13,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_builds_successfully_by_default()
     {
         // Arrange
-        var factory = new DemoAppFactory(testOutputHelper);
+        var factory = new TestAppFactory(testOutputHelper);
 
         // Act
         var exception = Record.Exception(factory.StartServer);
@@ -27,7 +27,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new DemoAppFactory(testOutputHelper, config =>
+        var factory = new TestAppFactory(testOutputHelper, config =>
         {
             config.UseSetting($"{TestOptions.Section}:{nameof(TestOptions.SomeString)}", value);
             config.ConfigureServices(services =>
@@ -50,7 +50,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new DemoAppFactory(testOutputHelper, config =>
+        var factory = new TestAppFactory(testOutputHelper, config =>
         {
             config.UseSetting($"{TestOptions.Section}:{nameof(TestOptions.SomeString)}", value);
             config.ConfigureServices(services =>
@@ -72,7 +72,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_with_invalid_options_fails_to_run()
     {
         // Arrange
-        var factory = new DemoAppFactory(testOutputHelper, config =>
+        var factory = new TestAppFactory(testOutputHelper, config =>
         {
             config.ConfigureServices(services =>
             {

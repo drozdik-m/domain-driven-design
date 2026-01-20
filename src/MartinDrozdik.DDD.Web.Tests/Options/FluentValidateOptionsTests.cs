@@ -1,8 +1,7 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Web.Options;
-using Microsoft.EntityFrameworkCore;
 
-namespace MartinDrozdik.DDD.Demo.Tests.Options;
+namespace MartinDrozdik.DDD.Web.Tests.Options;
 
 public class FluentValidateOptionsTests
 {
