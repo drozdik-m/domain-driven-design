@@ -1,6 +1,7 @@
-﻿using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
-namespace MartinDrozdik.DDD.Demo.Middlewares;
+namespace MartinDrozdik.DDD.Web.Tests.Middlewares.Logging;
 
 public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<RequestResponseLoggingMiddleware> logger)
 {
@@ -10,7 +11,7 @@ public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<Requ
     public async Task InvokeAsync(HttpContext context)
     {
         // Log the request
-        MiddlewareLogging.LogRequestInformation(_logger, context);
+        RequestLogging.LogRequestInformation(_logger, context);
 
         // Call the next middleware in the pipeline
         try
@@ -21,16 +22,16 @@ public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<Requ
             if ((context.Response.StatusCode >= 200 && context.Response.StatusCode < 300) ||
                 context.Response.StatusCode == 404)
             {
-                MiddlewareLogging.LogSuccessResponseInformation(_logger, context);
+                RequestLogging.LogSuccessResponseInformation(_logger, context);
             }
             else
             {
-                MiddlewareLogging.LogError(_logger, context, exception: null);
+                RequestLogging.LogError(_logger, context, exception: null);
             }
         }
         catch (Exception e)
         {
-            MiddlewareLogging.LogError(_logger, context, e);
+            RequestLogging.LogError(_logger, context, e);
             throw;
         }
     }

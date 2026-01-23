@@ -1,9 +1,10 @@
+using MartinDrozdik.DDD.Web.Logging;
+using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
@@ -16,18 +17,11 @@ public class TestProgram
     /// <remarks>Must be internal to not be considered entry point.</remarks>
     internal static void Main(string[] args)
     {
-
         // --- BUILDER ---
         var builder = WebApplication.CreateBuilder(args);
-
-        // Add logging
-        builder.Logging.AddConsole();
-
-        // Add error handling
-        /*builder.Services.AddProblemDetails()
-            .AddExceptionHandler<BusinessRuleValidationExceptionHandler>()
-            .AddExceptionHandler<ValidationExceptionHandler>()
-            .AddExceptionHandler<GlobalExceptionHandler>();*/
+        builder.AddAppLogging();
+        builder.Services.AddAppErrorHandling();
+        builder.Services.AddAppOpenApi();
 
         // Add DbContext with SQLite
         /*builder.Services.AddDbContext<InvoiceDbContext>(options =>
@@ -44,8 +38,6 @@ public class TestProgram
             }
         });*/
 
-        // TODO builder.Services.AddAppOpenApi();
-
         /*
         builder.Services.AddMediator(config =>
         {
@@ -53,15 +45,6 @@ public class TestProgram
             config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(pipelineBuilder);
             config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
         });*/
-
-        if (builder.Environment.IsDevelopment())
-        {
-            builder.Services.AddHttpLogging(options =>
-            {
-                options.LoggingFields = HttpLoggingFields.All;
-                options.CombineLogs = true;
-            });
-        }
 
         // --- APP ---
         var app = builder.Build();

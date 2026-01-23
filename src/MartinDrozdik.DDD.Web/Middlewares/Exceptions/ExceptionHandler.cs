@@ -1,9 +1,13 @@
 ﻿using System.Diagnostics;
 using MartinDrozdik.DDD.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 
-namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
+namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 
+/// <summary>
+/// Base class for exception handlers.
+/// </summary>
 public abstract class ExceptionHandler : IExceptionHandler
 {
     /// <inheritdoc />
@@ -11,8 +15,10 @@ public abstract class ExceptionHandler : IExceptionHandler
 
     /// <summary>
     /// Construct extension data for error response.
+    /// Includes trace identifier.
     /// </summary>
-    protected IDictionary<string, object?> GetExtensionData(HttpContext context, Exception? exception)
+    /// <returns>Dictionary of key-value data related to the request.</returns>
+    protected static IDictionary<string, object?> GetExtensionData()
     {
         var traceId = Activity.Current?.TraceId;
 
@@ -27,12 +33,15 @@ public abstract class ExceptionHandler : IExceptionHandler
 
     /// <summary>
     /// Construct extension data for error response.
-    /// Includes business details
+    /// Includes business details if the exception is: <see cref="BusinessRuleException"/>.
     /// </summary>
-    protected IDictionary<string, object?> GetExtensionDataWithDetails(HttpContext context, Exception? exception)
+    /// <param name="exception">The exception to get details from, if any.</param>
+    /// <returns>Dictionary of key-value data related to the request and the <paramref name="exception"/>.</returns>
+    protected static IDictionary<string, object?> GetExtensionDataWithDetails(Exception? exception)
     {
-        var extensionData = GetExtensionData(context, exception);
+        var extensionData = GetExtensionData();
 
+        // Try get details from BusinessRuleException
         var detailsDictionary = exception switch
         {
             BusinessRuleException businessRuleException => businessRuleException.DetailsDictionary,

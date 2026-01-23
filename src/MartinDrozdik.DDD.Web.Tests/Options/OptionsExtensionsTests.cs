@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Web.Options;
-using MartinDrozdik.DDD.Web.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;

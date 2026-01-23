@@ -1,5 +1,4 @@
 using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Demo.Middlewares;
 using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
@@ -10,8 +9,11 @@ using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Mediator.Queries;
+using MartinDrozdik.DDD.Web.Logging;
+using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Options;
+using MartinDrozdik.DDD.Web.Tests.Middlewares.Logging;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -24,13 +26,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
 // Add logging
-builder.Logging.AddConsole();
+builder.AddAppLogging();
 
 // Add error handling
-builder.Services.AddProblemDetails()
-    .AddExceptionHandler<BusinessRuleValidationExceptionHandler>()
-    .AddExceptionHandler<ValidationExceptionHandler>()
-    .AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddAppErrorHandling();
 
 // Add DbContext with SQLite
 builder.Services.AddDbContext<InvoiceDbContext>(options =>
@@ -56,15 +55,6 @@ builder.Services.AddMediator(config =>
     config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(pipelineBuilder);
     config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
 });
-
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddHttpLogging(options =>
-    {
-        options.LoggingFields = HttpLoggingFields.All;
-        options.CombineLogs = true;
-    });
-}
 
 // --- APP ---
 var app = builder.Build();
