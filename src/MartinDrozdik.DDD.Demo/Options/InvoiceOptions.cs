@@ -5,7 +5,7 @@ namespace MartinDrozdik.DDD.Demo.Options;
 public class InvoiceOptions : IValidatedAppOptions<InvoiceOptions>
 {
     /// <inheritdoc />
-    public static string Section { get; } = "Invoice";
+    public static string Section { get; } = "App:Invoice";
 
     /// <inheritdoc />
     public static AbstractValidator<InvoiceOptions> Validator { get; } = new OptionsValidator();

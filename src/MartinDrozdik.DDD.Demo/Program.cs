@@ -9,6 +9,7 @@ using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Mediator.Queries;
+using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
@@ -32,18 +33,9 @@ builder.AddAppLogging();
 builder.Services.AddAppErrorHandling();
 
 // Add DbContext with SQLite
-builder.Services.AddDbContext<InvoiceDbContext>(options =>
+builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-    options.UseSqlite(connectionString);
-
-    // Enable sensitive data logging in development
-    if (builder.Environment.IsDevelopment())
-    {
-        options.EnableSensitiveDataLogging();
-        options.EnableDetailedErrors();
-    }
+    dbBuilder.UseSqlite(options.ConnectionString);
 });
 
 builder.Services.AddControllers();

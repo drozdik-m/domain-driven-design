@@ -1,8 +1,11 @@
+using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -24,19 +27,13 @@ public class TestProgram
         builder.Services.AddAppOpenApi();
 
         // Add DbContext with SQLite
-        /*builder.Services.AddDbContext<InvoiceDbContext>(options =>
+        var dbPath = Path.Combine(Path.GetTempPath(), $"test_db.db");
+        var connectionString = $"Data Source={dbPath}";
+        builder.Configuration[$"{DatabaseOptions.Section}:{nameof(DatabaseOptions.ConnectionString)}"] = connectionString;
+        builder.AddAppDbContext<TestDbContext>((options, dbBuilder) =>
         {
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-            options.UseSqlite(connectionString);
-
-            // Enable sensitive data logging in development
-            if (builder.Environment.IsDevelopment())
-            {
-                options.EnableSensitiveDataLogging();
-                options.EnableDetailedErrors();
-            }
-        });*/
+            dbBuilder.UseSqlite(options.ConnectionString);
+        });
 
         /*
         builder.Services.AddMediator(config =>
@@ -122,5 +119,9 @@ public class TestProgram
             }
         }
         */
+    }
+
+    public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
+    {
     }
 }
