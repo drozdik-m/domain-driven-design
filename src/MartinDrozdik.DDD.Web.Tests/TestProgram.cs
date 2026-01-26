@@ -3,11 +3,7 @@ using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
@@ -18,7 +14,8 @@ public class TestProgram
     /// </summary>
     /// <param name="args">Application arguments.</param>
     /// <remarks>Must be internal to not be considered entry point.</remarks>
-    internal static void Main(string[] args)
+    /// <returns><see cref="Task"/>.</returns>
+    internal static async Task Main(string[] args)
     {
         // --- BUILDER ---
         var builder = WebApplication.CreateBuilder(args);
@@ -47,26 +44,15 @@ public class TestProgram
         var app = builder.Build();
 
         // Ensure DB is created
-        /*try
-        {
-            await using var context = app.Services.CreateAsyncScope();
-            using var dbContext = context.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-            await dbContext.Database.EnsureCreatedAsync();
-
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError(ex, "An error occurred creating the DB.");
-            throw;
-        }*/
+        await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 
         //app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
-        // TODO make tests app.MapOpenApi();
+        app.MapOpenApi("/openapi/doc.json");
 
         app.MapGet("/", () => "Hello World!");
 
-        app.Run();
+        await app.RunAsync();
         /*
         class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
         {

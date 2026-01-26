@@ -1,5 +1,4 @@
 using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
@@ -15,7 +14,6 @@ using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Options;
 using MartinDrozdik.DDD.Web.Tests.Middlewares.Logging;
-using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using ICommand = MartinDrozdik.DDD.Mediator.Commands.ICommand;
@@ -51,19 +49,7 @@ builder.Services.AddMediator(config =>
 // --- APP ---
 var app = builder.Build();
 
-// Ensure DB is created
-try
-{
-    await using var context = app.Services.CreateAsyncScope();
-    using var dbContext = context.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
-
-}
-catch (Exception ex)
-{
-    app.Logger.LogError(ex, "An error occurred creating the DB.");
-    throw;
-}
+await app.EnsureCreatedDatabaseAsync<InvoiceDbContext>();
 
 if (app.Environment.IsDevelopment())
 {

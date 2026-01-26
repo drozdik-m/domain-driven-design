@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace MartinDrozdik.DDD.Web.Databases;
 
 /// <summary>
-/// Extensions for <see cref="IServiceCollection"/>.
+/// Extensions for <see cref="WebApplicationBuilder"/>.
 /// </summary>
 public static class WebApplicationBuilderExtensions
 {

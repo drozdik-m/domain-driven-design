@@ -1,8 +1,4 @@
-﻿using FluentValidation;
-using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
-using MartinDrozdik.DDD.Exceptions;
-using MartinDrozdik.DDD.Web.Middlewares.Exceptions;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
