@@ -1,5 +1,6 @@
 ﻿using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Queries;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,67 +12,6 @@ namespace MartinDrozdik.DDD.Mediator;
 /// <param name="services">Services to register handlers to.</param>
 public class ServiceMediatorConfig(IServiceCollection services)
 {
-    /// <summary>
-    /// Defines methods for constructing service pipelines to process queries and commands within an application.
-    /// </summary>
-    public interface IPipelineAssistant
-    {
-        /// <summary>
-        /// Registers pipeline behaviors for processing queries.
-        /// </summary>
-        /// <typeparam name="TQuery">Type of the query.</typeparam>
-        /// <typeparam name="TOutput">Type of the output.</typeparam>
-        /// <param name="services">The service collection.</param>
-        /// <returns><see cref="IServiceCollection"/> for chaining.</returns>
-        public IServiceCollection RegisterQueryPipeline<TQuery, TOutput>(IServiceCollection services)
-            where TQuery : IQuery<TOutput>;
-
-        /// <summary>
-        /// Builds a service pipeline for processing queries.
-        /// </summary>
-        /// <typeparam name="TQuery">Type of the query.</typeparam>
-        /// <typeparam name="TOutput">Type of the output.</typeparam>
-        /// <returns>The pipeline.</returns>
-        public abstract ServicePipelineBuilder<TQuery, TOutput> BuildQueryPipeline<TQuery, TOutput>()
-            where TQuery : IQuery<TOutput>;
-
-        /// <summary>
-        /// Registers pipeline behaviors for processing commands.
-        /// </summary>
-        /// <typeparam name="TCommand">Type of the command.</typeparam>
-        /// <typeparam name="TOutput">Type of the output.</typeparam>
-        /// <param name="services">The service collection.</param>
-        /// <returns><see cref="IServiceCollection"/> for chaining.</returns>
-        public IServiceCollection RegisterCommandPipeline<TCommand, TOutput>(IServiceCollection services)
-            where TCommand : ICommand<TOutput>;
-
-        /// <summary>
-        /// Builds a service pipeline for processing commands.
-        /// </summary>
-        /// <typeparam name="TCommand">Type of the command.</typeparam>
-        /// <typeparam name="TOutput">Type of the output.</typeparam>
-        /// <returns>The pipeline.</returns>
-        public abstract ServicePipelineBuilder<TCommand, TOutput> BuildCommandPipeline<TCommand, TOutput>()
-            where TCommand : ICommand<TOutput>;
-
-        /// <summary>
-        /// Registers pipeline behaviors for processing unit commands.
-        /// </summary>
-        /// <typeparam name="TCommand">Type of the command.</typeparam>
-        /// <param name="services">The service collection.</param>
-        /// <returns><see cref="IServiceCollection"/> for chaining.</returns>
-        public IServiceCollection RegisterUnitCommandPipeline<TCommand>(IServiceCollection services)
-            where TCommand : ICommand;
-
-        /// <summary>
-        /// Builds a service pipeline for processing unit commands.
-        /// </summary>
-        /// <typeparam name="TCommand">Type of the command.</typeparam>
-        /// <returns>The pipeline.</returns>
-        public abstract ServicePipelineBuilder<TCommand> BuildUnitCommandPipeline<TCommand>()
-            where TCommand : ICommand;
-    }
-
     /// <inheritdoc cref="WithQuery{TQuery, TResponse, THandler}(ServicePipelineBuilder{TQuery, TResponse})"/>
     public ServiceMediatorConfig WithQuery<TQuery, TResponse, THandler>()
         where TQuery : IQuery<TResponse>
@@ -82,12 +22,15 @@ public class ServiceMediatorConfig(IServiceCollection services)
     }
 
     /// <inheritdoc cref="WithQuery{TQuery, TResponse, THandler}(ServicePipelineBuilder{TQuery, TResponse})"/>
-    public ServiceMediatorConfig WithQuery<TQuery, TResponse, THandler>(IPipelineAssistant buildPipeline)
+    public ServiceMediatorConfig WithQuery<TQuery, TResponse, THandler>(IServicePipelineIntegrator integrator)
         where TQuery : IQuery<TResponse>
         where THandler : class, IQueryHandler<TQuery, TResponse>
     {
-        buildPipeline.RegisterQueryPipeline<TQuery, TResponse>(services);
-        var pipelineBuilder = buildPipeline.BuildQueryPipeline<TQuery, TResponse>();
+        integrator.RegisterQueryPipeline<TQuery, TResponse>(services);
+
+        var builder = new ServicePipelineBuilder<TQuery, TResponse>();
+        var pipelineBuilder = integrator.BuildQueryPipeline(builder);
+
         return WithQuery<TQuery, TResponse, THandler>(pipelineBuilder);
     }
 
@@ -118,12 +61,15 @@ public class ServiceMediatorConfig(IServiceCollection services)
     }
 
     /// <inheritdoc cref="WithCommand{TCommand, TResponse, THandler}(ServicePipelineBuilder{TCommand, TResponse})"/>/>
-    public ServiceMediatorConfig WithCommand<TCommand, TResponse, THandler>(IPipelineAssistant buildPipeline)
+    public ServiceMediatorConfig WithCommand<TCommand, TResponse, THandler>(IServicePipelineIntegrator integrator)
         where TCommand : ICommand<TResponse>
         where THandler : class, ICommandHandler<TCommand, TResponse>
     {
-        buildPipeline.RegisterCommandPipeline<TCommand, TResponse>(services);
-        var pipeline = buildPipeline.BuildCommandPipeline<TCommand, TResponse>();
+        integrator.RegisterCommandPipeline<TCommand, TResponse>(services);
+
+        var builder = new ServicePipelineBuilder<TCommand, TResponse>();
+        var pipeline = integrator.BuildCommandPipeline(builder);
+
         return WithCommand<TCommand, TResponse, THandler>(pipeline);
     }
 
@@ -154,12 +100,15 @@ public class ServiceMediatorConfig(IServiceCollection services)
     }
 
     /// <inheritdoc cref="WithCommand{TCommand, THandler}(ServicePipelineBuilder{TCommand})"/>/>
-    public ServiceMediatorConfig WithCommand<TCommand, THandler>(IPipelineAssistant buildPipeline)
+    public ServiceMediatorConfig WithCommand<TCommand, THandler>(IServicePipelineIntegrator integrator)
         where TCommand : ICommand
         where THandler : class, ICommandHandler<TCommand>
     {
-        buildPipeline.RegisterUnitCommandPipeline<TCommand>(services);
-        var pipeline = buildPipeline.BuildUnitCommandPipeline<TCommand>();
+        integrator.RegisterUnitCommandPipeline<TCommand>(services);
+
+        var builder = new ServicePipelineBuilder<TCommand>();
+        var pipeline = integrator.BuildUnitCommandPipeline(builder);
+
         return WithCommand<TCommand, THandler>(pipeline);
     }
 

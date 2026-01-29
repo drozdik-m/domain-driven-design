@@ -2,21 +2,18 @@ using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
-using MartinDrozdik.DDD.Demo.Requests.Pipelines;
 using MartinDrozdik.DDD.Mediator;
-using MartinDrozdik.DDD.Mediator.Commands;
-using MartinDrozdik.DDD.Mediator.Pipelines;
+using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
-using MartinDrozdik.DDD.Mediator.Queries;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Logging;
+using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
+using MartinDrozdik.DDD.Web.Middlewares.Logging;
 using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Options;
-using MartinDrozdik.DDD.Web.Tests.Middlewares.Logging;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
-using ICommand = MartinDrozdik.DDD.Mediator.Commands.ICommand;
 
 // --- BUILDER ---
 var builder = WebApplication.CreateBuilder(args);
@@ -41,9 +38,10 @@ builder.Services.AddAppOpenApi();
 
 builder.Services.AddMediator(config =>
 {
-    var pipelineBuilder = new PipelineAssistant();
-    config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(pipelineBuilder);
-    config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
+    var integration = new LoggingPipelineIntegrator()
+        .Merge<ValidationPipelineIntegrator>();
+    config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(integration);
+    config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(integration);
 });
 
 // --- APP ---
@@ -72,55 +70,3 @@ app.MapControllers();
 app.UseStatusCodePages();
 
 await app.RunAsync();
-
-
-class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
-{
-    /// <inheritdoc />
-    public IServiceCollection RegisterQueryPipeline<TQuery, TOutput>(IServiceCollection services) where TQuery : IQuery<TOutput>
-    {
-        services.AddScoped<LoggingPipeline<TQuery, TOutput>>();
-        services.AddScoped<ValidationPipeline<TQuery, TOutput>>();
-        return services;
-    }
-
-    /// <inheritdoc />
-    public ServicePipelineBuilder<TQuery, TOutput> BuildQueryPipeline<TQuery, TOutput>() where TQuery : IQuery<TOutput>
-    {
-        return new ServicePipelineBuilder<TQuery, TOutput>()
-            .Add<LoggingPipeline<TQuery, TOutput>>()
-            .Add<ValidationPipeline<TQuery, TOutput>>();
-    }
-
-    /// <inheritdoc />
-    public IServiceCollection RegisterCommandPipeline<TCommand, TOutput>(IServiceCollection services) where TCommand : ICommand<TOutput>
-    {
-        services.AddScoped<LoggingPipeline<TCommand, TOutput>>();
-        services.AddScoped<ValidationPipeline<TCommand, TOutput>>();
-        return services;
-    }
-
-    /// <inheritdoc />
-    public ServicePipelineBuilder<TCommand, TOutput> BuildCommandPipeline<TCommand, TOutput>() where TCommand : ICommand<TOutput>
-    {
-        return new ServicePipelineBuilder<TCommand, TOutput>()
-            .Add<LoggingPipeline<TCommand, TOutput>>()
-            .Add<ValidationPipeline<TCommand, TOutput>>();
-    }
-
-    /// <inheritdoc />
-    public IServiceCollection RegisterUnitCommandPipeline<TCommand>(IServiceCollection services) where TCommand : ICommand
-    {
-        services.AddScoped<LoggingPipeline<TCommand>>();
-        services.AddScoped<ValidationPipeline<TCommand>>();
-        return services;
-    }
-
-    /// <inheritdoc />
-    public ServicePipelineBuilder<TCommand> BuildUnitCommandPipeline<TCommand>() where TCommand : ICommand
-    {
-        return new ServicePipelineBuilder<TCommand>()
-            .Add<LoggingPipeline<TCommand>>()
-            .Add<ValidationPipeline<TCommand>>();
-    }
-}

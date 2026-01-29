@@ -1,10 +1,9 @@
 ﻿using MartinDrozdik.DDD.Exceptions;
-using MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
+namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 
 /// <summary>
 /// Catches <see cref="BusinessRuleValidationException"/> and converts it to proper HTTP response.

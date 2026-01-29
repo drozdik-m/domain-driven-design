@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MartinDrozdik.DDD.Demo.Middlewares.Exceptions;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
