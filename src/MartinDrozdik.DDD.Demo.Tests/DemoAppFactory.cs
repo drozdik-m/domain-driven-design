@@ -11,7 +11,7 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppFactory : WebApplicationFactory<Program>
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"test_db_{Guid.NewGuid()}.db");
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "test_db.db");
     private readonly ITestOutputHelper _testOutputHelper;
     private readonly Action<IWebHostBuilder>? _config;
 
