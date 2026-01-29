@@ -18,6 +18,7 @@ public class DemoAppFactory : WebApplicationFactory<Program>
     public DemoAppFactory(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
+        testOutputHelper.WriteLine($"Test database path: {_dbPath}");
     }
 
     public DemoAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
@@ -69,7 +70,10 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             // Clean up the test database file
             try
             {
-                File.Delete(_dbPath);
+                if (File.Exists(_dbPath))
+                {
+                    File.Delete(_dbPath);
+                }
             }
             catch
             {

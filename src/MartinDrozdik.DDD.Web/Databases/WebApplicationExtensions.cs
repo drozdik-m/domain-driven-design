@@ -21,6 +21,11 @@ public static class WebApplicationExtensions
     {
         try
         {
+            if (app.Logger.IsEnabled(LogLevel.Information))
+            {
+                app.Logger.LogInformation("Ensuring database for {DbContext} is created.", typeof(T).Name);
+            }
+
             await app.ExecuteContextOperationAsync<T>(e => e.Database.EnsureCreatedAsync());
         }
 #pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
@@ -43,6 +48,11 @@ public static class WebApplicationExtensions
     {
         try
         {
+            if (app.Logger.IsEnabled(LogLevel.Information))
+            {
+                app.Logger.LogInformation("Ensuring database for {DbContext} is migrated.", typeof(T).Name);
+            }
+
             await app.ExecuteContextOperationAsync<T>(e => e.Database.MigrateAsync());
         }
 #pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
@@ -58,7 +68,7 @@ public static class WebApplicationExtensions
     /// Execute operation with a <see cref="DbContext"/> from the service provider.
     /// </summary>
     /// <typeparam name="T">Type of the <see cref="DbContext"/>.</typeparam>
-    /// <param name="app">The <see cref="WebApplication"/> where the <see cref="DbContext"/> is located</param>
+    /// <param name="app">The <see cref="WebApplication"/> where the <see cref="DbContext"/> is located.</param>
     /// <param name="operation">The operation to execute.</param>
     /// <returns><see cref="Task"/>.</returns>
     private static async Task ExecuteContextOperationAsync<T>(this WebApplication app, Func<T, Task> operation)

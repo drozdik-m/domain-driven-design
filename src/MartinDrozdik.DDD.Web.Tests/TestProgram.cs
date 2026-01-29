@@ -53,58 +53,6 @@ public class TestProgram
         app.MapGet("/", () => "Hello World!");
 
         await app.RunAsync();
-        /*
-        class PipelineAssistant : ServiceMediatorConfig.IPipelineAssistant
-        {
-            /// <inheritdoc />
-            public IServiceCollection RegisterQueryPipeline<TQuery, TOutput>(IServiceCollection services) where TQuery : IQuery<TOutput>
-            {
-                services.AddScoped<LoggingPipeline<TQuery, TOutput>>();
-                services.AddScoped<ValidationPipeline<TQuery, TOutput>>();
-                return services;
-            }
-
-            /// <inheritdoc />
-            public ServicePipelineBuilder<TQuery, TOutput> BuildQueryPipeline<TQuery, TOutput>() where TQuery : IQuery<TOutput>
-            {
-                return new ServicePipelineBuilder<TQuery, TOutput>()
-                    .Add<LoggingPipeline<TQuery, TOutput>>()
-                    .Add<ValidationPipeline<TQuery, TOutput>>();
-            }
-
-            /// <inheritdoc />
-            public IServiceCollection RegisterCommandPipeline<TCommand, TOutput>(IServiceCollection services) where TCommand : ICommand<TOutput>
-            {
-                services.AddScoped<LoggingPipeline<TCommand, TOutput>>();
-                services.AddScoped<ValidationPipeline<TCommand, TOutput>>();
-                return services;
-            }
-
-            /// <inheritdoc />
-            public ServicePipelineBuilder<TCommand, TOutput> BuildCommandPipeline<TCommand, TOutput>() where TCommand : ICommand<TOutput>
-            {
-                return new ServicePipelineBuilder<TCommand, TOutput>()
-                    .Add<LoggingPipeline<TCommand, TOutput>>()
-                    .Add<ValidationPipeline<TCommand, TOutput>>();
-            }
-
-            /// <inheritdoc />
-            public IServiceCollection RegisterUnitCommandPipeline<TCommand>(IServiceCollection services) where TCommand : ICommand
-            {
-                services.AddScoped<LoggingPipeline<TCommand>>();
-                services.AddScoped<ValidationPipeline<TCommand>>();
-                return services;
-            }
-
-            /// <inheritdoc />
-            public ServicePipelineBuilder<TCommand> BuildUnitCommandPipeline<TCommand>() where TCommand : ICommand
-            {
-                return new ServicePipelineBuilder<TCommand>()
-                    .Add<LoggingPipeline<TCommand>>()
-                    .Add<ValidationPipeline<TCommand>>();
-            }
-        }
-        */
     }
 
     public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
