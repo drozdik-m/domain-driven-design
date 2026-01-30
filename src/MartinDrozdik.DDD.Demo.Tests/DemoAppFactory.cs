@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,26 +13,20 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppFactory : WebApplicationFactory<Program>
 {
-    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-    private readonly string _dbPath;
     private readonly ITestOutputHelper _testOutputHelper;
     private readonly Action<IWebHostBuilder>? _config;
+    private readonly string _connectionString;
+    private SqliteConnection? _keepAliveConnection;
 
     public DemoAppFactory(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
 
-        _dbPath = Path.Combine(_dbDir, "test_demo_app.db");
-        testOutputHelper.WriteLine($"Test database path: {_dbPath}");
+        // Create a unique in-memory database per factory instance
+        var dbName = Guid.NewGuid().ToString();
+        _connectionString = $"Data Source={dbName};Mode=Memory;Cache=Shared";
 
-        if (!Directory.Exists(_dbDir))
-        {
-            Directory.CreateDirectory(_dbDir);
-        }
-        else
-        {
-            testOutputHelper.WriteLine($"!!! Test database directory already exists: {_dbDir}");
-        }
+        testOutputHelper.WriteLine($"Test in-memory database: {dbName}");
     }
 
     public DemoAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
@@ -49,7 +44,6 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             BaseUrl = httpClient.BaseAddress?.ToString()
                 ?? throw new InvalidOperationException("HttpClient BaseAddress is null"),
         };
-
         var client = new DddClient(requestAdapter);
         return client;
     }
@@ -58,10 +52,9 @@ public class DemoAppFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureAppConfiguration((context, config) =>
         {
-            // Add your test-specific configuration
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath};Mode=ReadWriteCreate;Cache=Private;Pooling=False",
+                ["ConnectionStrings:DefaultConnection"] = _connectionString,
             });
         });
 
@@ -73,26 +66,32 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             logging.AddXUnit(_testOutputHelper);
         });
 
+        // Keep a connection alive to preserve the in-memory database
+        builder.ConfigureServices(services =>
+        {
+            // Open and keep alive a connection to maintain the in-memory database
+            _keepAliveConnection = new SqliteConnection(_connectionString);
+            _keepAliveConnection.Open();
+
+            _testOutputHelper.WriteLine("In-memory database connection opened and kept alive");
+        });
+
         _config?.Invoke(builder);
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && File.Exists(_dbPath))
+        if (disposing)
         {
-            // Clean up the test database file
             try
             {
-                if (Directory.Exists(_dbDir))
-                {
-                    Directory.Delete(_dbDir, recursive: true);
-                }
+                _keepAliveConnection?.Close();
+                _keepAliveConnection?.Dispose();
+                _testOutputHelper.WriteLine("In-memory database connection closed");
             }
             catch (Exception e)
             {
-                var logger = Services.GetRequiredService<ILogger<DemoAppFactory>>();
-                logger.LogError(e, "Failed to delete test database directory at {DbDir}", _dbDir);
-                throw;
+                _testOutputHelper.WriteLine($"Error disposing in-memory connection: {e.Message}");
             }
         }
 
