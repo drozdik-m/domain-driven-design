@@ -24,7 +24,7 @@ public class DemoAppFactory : WebApplicationFactory<Program>
 
         // Create a unique in-memory database per factory instance
         var dbName = Guid.NewGuid().ToString();
-        _connectionString = $"Data Source={dbName};Mode=Memory;Cache=Shared";
+        _connectionString = $"Data Source={dbName};Mode=Memory";
 
         testOutputHelper.WriteLine($"Test in-memory database: {dbName}");
     }
