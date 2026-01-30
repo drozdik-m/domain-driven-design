@@ -1,4 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated;
+using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +14,7 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<Program>
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid().ToString()}_test.db");
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test.db");
     private readonly Action<IWebHostBuilder>? _config;
 
     public DemoAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
@@ -37,14 +39,7 @@ public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplication
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureAppConfiguration((context, config) =>
-        {
-            // Add your test-specific configuration
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["App:Database:ConnectionString"] = $"Data Source={_dbPath}",
-            });
-        });
+        builder.SetOption<DatabaseOptions>(e => e.ConnectionString, $"Data Source={_dbPath}");
 
         builder.ConfigureLogging(logging =>
         {

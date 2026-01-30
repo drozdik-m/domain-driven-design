@@ -49,6 +49,8 @@ var app = builder.Build();
 
 await app.EnsureCreatedDatabaseAsync<InvoiceDbContext>();
 
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

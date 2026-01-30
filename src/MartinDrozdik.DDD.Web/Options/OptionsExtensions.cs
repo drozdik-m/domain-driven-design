@@ -20,7 +20,7 @@ public static class OptionsExtensions
     {
         var section = TOptions.Section;
         services.AddOptions<TOptions>()
-            .BindConfiguration(section)
+            .BindConfiguration(section, e => e.ErrorOnUnknownConfiguration = true)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
