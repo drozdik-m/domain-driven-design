@@ -11,6 +11,33 @@ namespace MartinDrozdik.DDD.Web.Databases;
 public static class WebApplicationExtensions
 {
     /// <summary>
+    /// Ensure that database of a context is deleted.
+    /// </summary>
+    /// <typeparam name="T">Type of the <see cref="DbContext"/>.</typeparam>
+    /// <param name="app">The <see cref="WebApplication"/> where the <see cref="DbContext"/> is located.</param>
+    /// <returns><see cref="Task"/>.</returns>
+    public static async Task EnsureDeletedDatabaseAsync<T>(this WebApplication app)
+        where T : DbContext
+    {
+        try
+        {
+            if (app.Logger.IsEnabled(LogLevel.Information))
+            {
+                app.Logger.LogInformation("Ensuring database for {DbContext} is deleted.", typeof(T).Name);
+            }
+
+            await app.ExecuteContextOperationAsync<T>(e => e.Database.EnsureDeletedAsync());
+        }
+#pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
+        catch (Exception e)
+        {
+            app.Logger.LogError(e, "An error occurred while deleting database for {DbContext}.", typeof(T).Name);
+            throw;
+        }
+#pragma warning restore S2139 // Exceptions should be either logged or rethrown but not both
+    }
+
+    /// <summary>
     /// Ensure that database of a context is created.
     /// </summary>
     /// <typeparam name="T">Type of the <see cref="DbContext"/>.</typeparam>

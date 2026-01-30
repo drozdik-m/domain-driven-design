@@ -12,8 +12,7 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppFactory : WebApplicationFactory<Program>
 {
-    //private readonly string _dbDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), "MartinDrozdik.DDD.Demo.Tests.db");
+    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly string _dbPath;
     private readonly ITestOutputHelper _testOutputHelper;
     private readonly Action<IWebHostBuilder>? _config;
@@ -62,7 +61,7 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             // Add your test-specific configuration
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}",
+                ["App:Database:ConnectionString"] = $"Data Source={_dbPath}",
             });
         });
 
