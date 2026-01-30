@@ -10,29 +10,10 @@ using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 
-public class DemoAppFactory : WebApplicationFactory<Program>
+public class DemoAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<Program>
 {
-    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-    private readonly string _dbPath;
-    private readonly ITestOutputHelper _testOutputHelper;
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid().ToString()}_test.db");
     private readonly Action<IWebHostBuilder>? _config;
-
-    public DemoAppFactory(ITestOutputHelper testOutputHelper)
-    {
-        _testOutputHelper = testOutputHelper;
-
-        _dbPath = Path.Combine(_dbDir, "test_demo_app.db");
-        testOutputHelper.WriteLine($"Test database path: {_dbPath}");
-
-        if (!Directory.Exists(_dbDir))
-        {
-            Directory.CreateDirectory(_dbDir);
-        }
-        else
-        {
-            testOutputHelper.WriteLine($"!!! Test database directory already exists: {_dbDir}");
-        }
-    }
 
     public DemoAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
         : this(testOutputHelper)
@@ -70,7 +51,7 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             logging.ClearProviders();
             logging.AddConsole();
             logging.SetMinimumLevel(LogLevel.Information);
-            logging.AddXUnit(_testOutputHelper);
+            logging.AddXUnit(testOutputHelper);
         });
 
         _config?.Invoke(builder);
@@ -83,15 +64,12 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             // Clean up the test database file
             try
             {
-                if (Directory.Exists(_dbDir))
-                {
-                    Directory.Delete(_dbDir, recursive: true);
-                }
+                File.Delete(_dbPath);
             }
             catch (Exception e)
             {
                 var logger = Services.GetRequiredService<ILogger<DemoAppFactory>>();
-                logger.LogError(e, "Failed to delete test database directory at {DbDir}", _dbDir);
+                logger.LogError(e, "Failed to delete test database directory at {DbPath}", _dbPath);
                 throw;
             }
         }
