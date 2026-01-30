@@ -61,7 +61,7 @@ public class DemoAppFactory : WebApplicationFactory<Program>
             // Add your test-specific configuration
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}",
+                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath};Mode=ReadWriteCreate;Cache=Private;Pooling=False",
             });
         });
 
