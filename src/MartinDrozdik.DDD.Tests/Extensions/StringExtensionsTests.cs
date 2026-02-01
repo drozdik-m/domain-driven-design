@@ -92,7 +92,7 @@ public class StringExtensionsTests
     [InlineData("hello", "hello")]
     [InlineData("HELLO", "hELLO")]
     [InlineData("Hello world", "hello world")]
-    [InlineData("čeština", "Čeština")]
+    [InlineData("Čeština", "čeština")]
     [InlineData("čeština", "čeština")]
     [InlineData("Test with multiple words", "test with multiple words")]
     [InlineData("1234567890", "1234567890")]
