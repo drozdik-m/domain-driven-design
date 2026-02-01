@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Web.Middlewares.Exceptions;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Web.Middlewares;
@@ -12,6 +13,7 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Adds problem details and exception handlers to the service collection.
+    /// Dont forget to add UseExceptionHandler.
     /// Handles:
     /// <list type="bullet">
     /// <item><see cref="BusinessRuleValidationException"/></item>

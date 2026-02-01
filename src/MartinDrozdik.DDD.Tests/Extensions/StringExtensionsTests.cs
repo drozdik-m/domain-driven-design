@@ -31,8 +31,6 @@ public class StringExtensionsTests
     [InlineData("1234567890", "1234567890")]
     [InlineData("!exclamation", "!exclamation")]
     [InlineData(" leading space", " leading space")]
-    [InlineData("x", "X")]
-    [InlineData("X", "X")]
     public void FirstToUpper_returns_expected_result(string input, string expected)
     {
         Assert.Equal(expected, input.FirstToUpper());
@@ -56,6 +54,53 @@ public class StringExtensionsTests
     public void FirstToUpperOptional_returns_expected_result(string? input, string? expected)
     {
         Assert.Equal(expected, input.FirstToUpperOptional());
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("A", "a")]
+    [InlineData("a", "a")]
+    [InlineData("Hello", "hello")]
+    [InlineData("hello", "hello")]
+    [InlineData("HELLO", "hELLO")]
+    [InlineData("Hello world", "hello world")]
+    [InlineData("hello world", "hello world")]
+    [InlineData("123abc", "123abc")]
+    [InlineData("Ábcd", "ábcd")]
+    [InlineData("ábcd", "ábcd")]
+    [InlineData("Čeština", "čeština")]
+    [InlineData("čeština", "čeština")]
+    [InlineData("Ř", "ř")]
+    [InlineData("ř", "ř")]
+    [InlineData("Test with multiple words", "test with multiple words")]
+    [InlineData("lowercase sentence", "lowercase sentence")]
+    [InlineData("Lowercase sentence", "lowercase sentence")]
+    [InlineData("1234567890", "1234567890")]
+    [InlineData("!exclamation", "!exclamation")]
+    [InlineData(" leading space", " leading space")]
+    public void FirstToLower_returns_expected_result(string input, string expected)
+    {
+        Assert.Equal(expected, input.FirstToLower());
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", "")]
+    [InlineData("A", "a")]
+    [InlineData("a", "a")]
+    [InlineData("Hello", "hello")]
+    [InlineData("hello", "hello")]
+    [InlineData("HELLO", "hELLO")]
+    [InlineData("Hello world", "hello world")]
+    [InlineData("čeština", "Čeština")]
+    [InlineData("čeština", "čeština")]
+    [InlineData("Test with multiple words", "test with multiple words")]
+    [InlineData("1234567890", "1234567890")]
+    [InlineData("!exclamation", "!exclamation")]
+    [InlineData(" leading space", " leading space")]
+    public void FirstToLowerOptional_returns_expected_result(string? input, string? expected)
+    {
+        Assert.Equal(expected, input.FirstToLowerOptional());
     }
 
     [Theory]

@@ -2,6 +2,7 @@
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
@@ -9,7 +10,9 @@ namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 /// <summary>
 /// Catches FluentValidations' <see cref="ValidationException"/> and converts it to proper HTTP response.
 /// </summary>
-public class ValidationExceptionHandler(ILogger<ValidationExceptionHandler> logger) : ExceptionHandler
+public class ValidationExceptionHandler(
+    IHostEnvironment environment,
+    ILogger<ValidationExceptionHandler> logger) : ExceptionHandler(environment)
 {
     /// <inheritdoc />
     public override async ValueTask<bool> TryHandleAsync(
@@ -28,7 +31,8 @@ public class ValidationExceptionHandler(ILogger<ValidationExceptionHandler> logg
 
         await Results.ValidationProblem(
             errors: businessException.DetailsDictionary,
-            title: "A validation error occurred while processing the request.",
+            detail: GetExceptionDetail(exception),
+            title: ExceptionLocalization.ValidationExceptionTitle,
             extensions: GetExtensionData()).ExecuteAsync(httpContext);
 
         return true;

@@ -53,6 +53,50 @@ public static class StringExtensions
     }
 
     /// <summary>
+    /// Transforms first character of string to lower case.
+    /// </summary>
+    /// <param name="text">The text to update.</param>
+    /// <example>Transforms Hello -> hello.</example>
+    /// <returns>The <paramref name="text"/> with first lowercase letter.</returns>
+    public static string FirstToLower(this string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+
+        if (char.IsLower(text[0]))
+        {
+            return text;
+        }
+
+        return string.Create(text.Length, text, (span, original) =>
+        {
+            original.AsSpan().CopyTo(span);
+            span[0] = char.ToLower(span[0], CultureInfo.InvariantCulture);
+        });
+    }
+
+    /// <summary>
+    /// Transforms first character of string to lower case.
+    /// If the input is null, returns null.
+    /// </summary>
+    /// <param name="text">The text to update.</param>
+    /// <example>Transforms Hello -> hello.</example>
+    /// <returns>The <paramref name="text"/> with first lowercase letter.</returns>
+    public static string? FirstToLowerOptional(this string? text)
+    {
+        if (text is null)
+        {
+            return null;
+        }
+
+        return text.FirstToLower();
+    }
+
+    /// <summary>
     /// Removes parts a of string that repeat right next to each other, leaving only one in-place copy.
     /// </summary>
     /// <example>"aaabcaa"(a) => "abca".</example>

@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
@@ -8,7 +9,9 @@ namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 /// <summary>
 /// Catches <see cref="BusinessRuleValidationException"/> and converts it to proper HTTP response.
 /// </summary>
-public class BusinessRuleValidationExceptionHandler(ILogger<BusinessRuleValidationExceptionHandler> logger) : ExceptionHandler
+public class BusinessRuleValidationExceptionHandler(
+    IHostEnvironment environment,
+    ILogger<BusinessRuleValidationExceptionHandler> logger) : ExceptionHandler(environment)
 {
     /// <inheritdoc />
     public override async ValueTask<bool> TryHandleAsync(
@@ -25,7 +28,8 @@ public class BusinessRuleValidationExceptionHandler(ILogger<BusinessRuleValidati
 
         await Results.ValidationProblem(
             errors: validationException.DetailsDictionary,
-            title: "A validation error occurred while processing the request.",
+            detail: GetExceptionDetail(exception),
+            title: ExceptionLocalization.ValidationExceptionTitle,
             extensions: GetExtensionData()).ExecuteAsync(httpContext);
 
         return true;

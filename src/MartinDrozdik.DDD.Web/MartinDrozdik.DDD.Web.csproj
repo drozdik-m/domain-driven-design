@@ -66,4 +66,28 @@
   <ItemGroup>
     <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Middlewares\Exceptions\ExceptionLocalization.cs.Designer.cs">
+      <DependentUpon>ExceptionLocalization.cs.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Update="Middlewares\Exceptions\ExceptionLocalization.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ExceptionLocalization.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Middlewares\Exceptions\ExceptionLocalization.cs.resx">
+      <LastGenOutput>ExceptionLocalization.cs.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Middlewares\Exceptions\ExceptionLocalization.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ExceptionLocalization.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
