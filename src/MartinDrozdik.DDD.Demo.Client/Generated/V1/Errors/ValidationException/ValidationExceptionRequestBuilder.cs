@@ -36,7 +36,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.V1.Errors.ValidationException
         /// <returns>A <see cref="string"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ValidationProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
         /// <exception cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ProblemDetails">When receiving a 404 status code</exception>
         /// <exception cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ProblemDetails">When receiving a 500 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -51,7 +51,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.V1.Errors.ValidationException
             var requestInfo = ToGetRequestInformation(requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ValidationProblem.CreateFromDiscriminatorValue },
+                { "400", global::MartinDrozdik.DDD.Demo.Client.Generated.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
                 { "404", global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "500", global::MartinDrozdik.DDD.Demo.Client.Generated.Models.ProblemDetails.CreateFromDiscriminatorValue },
             };

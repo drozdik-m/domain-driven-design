@@ -1,11 +1,5 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated.Models;
-using MartinDrozdik.DDD.Demo.Context;
-using MartinDrozdik.DDD.Demo.Models.Aggregates;
-using MartinDrozdik.DDD.Demo.Models.Entities;
-using MartinDrozdik.DDD.Demo.Models.Enumerations;
-using MartinDrozdik.DDD.Demo.Models.ValueObjects;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Xunit.Abstractions;
 
@@ -76,19 +70,62 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         var client = _factory.CreateDddClient();
 
         // Act
-        var exception = await Assert.ThrowsAsync<ValidationProblem>(() => client.V1.Errors.BusinessRuleValidationException.GetAsync(cancellationToken: CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<HttpValidationProblemDetails>(() => client.V1.Errors.BusinessRuleValidationException.GetAsync(cancellationToken: CancellationToken.None));
 
         // Assert
         Assert.NotNull(exception);
-        /*Assert.Multiple(
+        Assert.NotNull(exception.Errors);
+        Assert.Multiple(
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.1", exception.Type),
             () => Assert.Equal("A validation error occurred while processing the request.", exception.Title),
             () => Assert.Equal(400, exception.ResponseStatusCode),
             () => Assert.Equal("This is a general exception", exception.Detail),
             () => Assert.Null(exception.Instance),
-            () => Assert.NotNull(exception.AdditionalData["exception"]),
-            () => Assert.NotNull(exception.AdditionalData["traceId"]),
-            () => Assert.Equal("This is error message 1", exception.),
-            () => Assert.Equal("This is error message 2", exception.AdditionalData["error2"]));*/
+            () => Assert.NotNull(exception.AdditionalData["traceId"]));
+
+        var error1 = exception.Errors.AdditionalData["Error1"] as UntypedArray;
+        var error2 = exception.Errors.AdditionalData["Error2"] as UntypedArray;
+        Assert.NotNull(error1);
+        Assert.NotNull(error2);
+        var error1Value = error1.GetValue().Single() as UntypedString;
+        var error2Value = error2.GetValue().Single() as UntypedString;
+        Assert.NotNull(error1Value);
+        Assert.NotNull(error2Value);
+        Assert.Multiple(
+            () => Assert.Equal("This is error message 1", error1Value.GetValue()),
+            () => Assert.Equal("This is error message 2", error2Value.GetValue()));
+    }
+
+    [Fact]
+    public async Task Get_validation_exception()
+    {
+        // Arrange
+        var client = _factory.CreateDddClient();
+
+        // Act
+        var exception = await Assert.ThrowsAsync<HttpValidationProblemDetails>(() => client.V1.Errors.ValidationException.GetAsync(cancellationToken: CancellationToken.None));
+
+        // Assert
+        Assert.NotNull(exception);
+        Assert.NotNull(exception.Errors);
+        Assert.Multiple(
+            () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.1", exception.Type),
+            () => Assert.Equal("A validation error occurred while processing the request.", exception.Title),
+            () => Assert.Equal(400, exception.ResponseStatusCode),
+            () => Assert.Equal("Validation failed: \r\n -- String1: This is error message 1 Severity: Error\r\n -- String2: This is error message 2 Severity: Error", exception.Detail),
+            () => Assert.Null(exception.Instance),
+            () => Assert.NotNull(exception.AdditionalData["traceId"]));
+
+        var error1 = exception.Errors.AdditionalData["String1"] as UntypedArray;
+        var error2 = exception.Errors.AdditionalData["String2"] as UntypedArray;
+        Assert.NotNull(error1);
+        Assert.NotNull(error2);
+        var error1Value = error1.GetValue().Single() as UntypedString;
+        var error2Value = error2.GetValue().Single() as UntypedString;
+        Assert.NotNull(error1Value);
+        Assert.NotNull(error2Value);
+        Assert.Multiple(
+            () => Assert.Equal("NotEmptyValidator: This is error message 1 ", error1Value.GetValue()),
+            () => Assert.Equal("NotEmptyValidator: This is error message 2 ", error2Value.GetValue()));
     }
 }

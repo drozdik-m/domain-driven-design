@@ -1,6 +1,5 @@
 using System.Net.Mime;
 using MartinDrozdik.DDD.Exceptions;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MartinDrozdik.DDD.Demo.Controllers;
@@ -10,7 +9,7 @@ namespace MartinDrozdik.DDD.Demo.Controllers;
 [Produces(MediaTypeNames.Application.Json)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
-[ProducesResponseType<ValidationProblem>(StatusCodes.Status400BadRequest)]
+[ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
 public class ErrorController : ControllerBase
 {
     [HttpGet("exception")]

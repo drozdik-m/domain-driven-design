@@ -43,12 +43,14 @@ public class TestProgram
         // --- APP ---
         var app = builder.Build();
 
-        // Ensure DB is created
+        app.UseExceptionHandler();
+
         await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 
         //app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
         app.MapOpenApi("/openapi/doc.json");
+        app.MapErrorEndpoints();
 
         app.MapGet("/", () => "Hello World!");
 

@@ -13,7 +13,7 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Adds problem details and exception handlers to the service collection.
-    /// Dont forget to add UseExceptionHandler.
+    /// Dont forget to add <see cref="ExceptionHandlerExtensions.UseExceptionHandler(IApplicationBuilder)"/>.
     /// Handles:
     /// <list type="bullet">
     /// <item><see cref="BusinessRuleValidationException"/></item>

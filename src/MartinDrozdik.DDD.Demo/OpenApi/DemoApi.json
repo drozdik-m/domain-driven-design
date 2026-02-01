@@ -36,7 +36,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationProblem"
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -85,7 +85,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationProblem"
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -134,7 +134,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationProblem"
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -183,7 +183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationProblem"
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -503,29 +503,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "ValidationProblem": {
-        "title": "ValidationProblem",
-        "type": "object",
-        "properties": {
-          "problemDetails": {
-            "$ref": "#/components/schemas/HttpValidationProblemDetails"
-          },
-          "contentType": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "statusCode": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
           }
         }
       }
