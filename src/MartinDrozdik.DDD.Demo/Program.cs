@@ -6,6 +6,7 @@ using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
@@ -21,11 +22,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add options
 builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
-// Add logging
-builder.AddAppLogging();
-
-// Add error handling
 builder.Services.AddAppErrorHandling();
+builder.AddAppLogging();
+builder.AddAppHealthChecks();
 
 // Add DbContext with SQLite
 builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
@@ -50,6 +49,7 @@ var app = builder.Build();
 await app.EnsureCreatedDatabaseAsync<InvoiceDbContext>();
 
 app.UseExceptionHandler();
+app.MapAppHealthChecks();
 
 if (app.Environment.IsDevelopment())
 {

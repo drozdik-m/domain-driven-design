@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Text;
-using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Extensions;
 using Microsoft.AspNetCore.Diagnostics;

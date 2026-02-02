@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
@@ -22,6 +23,7 @@ public class TestProgram
         builder.AddAppLogging();
         builder.Services.AddAppErrorHandling();
         builder.Services.AddAppOpenApi();
+        builder.AddAppHealthChecks();
 
         // Add DbContext with SQLite
         var dbPath = Path.Combine(Path.GetTempPath(), $"test_db.db");
@@ -44,6 +46,7 @@ public class TestProgram
         var app = builder.Build();
 
         app.UseExceptionHandler();
+        app.MapAppHealthChecks();
 
         await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 
