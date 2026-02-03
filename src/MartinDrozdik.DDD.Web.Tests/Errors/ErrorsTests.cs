@@ -122,7 +122,7 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.1", validationProblemDetails.Type),
             () => Assert.Equal("A validation error occurred while processing the request.", validationProblemDetails.Title),
             () => Assert.Equal(400, validationProblemDetails.Status),
-            () => Assert.Equal($"Validation failed: {Environment.NewLine} -- String1: This is error message 1 Severity: Error\r\n -- String2: This is error message 2 Severity: Error", validationProblemDetails.Detail),
+            () => Assert.Equal($"Validation failed: {Environment.NewLine} -- String1: This is error message 1 Severity: Error{Environment.NewLine} -- String2: This is error message 2 Severity: Error", validationProblemDetails.Detail),
             () => Assert.Null(validationProblemDetails.Instance),
             () => Assert.True(validationProblemDetails.Extensions.ContainsKey("traceId")));
 
