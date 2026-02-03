@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
     /// Logs HTTP requests in development.
     /// </summary>
     /// <param name="builder">The <see cref="WebApplicationBuilder"/> to extend.</param>
+    /// <param name="minimumLogLevel">Minimum log level to log. <see cref="LogLevel.Information"/> by default. Consider less logging on higher environments.</param>
     /// <returns>Updated <see cref="WebApplicationBuilder"/>.</returns>
     public static WebApplicationBuilder AddAppLogging(this WebApplicationBuilder builder, LogLevel minimumLogLevel = LogLevel.Information)
     {

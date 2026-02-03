@@ -2,6 +2,7 @@ using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
+using MartinDrozdik.DDD.Web.Middlewares.Logging;
 using MartinDrozdik.DDD.Web.OpenApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -45,12 +46,11 @@ public class TestProgram
         // --- APP ---
         var app = builder.Build();
 
-        app.UseExceptionHandler();
-        app.MapAppHealthChecks();
-
         await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 
-        //app.UseMiddleware<RequestResponseLoggingMiddleware>();
+        app.UseExceptionHandler();
+        app.MapAppHealthChecks();
+        app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
         app.MapOpenApi("/openapi/doc.json");
         app.MapErrorEndpoints();
