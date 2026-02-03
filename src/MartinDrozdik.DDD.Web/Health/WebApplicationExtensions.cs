@@ -8,6 +8,11 @@ namespace MartinDrozdik.DDD.Web.Health;
 public static class WebApplicationExtensions
 {
     /// <summary>
+    /// Default health check endpoint path prefix.
+    /// </summary>
+    public const string HealthPathPrefix = "/health";
+
+    /// <summary>
     /// Maps default health check endpoints for liveness and readiness probes.
     /// </summary>
     /// <remarks>

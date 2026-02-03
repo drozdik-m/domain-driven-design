@@ -4,8 +4,10 @@ using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.Middlewares.Logging;
 using MartinDrozdik.DDD.Web.OpenApi;
+using MartinDrozdik.DDD.Web.Telemetry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
@@ -25,6 +27,14 @@ public class TestProgram
         builder.Services.AddAppErrorHandling();
         builder.Services.AddAppOpenApi();
         builder.AddAppHealthChecks();
+        builder.AddAppOpenTelemetry();
+
+        // TODO generalize?
+        builder.Services.ConfigureHttpClientDefaults(http =>
+        {
+            // Turn on resilience by default
+            http.AddStandardResilienceHandler();
+        });
 
         // Add DbContext with SQLite
         var dbPath = Path.Combine(Path.GetTempPath(), $"test_db.db");
