@@ -28,15 +28,7 @@ public static class WebHostBuilderExtensions
         // 10 seconds is reasonable for most health checks
         builder.Services.AddRequestTimeouts(
             configure: static timeouts =>
-                timeouts.AddPolicy("HealthChecks", TimeSpan.FromSeconds(10)));
-
-        // Output caching reduces load on health check dependencies during frequent polling
-        // 10-second cache means K8s/orchestrators can poll every few seconds without overhead
-        builder.Services.AddOutputCache(
-            configureOptions: static caching =>
-                caching.AddPolicy(
-                    "HealthChecks",
-                    build: static policy => policy.Expire(TimeSpan.FromSeconds(10))));
+                timeouts.AddPolicy("HealthChecks", TimeSpan.FromSeconds(5)));
 
         // Basic liveness check - just confirms the app process is running and can respond
         // This is intentionally simple - it should NOT check dependencies

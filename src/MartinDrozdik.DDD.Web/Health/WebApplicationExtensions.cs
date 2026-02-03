@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Web.Health;
 
@@ -22,7 +21,6 @@ public static class WebApplicationExtensions
     {
         var healthChecks = app.MapGroup(string.Empty);
         healthChecks
-            .CacheOutput("HealthChecks")
             .WithRequestTimeout("HealthChecks");
 
         // Liveness probe: Is the app alive? (restart if fails)

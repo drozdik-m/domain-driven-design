@@ -1,6 +1,4 @@
 ﻿using System.Net;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Web.Tests.Health;
