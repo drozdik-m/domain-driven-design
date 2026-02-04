@@ -5,26 +5,21 @@ using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
+using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
-using MartinDrozdik.DDD.Web.Health;
-using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
-using MartinDrozdik.DDD.Web.Middlewares;
-using MartinDrozdik.DDD.Web.Middlewares.Logging;
-using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Options;
+using MartinDrozdik.DDD.Web.Proxy;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 // --- BUILDER ---
 var builder = WebApplication.CreateBuilder(args);
 
-// Add options
-builder.Services.AddValidatedAppOptions<InvoiceOptions>();
+builder.AddAppServices();
 
-builder.Services.AddAppErrorHandling();
-builder.AddAppLogging();
-builder.AddAppHealthChecks();
+// Options
+builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
 // Add DbContext with SQLite
 builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
@@ -33,7 +28,6 @@ builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
 });
 
 builder.Services.AddControllers();
-builder.Services.AddAppOpenApi();
 
 builder.Services.AddMediator(config =>
 {
@@ -48,20 +42,14 @@ var app = builder.Build();
 
 await app.EnsureCreatedDatabaseAsync<InvoiceDbContext>();
 
-app.UseExceptionHandler();
-app.MapAppHealthChecks();
+app.IsBehindProxy(); // well not actually, but this is how you would configure it if you were
+app.UseAppMiddlewares();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseHttpLogging();
-}
-app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 //app.UseHttpsRedirection();
 

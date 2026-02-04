@@ -1,13 +1,6 @@
 using MartinDrozdik.DDD.Web.Databases;
-using MartinDrozdik.DDD.Web.Health;
-using MartinDrozdik.DDD.Web.Logging;
-using MartinDrozdik.DDD.Web.Middlewares;
-using MartinDrozdik.DDD.Web.Middlewares.Logging;
-using MartinDrozdik.DDD.Web.OpenApi;
-using MartinDrozdik.DDD.Web.Telemetry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
@@ -23,18 +16,7 @@ public class TestProgram
     {
         // --- BUILDER ---
         var builder = WebApplication.CreateBuilder(args);
-        builder.AddAppLogging();
-        builder.Services.AddAppErrorHandling();
-        builder.Services.AddAppOpenApi();
-        builder.AddAppHealthChecks();
-        builder.AddAppOpenTelemetry();
-
-        // TODO generalize?
-        builder.Services.ConfigureHttpClientDefaults(http =>
-        {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
-        });
+        builder.AddAppServices();
 
         // Add DbContext with SQLite
         var dbPath = Path.Combine(Path.GetTempPath(), $"test_db.db");
@@ -58,9 +40,7 @@ public class TestProgram
 
         await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 
-        app.UseExceptionHandler();
-        app.MapAppHealthChecks();
-        app.UseMiddleware<RequestResponseLoggingMiddleware>();
+        app.UseAppMiddlewares();
 
         app.MapOpenApi("/openapi/doc.json");
         app.MapErrorEndpoints();

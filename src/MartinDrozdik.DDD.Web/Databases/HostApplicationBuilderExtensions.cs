@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Web.Options;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,19 +7,19 @@ using Microsoft.Extensions.Options;
 namespace MartinDrozdik.DDD.Web.Databases;
 
 /// <summary>
-/// Extensions for <see cref="WebApplicationBuilder"/>.
+/// Extensions for <see cref="IHostApplicationBuilder"/>.
 /// </summary>
-public static class WebApplicationBuilderExtensions
+public static class HostApplicationBuilderExtensions
 {
     /// <summary>
-    /// Adds SQL database context to the <see cref="WebApplicationBuilder"/>.
+    /// Adds SQL database context to the <see cref="IHostApplicationBuilder"/>.
     /// Enables sensitive data logging and detailed errors in development environment.
     /// </summary>
     /// <typeparam name="T">Type of the <see cref="DbContext"/>.</typeparam>
-    /// <param name="builder">The <see cref="WebApplicationBuilder"/> to extend.</param>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
     /// <param name="contextBuilder">Action to configure the <see cref="DbContextOptionsBuilder"/>.</param>
-    /// <returns>Updated <see cref="WebApplicationBuilder"/>.</returns>
-    public static WebApplicationBuilder AddAppDbContext<T>(this WebApplicationBuilder builder, Action<DbContextOptionsBuilder> contextBuilder)
+    /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
+    public static IHostApplicationBuilder AddAppDbContext<T>(this IHostApplicationBuilder builder, Action<DbContextOptionsBuilder> contextBuilder)
         where T : DbContext
     {
         builder.Services.AddDbContext<T>(options =>
@@ -43,15 +42,15 @@ public static class WebApplicationBuilderExtensions
     }
 
     /// <summary>
-    /// Adds SQL database context to the <see cref="WebApplicationBuilder"/>.
+    /// Adds SQL database context to the <see cref="IHostApplicationBuilder"/>.
     /// Sets up and uses <see cref="DatabaseOptions"/> for configuration.
     /// Enables sensitive data logging and detailed errors in development environment.
     /// </summary>
     /// <typeparam name="T">Type of the <see cref="DbContext"/>.</typeparam>
-    /// <param name="builder">The <see cref="WebApplicationBuilder"/> to extend.</param>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
     /// <param name="contextBuilder">Action to configure the <see cref="DbContextOptionsBuilder"/> using <see cref="DatabaseOptions"/>.</param>
-    /// <returns>Updated <see cref="WebApplicationBuilder"/>.</returns>
-    public static WebApplicationBuilder AddAppDbContext<T>(this WebApplicationBuilder builder, Action<DatabaseOptions, DbContextOptionsBuilder> contextBuilder)
+    /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
+    public static IHostApplicationBuilder AddAppDbContext<T>(this IHostApplicationBuilder builder, Action<DatabaseOptions, DbContextOptionsBuilder> contextBuilder)
         where T : DbContext
     {
         builder.Services.AddValidatedAppOptions<DatabaseOptions>();

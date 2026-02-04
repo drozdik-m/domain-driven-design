@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 
 namespace MartinDrozdik.DDD.Web.Health;
 
 /// <summary>
-/// Extensions for <see cref="WebApplicationBuilder"/>.
+/// Extensions for <see cref="IHostApplicationBuilder"/>.
 /// </summary>
-public static class WebHostBuilderExtensions
+public static class HostApplicationBuilderExtensions
 {
     /// <summary>
     /// Adds default health check configuration with request timeouts and output caching.
@@ -19,10 +19,10 @@ public static class WebHostBuilderExtensions
     /// - Example: .AddRedis("redis-connection-string", tags: ["ready"])
     /// ...etc.
     /// </remarks>
-    /// <param name="builder">The <see cref="WebApplicationBuilder"/> to extend.</param>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
     /// <param name="healthCheckBuilderConfig">Optional action to further configure health checks.</param>
-    /// <returns>The <see cref="WebApplicationBuilder"/> for chaining.</returns>
-    public static WebApplicationBuilder AddAppHealthChecks(this WebApplicationBuilder builder, Action<IHealthChecksBuilder>? healthCheckBuilderConfig = null)
+    /// <returns>The <see cref="IHostApplicationBuilder"/> for chaining.</returns>
+    public static IHostApplicationBuilder AddAppHealthChecks(this IHostApplicationBuilder builder, Action<IHealthChecksBuilder>? healthCheckBuilderConfig = null)
     {
         // Timeout policy prevents health check endpoints from hanging indefinitely
         // 10 seconds is reasonable for most health checks
