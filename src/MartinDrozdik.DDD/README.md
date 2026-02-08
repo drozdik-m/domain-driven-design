@@ -1,6 +1,6 @@
 ﻿# Flexible Domain-Driven Design (DDD) library for .NET
 
-A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much). Check the [Demo app](../MartinDrozdik.DDD) for recommended usage.
+A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much). Check the [demo app](../MartinDrozdik.DDD) for recommended usage.
 
 ## Installation
 
@@ -11,7 +11,7 @@ dotnet add package MartinDrozdik.DDD
 ## Philosophy
 
 - **Pragmatic over purist** - Use what makes sense, ignore what doesn't
-- **Type safety** - Compiler errors > Runtime errors (f*ck off reflection)
+- **Type safety** - Compiler errors > Runtime errors (screw reflection)
 - **Explicit over implicit** - Code should be obvious
 - **Composition over inheritance** - Most templates are interfaces for a reason
 - **Fail fast** - Validation at boundaries, not 67 layers deep
@@ -20,17 +20,17 @@ dotnet add package MartinDrozdik.DDD
 
 ## Demo Project
 
-The demo projects shows recommended patterns. It's not gospel, but it works. Check out:
+The demo project shows recommended patterns. It's not gospel, but it works. Check out:
 
-– [Models/](../MartinDrozdik.DDD.Demo/Models) - Aggregates, Entities, Value Objects, Enumerations
-– [Requests/](../MartinDrozdik.DDD.Demo/Requests) - Commands and Queries with handlers
-– [Context/](../MartinDrozdik.DDD.Demo/Context) - EF Core configuration with identity converters
+- [Models/](../MartinDrozdik.DDD.Demo/Models) - Aggregates, Entities, Value Objects, Enumerations
+- [Requests/](../MartinDrozdik.DDD.Demo/Requests) - Commands and Queries with handlers
+- [Context/](../MartinDrozdik.DDD.Demo/Context) - EF Core configuration with identity converters
 
 ## Templates (keeping it simple, stupid)
 
 **Basic interfaces that define DDD building blocks.** These are interfaces, not abstract classes, because your ORM probably needs that flexibility anyway.
 
-Checkout the [Demo app](../MartinDrozdik.DDD) for more examples with validation and other goodies:
+Check out the [demo app](../MartinDrozdik.DDD) for more examples with validation and other goodies:
 
 - [Person entity with validation and strongly typed ID](../MartinDrozdik.DDD.Demo/Models/Entities/Person.cs)
 - [Invoice aggregate with validation and strongly typed ID](../MartinDrozdik.DDD.Demo/Models/Aggregates/Invoice.cs)
@@ -103,7 +103,7 @@ Your consistency boundaries (aka "units of work that make sense").
 
 Strongly-Typed IDs (No More `Guid` Soup).
 
-Stop passing around naked `Guids` and `int`s like it's 2010. Type-safe identities with implicit conversion support.
+Stop passing around naked `Guid`s and `int`s like it's 2010. Type-safe identities with implicit conversion support.
 
 ```csharp
 public class PersonId(Guid key) : GuidIdentity<PersonId>(key);
@@ -113,7 +113,7 @@ var invoice = someService.Get(id); // Type-safe!
 ```
 Built-in primitives:
 
-- `GuidIdentity<T>` - For when you want GUIDs (use Guid.CreateVersion7() like a civilized person)
+- `GuidIdentity<T>` - For when you want GUIDs (use `Guid.CreateVersion7()` like a civilized person)
 - `IntIdentity<T>` - For when you're stuck with legacy databases
 - `StringIdentity<T>` - For when external systems hate you
 
@@ -149,9 +149,9 @@ Serializes to strings/properties in your DB/JSON. Compares by value. Extends lik
 
 ## Exceptions and Errors
 
-*Sh\*t happens, and you need to handle it.*
+*Stuff happens, and you need to handle it.*
 
-This library does provide support for both **Result and Exception** handling strategies in Domain-Driven Design (DDD). You can choose the approach that best fits your projects' needs.
+This library provides support for both **Result and Exception** handling strategies in Domain-Driven Design (DDD). You can choose the approach that best fits your project's needs.
 
 Normally, you would use `Result<T>` types to represent the outcome of business operations that can fail, allowing you to handle errors in a functional way without throwing exceptions. This is particularly useful in scenarios where you want to avoid the overhead of exceptions and prefer to work with explicit success/failure states.
 
@@ -166,7 +166,7 @@ var error = new ErrorBuilder()
     // More details!: .WithDetail("Status", "caffeine overdose")
     .Build();
 
-// Convert to exceptions when you wanna
+// Convert to exceptions when you want to
 throw error.ToBusinessRuleException();
 ```
 
@@ -176,7 +176,7 @@ Integrates well with `FluentValidation`:
 // Error object:
 if (new YourFluentValidator().Validate(someObject).TryGetError(out var error))
 {
-    return errror
+    return error;
 }
 
 // Business exception:
@@ -204,7 +204,7 @@ Handle it:
 public class CreateInvoiceCommandHandler : ICommandHandler<CreateInvoiceCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(
-    CreateInvoiceCommand command, 
+        CreateInvoiceCommand command, 
         CancellationToken cancellationToken)
     {
         // Code
@@ -233,9 +233,9 @@ var invoiceId = await mediator.SendCommand<CreateInvoiceCommand, InvoiceId>(
 
 Pipelines – we got them! And they are **type-safe and nice**! **Pick who uses what pipelines**! Add cross-cutting concerns like logging, validation, transactions, etc. without cluttering your handlers.
 
-*Using pipelines is super nice; but, to be honest, defining new piplines requires a bit of boilerplate. It's a sacrifice for the type-safety guys...*
+*Using pipelines is super nice; but, to be honest, defining new pipelines requires a bit of boilerplate. It's a sacrifice for the type-safety guys...*
 
-Checkout the [Demo app](../MartinDrozdik.DDD) for examples of pipelines in action:
+Check out the [demo app](../MartinDrozdik.DDD) for examples of pipelines in action:
 
 ``` csharp
 builder.Services.AddMediator(config =>
@@ -245,7 +245,4 @@ builder.Services.AddMediator(config =>
     config.WithCommand<CreateInvoiceCommand, InvoiceId, CreateInvoiceCommandHandler>(integration);
     // ...
 });
-```
-
-``` csharp
 ```
