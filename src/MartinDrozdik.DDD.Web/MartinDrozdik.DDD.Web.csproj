@@ -9,7 +9,7 @@
     <Description>A library to support web domain-driven design development with solutions to common problems.</Description>
     <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>ddd-icon.png</PackageIcon>
+    <PackageIcon>ddd-web-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;web;http;domain;template</PackageTags>
     <Version>0.1.0</Version>
@@ -59,10 +59,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\docs\ddd-icon.png">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
     <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
@@ -95,5 +91,12 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>ExceptionLocalization.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ddd-web-icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 </Project>
