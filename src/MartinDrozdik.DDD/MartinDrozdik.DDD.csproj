@@ -6,13 +6,13 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>Martin Drozdík</Authors>
-    <Description>A library to support domain-driven design development with solutions to common problems.</Description>
-    <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design</PackageProjectUrl>
+    <Description>A pragmatic DDD library with flexibility in mind. Works well with web apps.</Description>
+    <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>ddd-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
-    <PackageTags>ddd;domain;template</PackageTags>
-    <Version>0.2.0</Version>
+    <PackageTags>ddd;domain;domain-driven-design;cqrs;mediator;value-objects;aggregates;strongly-typed-ids;error-handling;clean-architecture</PackageTags>
+    <Version>0.3.0</Version>
     <PackageId>MartinDrozdik.DDD</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -84,11 +84,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\docs\ddd-icon.png">
+    <None Update="ddd-icon.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
-    <None Include="..\..\README.md">
+    <None Update="README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
