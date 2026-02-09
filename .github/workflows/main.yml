@@ -12,6 +12,8 @@ env:
   DEMO_PROJECT_PATH: './src/MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj'
   DEMO_PROJECT_CLIENT_PATH: './src/MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj'
   DEMO_PROJECT_TESTS: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
+  WEB_PROJECT: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
+  WEB_PROJECT_TESTS: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
 jobs:
   validate-markdown:
     name: Validate Markdown Links
@@ -57,14 +59,20 @@ jobs:
         retention-days: 1
 
   test:
-    name: Tests
+    name: Tests – ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      contents: read
-      issues: read
-      checks: write
-  
+    strategy:
+      fail-fast: false # Keep running other tests if one fails
+      matrix:
+        include:
+          - project_name: "Models"
+            env_path_key: "PATH_MODELS_TESTS"
+          - project_name: "Demo"
+            env_path_key: "PATH_DEMO_TESTS"
+          - project_name: "Web"
+            env_path_key: "PATH_WEB_TESTS"
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
@@ -84,10 +92,7 @@ jobs:
         path: src/
       
     - name: Run model tests
-      run: dotnet test ${{ env.MODELS_PROJECT_TESTS }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=model-test-results.trx" --results-directory ./TestResults
-    
-    - name: Run demo tests
-      run: dotnet test ${{ env.DEMO_PROJECT_TESTS }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=demo-test-results.trx" --results-directory ./TestResults
+      run: dotnet test ${{ env[matrix.env_path_key] }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
     
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -96,13 +101,20 @@ jobs:
         comment_mode: off
         files: |
           TestResults/**/*.trx
-        check_name: Test results
+        check_name: Test results – ${{ matrix.project_name }}
 
   publish-nuget:
-    name: Publish NuGet Package
+    name: Publish ${{ matrix.project_name }} NuGet Package
     runs-on: ubuntu-latest
     needs: [build, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      matrix:
+        include:
+          - project_name: "MartinDrozdik.DDD"
+            env_path_key: "MODELS_PROJECT"
+          - project_name: "MartinDrozdik.DDD.Web"
+            env_path_key: "WEB_PROJECT"
     
     steps:
     - name: Checkout code
@@ -117,10 +129,10 @@ jobs:
       run: dotnet restore ${{ env.SOLUTION_PATH }}
       
     - name: Build NuGet project
-      run: dotnet build ${{ env.MODELS_PROJECT }} --configuration Release --no-restore
+      run: dotnet build ${{ env[matrix.env_path_key] }} --configuration Release --no-restore
       
     - name: Pack NuGet package
-      run: dotnet pack ${{ env.MODELS_PROJECT }} --configuration Release --no-build --output ./packages
+      run: dotnet pack ${{ env[matrix.env_path_key] }} --configuration Release --no-build --output ./packages
       
     - name: Publish to NuGet
       run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
