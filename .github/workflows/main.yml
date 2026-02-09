@@ -108,16 +108,16 @@ jobs:
         check_name: Test results – ${{ matrix.project_name }}
 
   publish-nuget:
-    name: Publish ${{ matrix.project_name }} NuGet Package
+    name: Publish NuGet – ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: [build, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     strategy:
       matrix:
         include:
-          - project_name: "MartinDrozdik.DDD"
+          - project_name: "Models"
             path: './src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj'
-          - project_name: "MartinDrozdik.DDD.Web"
+          - project_name: "Web"
             path: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
     
     steps:
