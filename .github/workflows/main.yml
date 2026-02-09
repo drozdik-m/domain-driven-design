@@ -67,11 +67,11 @@ jobs:
       matrix:
         include:
           - project_name: "Models"
-            env_path_key: "PATH_MODELS_TESTS"
-          - project_name: "Demo"
-            env_path_key: "PATH_DEMO_TESTS"
+            path: './src/MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj'
           - project_name: "Web"
-            env_path_key: "PATH_WEB_TESTS"
+            path: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
+          - project_name: "Demo"
+            path: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
 
     steps:
     - name: Checkout code
@@ -92,9 +92,7 @@ jobs:
         path: src/
       
     - name: Run model tests
-      env:
-        CURRENT_TEST_PATH: ${{ env[matrix.env_path_key] }}
-      run: dotnet test "$CURRENT_TEST_PATH" --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
+      run: dotnet test ${{ matrix.path }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
     
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -114,9 +112,9 @@ jobs:
       matrix:
         include:
           - project_name: "MartinDrozdik.DDD"
-            env_path_key: "MODELS_PROJECT"
+            path: './src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj'
           - project_name: "MartinDrozdik.DDD.Web"
-            env_path_key: "WEB_PROJECT"
+            path: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
     
     steps:
     - name: Checkout code
@@ -131,10 +129,10 @@ jobs:
       run: dotnet restore ${{ env.SOLUTION_PATH }}
       
     - name: Build NuGet project
-      run: dotnet build ${{ env[matrix.env_path_key] }} --configuration Release --no-restore
+      run: dotnet build ${{ matrix.path }} --configuration Release --no-restore
       
     - name: Pack NuGet package
-      run: dotnet pack ${{ env[matrix.env_path_key] }} --configuration Release --no-build --output ./packages
+      run: dotnet pack ${{ matrix.path }} --configuration Release --no-build --output ./packages
       
     - name: Publish to NuGet
       run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
