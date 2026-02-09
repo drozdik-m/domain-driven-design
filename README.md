@@ -1,17 +1,28 @@
-# DDD library
+# Set of Domain-Driven Design (DDD) libraries for .NET
 
-README IN PROGRESS
+This repository contains a set of libraries that provide Nugets for Domain-Driven Design (DDD) in .NET.
 
-# MartinDrozdik.DDD
+## MartinDrozdik.DDD
 
-[![Build, test and publish nuget package](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml/badge.svg)](https://github.com/drozdik-m/domain-driven-design/actions/workflows/dotnet-ci-cd.yml)
-[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Models.svg)](https://www.nuget.org/packages/MartinDrozdik.DDD.Models/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Models.svg)](https://www.nuget.org/packages/MartinDrozdik.DDD.Models/)
+**A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much).**
 
-## Result vs Exception
+Contains basic interfaces and building blocks for DDD, such as:
 
-This library does provide support for both Result and Exception handling strategies in Domain-Driven Design (DDD). You can choose the approach that best fits your projects' needs.
+- ValueObject, Entity, AggregateRoot, Enumerations...
+- Validation and error handling utilities
+- Type-safe ID patterns
+- Mediator for commands and queries (with handlers) – integrated via DI
+  - And pipelines!
+- Other goodies that make DDD easier without forcing you into a specific architecture or framework
 
-Normally, you would use Result types to represent the outcome of business operations that can fail, allowing you to handle errors in a functional way without throwing exceptions. This is particularly useful in scenarios where you want to avoid the overhead of exceptions and prefer to work with explicit success/failure states.
+Check out [README.md](./src/MartinDrozdik.DDD/README.md) for this library and possibly the [demo app](../MartinDrozdik.DDD.Demo) for recommended usage.
 
-However, applications like APIs usually propagate the error all the way to the top level anyway, where exceptions can be caught and translated into appropriate HTTP responses. In such cases, using exceptions might be more straightforward without tons of boilerplate.
+[![DDD Logo](./src/MartinDrozdik.DDD/ddd-icon.png)](./src/MartinDrozdik.DDD/README.md)
+
+## MartinDrozdik.DDD.Web
+
+*TODO*
+
+## MartinDrozdik.DDD.Demo
+
+A demo application that shows recommended patterns for using the MartinDrozdik.DDD library. It's not gospel, but it works. Check out:
