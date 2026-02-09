@@ -27,14 +27,6 @@ public class TestProgram
             dbBuilder.UseSqlite(options.ConnectionString);
         });
 
-        /*
-        builder.Services.AddMediator(config =>
-        {
-            var pipelineBuilder = new PipelineAssistant();
-            config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(pipelineBuilder);
-            config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(pipelineBuilder);
-        });*/
-
         // --- APP ---
         var app = builder.Build();
 
