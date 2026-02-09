@@ -92,7 +92,9 @@ jobs:
         path: src/
       
     - name: Run model tests
-      run: dotnet test ${{ env[matrix.env_path_key] }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
+      env:
+        CURRENT_TEST_PATH: ${{ env[matrix.env_path_key] }}
+      run: dotnet test "$CURRENT_TEST_PATH" --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
     
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
