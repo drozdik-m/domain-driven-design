@@ -12,7 +12,7 @@
     <PackageIcon>ddd-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;domain;domain-driven-design;cqrs;mediator;value-objects;aggregates;strongly-typed-ids;error-handling;clean-architecture</PackageTags>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <PackageId>MartinDrozdik.DDD</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
