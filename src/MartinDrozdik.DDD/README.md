@@ -1,6 +1,6 @@
 ﻿# Flexible Domain-Driven Design (DDD) library for .NET
 
-A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much). Check the [demo app](../MartinDrozdik.DDD.Demo) for recommended usage.
+A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much). Check the [demo](../MartinDrozdik.DDD.Demo).
 
 ## Installation
 
@@ -33,7 +33,7 @@ The demo project shows recommended patterns. It's not gospel, but it works. Chec
 
 **Basic interfaces that define DDD building blocks.** These are interfaces, not abstract classes, because your ORM probably needs that flexibility anyway. Also, no base classes with 100 methods you don't need. Just the essentials.
 
-Check out the [demo app](../MartinDrozdik.DDD.Demo) for more examples with validation and other goodies:
+Check out the [demo](../MartinDrozdik.DDD.Demo) for more examples with validation and other goodies:
 
 - [Person entity with validation and strongly typed ID](../MartinDrozdik.DDD.Demo/Models/Entities/Person.cs)
 - [Invoice aggregate with validation and strongly typed ID](../MartinDrozdik.DDD.Demo/Models/Aggregates/Invoice.cs)
@@ -42,7 +42,7 @@ Check out the [demo app](../MartinDrozdik.DDD.Demo) for more examples with valid
 
 ### Value Objects
 
-Things compared by value, not identity:
+Compared by value, not identity:
 
 ```csharp
 public class InvoiceNumber : ValueObject
@@ -74,7 +74,7 @@ public class InvoiceNumber : ValueObject
 
 ### Entities
 
-Things compared by identity, not value. Just implement the marker interface and you're good to go:
+Compared by identity, not value. Just implement the marker interface and you're good to go:
 
 ```csharp
 public class Person : IDomainEntity<Guid> // or IAggregateRoot<Guid>
