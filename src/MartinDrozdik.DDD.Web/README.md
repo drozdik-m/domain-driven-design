@@ -1,6 +1,6 @@
 ﻿# DDD for ASP.NET Core - Web Plumbing That Doesn't Suck
 
-Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](https://www.nuget.org/packages/MartinDrozdik.DDD). Includes error handling, logging, telemetry, health checks, and other setup you'll need anyway. Check the [demo](../MartinDrozdik.DDD.Demo).
+Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](../MartinDrozdik.DDD). Includes error handling, logging, telemetry, health checks, and other setup you'll need anyway. Check the [demo](../MartinDrozdik.DDD.Demo).
 
 ## Installation
 
@@ -12,7 +12,7 @@ dotnet add package MartinDrozdik.DDD.Web
 
 **Same as the [core DDD library](../MartinDrozdik.DDD).**
 
-This package provides basic scaffolding for ASP.NET Core apps while staying out of your way when you need to do your thing. Everything is optional, but it's tested together.
+This package provides **basic scaffolding for ASP.NET apps** while staying out of your way when you need to do your thing. **Everything is optional**, but it's tested together.
 
 > iT jUsT wOrKs
 
@@ -36,17 +36,17 @@ await app.RunAsync();
 
 Done. You've got a production-ready baseline. Now go build your actual features.
 
-You want to use **Apire**? We got you fam! The OTEL works with with Apire out of the box.
+You want to use **Apire**? We got you fam! The OTEL works with Apire out of the box.
 
 ## All-in-One Setup
 
 The `AddAppServices()` extension registers:
 
-- **Logging** - Structured logging that actually helps you debug
-- **Error Handling** - Converts your DDD exceptions to proper HTTP *RFC7807* error responses
+- **Logging** - Structured logging that actually helps you debug but doesn't leak sensitive info in production
+- **Error Handling** - Converts your [DDD exceptions](../MartinDrozdik.DDD/Exceptions) to proper HTTP *RFC7807* error responses
 - **OpenAPI** - Auto-generated API docs (because manually writing swagger is hell)
 - **Health Checks** - basic `/health`, `/health/live` and `/health/ready` endpoints
-- **OpenTelemetry** - Metrics, traces, and logs (exports to OTLP when configured via OTEL environment variables)
+- **OpenTelemetry** - Metrics, traces, and logs (exports to OTLP when configured via [OTEL environment variables](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/))
 - **HTTP Resilience** - Default policies for HTTP clients
 
 Don't want all of it? Use the individual extensions instead. I won't judge.
@@ -170,9 +170,11 @@ await app.MigrateDatabaseAsync<YourDbContext>();
 The most basic liveness and readiness probes. Because Kubernetes will ask:
 
 ```csharp
+builder.AddAppHealthChecks();
+
+// Or add custom checks:
 builder.AddAppHealthChecks(checks =>
 {
-    checks.AddDbContextCheck<YourDbContext>(tags: ["ready"]);
     // Add more checks as needed
 });
 
@@ -213,11 +215,13 @@ OTEL_SERVICE_NAME=your-service
 OTEL_SERVICE_VERSION=1.0.0
 ```
 
+Check the [docs with full list of OTEL environment variables](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
+
 Health check requests are filtered out of traces because who cares about those.
 
 ### Reverse Proxy Support
 
-One liner for handling proxied requests (nginx, etc.):
+One liner for handling proxied requests (nginx, YARP etc.):
 
 ```csharp
 app.IsBehindProxy();

@@ -7,12 +7,12 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>Martin Drozdík</Authors>
     <Description>A library to support web domain-driven design development with solutions to common problems.</Description>
-    <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Web</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>ddd-web-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;web;http;domain;template</PackageTags>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <PackageId>MartinDrozdik.DDD.Web</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -59,13 +59,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
   </ItemGroup>
 
@@ -95,6 +88,10 @@
 
   <ItemGroup>
     <None Update="ddd-web-icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

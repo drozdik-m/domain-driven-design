@@ -2,21 +2,23 @@
 
 This repository contains a set of libraries that provide NuGet packages for Domain-Driven Design (DDD) in .NET. Because apparently we all need more packages in our lives.
 
+*Setup your maintainable .NET website project today!.*
+
 ## MartinDrozdik.DDD
 
 **A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much).**
 
 Contains basic interfaces and building blocks for DDD and quality code, such as:
 
-- ValueObject, Entity, AggregateRoot, ... (the usual suspects)
-- Object-based enumerations
-- Validation and error handling (based on `FluentValidation`, not your tears)
-- Type-safe ID patterns (no more Guid soup)
-- Mediator for commands and queries (with handlers) – integrated via DI
-  - And pipelines!
-- Other goodies that make DDD easier without forcing you into a specific architecture or framework
+- **ValueObject, Entity, AggregateRoot**, ... (the usual suspects)
+- **Object-based enumerations**
+- **Validation** and **error handling** (based on `FluentValidation`, not your tears)
+- **Type-safe ID** patterns (no more Guid soup)
+- **Mediator** for commands and queries (with handlers) – integrated via DI
+  - And **pipelines**!
+- Other goodies that **make DDD easier without forcing** you into a specific architecture or framework
 
-Check out [README.md](./src/MartinDrozdik.DDD/README.md) for this library and possibly the [demo](./src/MartinDrozdik.DDD.Demo) for recommended usage.
+Check out [very nice README.md](./src/MartinDrozdik.DDD/README.md) for this library and possibly the [demo](./src/MartinDrozdik.DDD.Demo) for examples.
 
 [![DDD Logo](./src/MartinDrozdik.DDD/ddd-icon.png)](./src/MartinDrozdik.DDD/README.md)
 
@@ -30,16 +32,16 @@ Built on top of `MartinDrozdik.DDD`, this package provides all the web plumbing 
 - **Error handling**
 - **Configuration validation** – with `FluentValidation`
 - **Database helpers**
-- **OpenTelemetry** – *Hello Aspire* (and any other OTLP-consumer)
-- **Health checks**
+- **OpenTelemetry** – *Hello Aspire* (and any other OTLP-consumers)
+- Basic **Health checks**
 - **HTTP resilience**
 - **OpenAPI**
 
-Everything is optional and composable. Use what helps, ignore the rest. I won't tell.
+*Everything is optional and composable.* Use what helps, ignore the rest. I won't tell.
 
-Check out [README.md](./src/MartinDrozdik.DDD.Web/README.md) for full details and examples that actually compile.
+Check out [very nice README.md](./src/MartinDrozdik.DDD.Web/README.md) for full details and examples that actually compile.
 
-[![DDD Web Logo](./src/MartinDrozdik.DDD.Web/ddd-web-icon.png)](./src/MartinDrozdik.DDD.Web/README.md)
+[![DDD Web Logo](./src/MartinDrozdik.DDD.Web/ddd-web-icon.png)](./src/MartinDrozdik.DDD.Web)
 
 ## MartinDrozdik.DDD.Demo
 
@@ -53,3 +55,5 @@ Check out:
 - [Context/](./src/MartinDrozdik.DDD.Demo/Context) – EF Core configuration with identity converters
 
 The demo is structured for demonstration purposes. For real apps, consider vertical slice architecture. Or don't. You do you.
+
+[![DDD Demo Logo](./src/MartinDrozdik.DDD.Demo/ddd-demo-icon.png)](./src/MartinDrozdik.DDD.Demo)
