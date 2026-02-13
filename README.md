@@ -5,7 +5,7 @@
 
 This repository contains a set of libraries that provide NuGet packages for Domain-Driven Design (DDD) in .NET. Because apparently we all need more packages in our lives.
 
-*Setup your maintainable .NET website project today!.*
+*Setup your maintainable .NET website project today!*
 
 ## MartinDrozdik.DDD
 
