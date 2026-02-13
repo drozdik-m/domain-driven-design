@@ -116,8 +116,3 @@ Generate client code using Kiota automatically from the Api project:
 ```
 
 Every time you build the project, the client regenerates to match your API. No manual sync needed.
-
-## Further Reading
-
-- [Core DDD Library](../MartinDrozdik.DDD) - Building blocks and patterns
-- [Web DDD Library](../MartinDrozdik.DDD.Web) - ASP.NET Core integration
