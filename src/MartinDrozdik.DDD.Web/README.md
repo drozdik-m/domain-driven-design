@@ -1,5 +1,11 @@
 ﻿# DDD for ASP.NET Core - Web Plumbing That Doesn't Suck
 
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Web?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Web)](https://www.nuget.org/packages/MartinDrozdik.DDD.Web)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Web?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Web)
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
+[![License](https://img.shields.io/github/license/drozdik-m/domain-driven-design?style=flat-square)](LICENSE)
+
 Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](../MartinDrozdik.DDD). Includes error handling, logging, telemetry, health checks, and other setup you'll need anyway. Check the [demo](../MartinDrozdik.DDD.Demo).
 
 ## Installation

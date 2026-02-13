@@ -1,10 +1,17 @@
 # Set of Domain-Driven Design (DDD) libraries for .NET
 
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
+[![License](https://img.shields.io/github/license/drozdik-m/domain-driven-design?style=flat-square)](LICENSE)
+
 This repository contains a set of libraries that provide NuGet packages for Domain-Driven Design (DDD) in .NET. Because apparently we all need more packages in our lives.
 
 *Setup your maintainable .NET website project today!.*
 
 ## MartinDrozdik.DDD
+
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD?style=flat-square&logo=nuget&label=MartinDrozdik.DDD)](https://www.nuget.org/packages/MartinDrozdik.DDD)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD)
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
 
 **A pragmatic .NET library for Domain-Driven Design that doesn't force you into abstract nonsense (that much).**
 
@@ -23,6 +30,10 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD/README.md) for this libr
 [![DDD Logo](./src/MartinDrozdik.DDD/ddd-icon.png)](./src/MartinDrozdik.DDD/README.md)
 
 ## MartinDrozdik.DDD.Web
+
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Web?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Web)](https://www.nuget.org/packages/MartinDrozdik.DDD.Web)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Web?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Web)
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
 
 **Opinionated web infrastructure for ASP.NET Core that doesn't make you want to flip tables.**
 
@@ -44,6 +55,8 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD.Web/README.md) for full 
 [![DDD Web Logo](./src/MartinDrozdik.DDD.Web/ddd-web-icon.png)](./src/MartinDrozdik.DDD.Web)
 
 ## MartinDrozdik.DDD.Demo
+
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
 
 A demo application that shows recommended patterns for using the `MartinDrozdik.DDD` and `MartinDrozdik.DDD.Web` library. It's not gospel, but it works (which is more than you can say for most blog post code).
 
