@@ -6,9 +6,9 @@ A working example of DDD patterns with ASP.NET Core using [MartinDrozdik.DDD](..
 
 ```bash
 # Clone and run
-git clone <repo-url>
-cd MartinDrozdik.DDD.Demo
-dotnet run
+git clone https://github.com/drozdik-m/domain-driven-design.git
+cd domain-driven-design/src/MartinDrozdik.DDD.Demo
+dotnet run --launch-profile scalar
 ```
 
 Or just use the Visual Studios' *Play button*.
@@ -33,6 +33,8 @@ MartinDrozdik.DDD.Demo/
 
 ## Domain stuff
 
+Checkout the DDD examples in the `Models` folder. Here, you can find examples of:
+
 - [InvoiceState.cs](./Models/Enumerations/InvoiceState.cs) Enumeration
 - [InvoiceNumber.cs](./Models/ValueObjects/InvoiceNumber.cs) Value Object
 - [Person.cs](./Models/Entities/Person.cs) Entity
@@ -42,9 +44,8 @@ MartinDrozdik.DDD.Demo/
 
 Commands mutate state. Queries read state. They never mix.
 
-- [GetInvoicesQuery.cs](./Requests/Queries/GetInvoicesQuery.cs) + [GetInvoicesQueryHandler.cs](./Requests/Handlers/GetInvoicesQueryHandler.cs)
-- [CreateInvoiceDraftCommand.cs](./Requests/Commands/CreateInvoiceDraftCommand.cs) + [CreateInvoiceDraftCommandHandler.cs](./Requests/Handlers/CreateInvoiceDraftCommandHandler.cs)
-
+- [GetInvoicesQuery.cs](./Requests/Invoices/GetInvoicesQuery.cs) + [GetInvoicesQueryHandler.cs](./Requests/Invoices/GetInvoicesQueryHandler.cs)
+- [CreateInvoiceDraftCommand.cs](./Requests/Invoices/CreateInvoiceDraftCommand.cs) + [CreateInvoiceDraftCommandHandler.cs](./Requests/Invoices/CreateInvoiceDraftCommandHandler.cs)
 
 ## Configuration
 
@@ -56,7 +57,7 @@ Type-safe options that fail fast if misconfigured:
 
 All exceptions are automatically converted to RFC 7807 Problem Details responses by the middleware.
 
-Check out the [ErrorsController.cs](./Controllers/ErrorsController.cs) for examples of how different exceptions are handled.
+Check out the [ErrorController.cs](./Controllers/ErrorController.cs) for examples of how different exceptions are handled.
 
 ## EF Core Configuration
 
@@ -87,7 +88,7 @@ Then client code can be generated using generator tools like NSwag or Kiota.
 
 ### Kiota client generation
 
-[Install Kiota tool](https://learn.microsoft.com/cs-cz/openapi/kiota/install?tabs=bash)
+[Install Kiota tool](https://learn.microsoft.com/cs-cz/openapi/kiota/install)
 
 ``` powershell
 dotnet tool install --global Microsoft.OpenApi.Kiota

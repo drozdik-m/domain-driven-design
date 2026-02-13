@@ -56,4 +56,6 @@ Check out:
 
 The demo is structured for demonstration purposes. For real apps, consider vertical slice architecture. Or don't. You do you.
 
+Check out [very nice README.md](./src/MartinDrozdik.DDD.Demo/README.md) for more details about the demo.
+
 [![DDD Demo Logo](./src/MartinDrozdik.DDD.Demo/ddd-demo-icon.png)](./src/MartinDrozdik.DDD.Demo)
