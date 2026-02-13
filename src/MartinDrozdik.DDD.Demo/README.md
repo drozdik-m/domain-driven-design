@@ -61,11 +61,12 @@ Check out the [ErrorController.cs](./Controllers/ErrorController.cs) for example
 
 ## EF Core Configuration
 
-Shows proper mapping of DDD building blocks.
+
+[InvoiceDbContext.cs](./Context/InvoiceDbContext.cs) and [Configurations/](./Context/Configurations) shows proper mapping of DDD building blocks.
 
 ## OpenAPI Client Generation
 
-The project auto-generates a type-safe C# client on every build using *Kiota*.
+The project **auto-generates a C# client** on every build using *Kiota*.
 
 ### OpenApi generation
 
@@ -84,7 +85,7 @@ dotnet add package Microsoft.AspNetCore.OpenApi
   </PropertyGroup>
 ```
 
-Then client code can be generated using generator tools like NSwag or Kiota.
+Then client code can be generated using generator tools like NSwag or **Kiota**.
 
 ### Kiota client generation
 
