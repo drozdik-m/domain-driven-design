@@ -49,7 +49,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MartinDrozdik.DDD.Web\MartinDrozdik.DDD.Web.csproj" />
-    <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
   </ItemGroup>
 
 </Project>

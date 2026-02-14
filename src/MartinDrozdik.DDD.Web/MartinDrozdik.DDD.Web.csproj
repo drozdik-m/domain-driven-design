@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MartinDrozdik.DDD" Version="0.3.2" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
@@ -57,11 +58,6 @@
       <_Parameter1>$(MSBuildProjectName).Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
-  </ItemGroup>
-
   <ItemGroup>
     <Compile Update="Middlewares\Exceptions\ExceptionLocalization.cs.Designer.cs">
       <DependentUpon>ExceptionLocalization.cs.resx</DependentUpon>
