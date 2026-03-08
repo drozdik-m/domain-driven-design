@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Xunit.Abstractions;
 

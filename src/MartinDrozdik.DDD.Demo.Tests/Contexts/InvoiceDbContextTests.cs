@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 
