@@ -1,4 +1,5 @@
 ﻿using MartinDrozdik.DDD.Templates;
+using MartinDrozdik.DDD.Testing;
 
 namespace MartinDrozdik.DDD.Tests.Templates;
 

@@ -1,16 +1,15 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
-using Microsoft.Extensions.DependencyInjection;
+using MartinDrozdik.DDD.Testing.Contexts;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Contexts;
 
-public class InvoiceDbContextTests(ITestOutputHelper testOutputHelper) : DbContextIntegrationTests<InvoiceDbContext>
+public class InvoiceDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContextIntegrationTests<InvoiceDbContext>
 {
-    protected override IDisposable GetContext(out InvoiceDbContext context)
+    private readonly DemoAppFactory _factory = new(testOutputHelper);
+
+    protected override InvoiceDbContext GetContext()
     {
-        var factory = new DemoAppFactory(testOutputHelper);
-        var scope = factory.Services.CreateScope();
-        context = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-        return scope;
+        return _factory.GetScopedService<InvoiceDbContext>();
     }
 }

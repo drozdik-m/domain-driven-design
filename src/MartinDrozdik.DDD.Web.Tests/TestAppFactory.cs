@@ -1,31 +1,18 @@
-﻿using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Logging;
+﻿using MartinDrozdik.DDD.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
-public class TestAppFactory(ITestOutputHelper testOutputHelper) : WebApplicationFactory<TestProgram>
+public class TestAppFactory : TestWebApplicationFactory<TestProgram>
 {
-    private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
-    private readonly Action<IWebHostBuilder>? _config;
-
-    public TestAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
-        : this(testOutputHelper)
+    public TestAppFactory(ITestOutputHelper testOutputHelper)
+        : base(testOutputHelper)
     {
-        _config = config;
     }
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    public TestAppFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
+        : base(testOutputHelper, config)
     {
-        builder.ConfigureLogging(logging =>
-        {
-            logging.ClearProviders();
-            logging.AddConsole();
-            logging.SetMinimumLevel(LogLevel.Information);
-            logging.AddXUnit(_testOutputHelper);
-        });
-
-        _config?.Invoke(builder);
     }
 }

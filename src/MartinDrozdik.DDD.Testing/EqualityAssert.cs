@@ -1,7 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using Xunit;
 
-namespace MartinDrozdik.DDD.Tests;
+namespace MartinDrozdik.DDD.Testing;
 
 /// <summary>
 /// Utility class for testing equality and hash code behavior of types implementing <see cref="IEqualityComparer{T}"/> and <see cref="IEquatable{T}"/>.
@@ -26,7 +27,7 @@ public static class EqualityAssert
     {
         // Use the provided comparer or default to value1 if it implements IEqualityComparer<T>
         comparer ??= value1 as IEqualityComparer<T>
-            ?? throw new ArgumentException($"A valid {nameof(IEqualityComparer<T>)} instance must be provided or {nameof(value1)} must implement {nameof(IEqualityComparer<T>)}.");
+            ?? throw new ArgumentException($"A valid {nameof(IEqualityComparer<>)} instance must be provided or {nameof(value1)} must implement {nameof(IEqualityComparer<>)}.");
 
         // Test equality and hash code behavior
         TestEquatable(value1, value2, differentValue);
@@ -45,14 +46,14 @@ public static class EqualityAssert
         where T : IEquatable<T>
     {
         // Test equality using Equals
-        Assert.True(value1.Equals(value2), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return true for equal values.");
-        Assert.True(value2.Equals(value1), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should be symmetric.");
-        Assert.False(value1.Equals(differentValue), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false for different values.");
-        Assert.False(value2.Equals(differentValue), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false for different values.");
+        Assert.True(value1.Equals(value2), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should return true for equal values.");
+        Assert.True(value2.Equals(value1), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should be symmetric.");
+        Assert.False(value1.Equals(differentValue), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should return false for different values.");
+        Assert.False(value2.Equals(differentValue), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should return false for different values.");
 
         // Test inequality with null
-        Assert.False(value1.Equals(default), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
-        Assert.False(value2.Equals(default), $"{nameof(IEquatable<T>)}.{nameof(IEquatable<T>.Equals)} should return false when compared to null.");
+        Assert.False(value1.Equals(default), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should return false when compared to null.");
+        Assert.False(value2.Equals(default), $"{nameof(IEquatable<>)}.{nameof(IEquatable<>.Equals)} should return false when compared to null.");
     }
 
     /// <summary>
@@ -66,14 +67,14 @@ public static class EqualityAssert
     public static void TestEqualityComparer<T>(IEqualityComparer<T> comparer, [DisallowNull] T value1, [DisallowNull] T value2, [DisallowNull] T differentValue)
     {
         // Test equality using IEqualityComparer
-        Assert.True(comparer.Equals(value1, value2), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should return true for equal values.");
-        Assert.True(comparer.Equals(value2, value1), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should be symmetric.");
-        Assert.False(comparer.Equals(value1, differentValue), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should return false for different values.");
-        Assert.False(comparer.Equals(value2, differentValue), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should return false for different values.");
+        Assert.True(comparer.Equals(value1, value2), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should return true for equal values.");
+        Assert.True(comparer.Equals(value2, value1), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should be symmetric.");
+        Assert.False(comparer.Equals(value1, differentValue), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should return false for different values.");
+        Assert.False(comparer.Equals(value2, differentValue), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should return false for different values.");
 
         // Test inequality with default
-        Assert.False(comparer.Equals(value1, default), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should return false when compared to default.");
-        Assert.False(comparer.Equals(default, value1), $"{nameof(IEqualityComparer<T>)}.{nameof(IEqualityComparer<T>.Equals)} should return false when compared to default.");
+        Assert.False(comparer.Equals(value1, default), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should return false when compared to default.");
+        Assert.False(comparer.Equals(default, value1), $"{nameof(IEqualityComparer<>)}.{nameof(IEqualityComparer<>.Equals)} should return false when compared to default.");
 
         // Test hash codes
         Assert.Equal(comparer.GetHashCode(value1), comparer.GetHashCode(value2));
@@ -91,19 +92,17 @@ public static class EqualityAssert
         where T : IEqualityOperators<T, T, bool>
     {
         // Test equality operator
-        Assert.True(value1 == value2, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return true for equal values.");
-        Assert.False(value1 != value2, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return false for equal values.");
+        Assert.True(value1 == value2, $"{nameof(IEqualityOperators<,,>)}.operator == should return true for equal values.");
+        Assert.False(value1 != value2, $"{nameof(IEqualityOperators<,,>)}.operator != should return false for equal values.");
 
         // Test inequality operator
-        Assert.False(value1 == differentValue, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false for different values.");
-        Assert.True(value1 != differentValue, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true for different values.");
+        Assert.False(value1 == differentValue, $"{nameof(IEqualityOperators<,,>)}.operator == should return false for different values.");
+        Assert.True(value1 != differentValue, $"{nameof(IEqualityOperators<,,>)}.operator != should return true for different values.");
 
         // Test null equality
-        Assert.False(value1 == default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when compared to null.");
-        Assert.True(value1 != default, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when compared to null.");
-#pragma warning disable SA1131 // Use readable conditions
-        Assert.True(default != value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator != should return true when null is compared to a value.");
-        Assert.False(default == value1, $"{nameof(IEqualityOperators<T, T, bool>)}.operator == should return false when null is compared to a value.");
-#pragma warning restore SA1131 // Use readable conditions
+        Assert.False(value1 == default, $"{nameof(IEqualityOperators<,,>)}.operator == should return false when compared to null.");
+        Assert.True(value1 != default, $"{nameof(IEqualityOperators<,,>)}.operator != should return true when compared to null.");
+        Assert.True(value1 != default, $"{nameof(IEqualityOperators<,,>)}.operator != should return true when null is compared to a value.");
+        Assert.False(value1 == default, $"{nameof(IEqualityOperators<,,>)}.operator == should return false when null is compared to a value.");
     }
 }

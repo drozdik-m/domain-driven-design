@@ -1,15 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Xunit;
 
-namespace MartinDrozdik.DDD.Demo.Tests.Contexts;
+namespace MartinDrozdik.DDD.Testing.Contexts;
 
 /// <summary>
 /// Simple integration tests for Entity Framework mappings.
 /// Tests actual database queries to validate all configurations work.
 /// </summary>
 /// <typeparam name="TContext">Concrete <see cref="DbContext"/> type.</typeparam>
-public abstract class DbContextIntegrationTests<TContext>
-    where TContext
-    : DbContext
+public abstract class SqlDbContextIntegrationTests<TContext>
+    where TContext : DbContext
 {
     /// <summary>
     /// Gets all DbSet full entity type names for theory data.
@@ -44,7 +44,7 @@ public abstract class DbContextIntegrationTests<TContext>
     public void Entity_can_be_queried_from_database(string entityName)
     {
         // Arrange
-        using var disposeContext = GetContext(out var context);
+        using var context = GetContext();
         var entityTypes = context.Model.GetEntityTypes();
         var entityType = entityTypes.FirstOrDefault(e => e.ClrType.FullName == entityName);
         Assert.NotNull(entityType);
@@ -62,12 +62,12 @@ public abstract class DbContextIntegrationTests<TContext>
     }
 
     /// <summary>
-    /// Tests that the database schema matches the model.
+    /// Tests that there are not pending migrations that need to be applied to the database.
     /// </summary>
     [Fact]
-    public void Database_schema_matches_the_model()
+    public void No_pending_migrations()
     {
-        using var disposeContext = GetContext(out var context);
+        using var context = GetContext();
         var pendingMigrations = context.Database.GetPendingMigrations();
         Assert.Empty(pendingMigrations);
     }
@@ -78,7 +78,7 @@ public abstract class DbContextIntegrationTests<TContext>
     [Fact]
     public void Database_can_connect()
     {
-        using var disposeContext = GetContext(out var context);
+        using var context = GetContext();
         Assert.True(context.Database.CanConnect());
     }
 
@@ -88,7 +88,7 @@ public abstract class DbContextIntegrationTests<TContext>
     [Fact]
     public void Model_compiles_without_errors()
     {
-        using var disposeContext = GetContext(out var context);
+        using var context = GetContext();
         var model = context.Model;
         var entities = model.GetEntityTypes().ToList();
 
@@ -96,5 +96,19 @@ public abstract class DbContextIntegrationTests<TContext>
         Assert.All(entities, e => Assert.NotNull(e.FindPrimaryKey()));
     }
 
-    protected abstract IDisposable GetContext(out TContext context);
+    /// <summary>
+    /// Debug test that verifies the context under test can be instantiated without exceptions.
+    /// </summary>
+    [Fact]
+    public void Can_get_context()
+    {
+        var context = GetContext();
+        Assert.NotNull(context);
+    }
+
+    /// <summary>
+    /// Creates and returns a functioning context instance for testing.
+    /// </summary>
+    /// <returns><see cref="DbContext"/> instance.</returns>
+    protected abstract TContext GetContext();
 }
