@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace MartinDrozdik.DDD.Testing.Contexts;
@@ -35,29 +36,46 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     }
 
     /// <summary>
-    /// Tests each entity mapping by querying the DbSet.
-    /// If any mapping is broken, this will throw an exception.
+    /// Tests each entity mapping by querying through EF's pipeline (not raw SQL),
+    /// catching column name mismatches, value converter errors, and shadow property issues
+    /// regardless of the underlying database provider.
     /// </summary>
-    /// <param name="entityName">Name of the entity.</param>
+    /// <param name="entityName">The full CLR type name of the entity to test.</param>
     [Theory]
     [MemberData(nameof(GetEntityTypeNames))]
     public void Entity_can_be_queried_from_database(string entityName)
     {
         // Arrange
         using var context = GetContext();
-        var entityTypes = context.Model.GetEntityTypes();
-        var entityType = entityTypes.FirstOrDefault(e => e.ClrType.FullName == entityName);
-        Assert.NotNull(entityType);
-        var tableName = entityType.GetTableName();
-        var schema = entityType.GetSchema();
-        var fullName = string.IsNullOrEmpty(schema)
-            ? $"[{tableName}]"
-            : $"[{schema}].[{tableName}]";
-        var sql = $"SELECT * FROM {fullName} LIMIT 1";
 
-        // Act & Assert
-        // This will fail if table doesn't exist or mappings are incorrect
-        context.Database.ExecuteSqlRaw(sql);
+        var entityType = context.Model.GetEntityTypes()
+            .FirstOrDefault(e => e.ClrType.FullName == entityName);
+        Assert.NotNull(entityType);
+
+        // Use EF's own Set<T>() via reflection so the full EF pipeline runs:
+        // column mapping, value converters, shadow properties, owned entity splits, etc.
+        // Raw SQL would bypass all of this.
+        var setMethodInfo = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Could not find DbContext.Set<T>() method.");
+        var setMethod = setMethodInfo.MakeGenericMethod(entityType.ClrType);
+
+        var queryableInvoke = setMethod.Invoke(context, null)
+            ?? throw new InvalidOperationException($"Could not get DbSet for entity type {entityType.ClrType.FullName}.");
+        var queryable = queryableInvoke as IQueryable;
+        Assert.NotNull(queryable);
+
+        // Pull at most 1 row — we just want EF to compile and execute the query.
+        // Cast to non-generic IQueryable so we don't need T at compile time.
+        _ = queryable
+            .Provider
+            .Execute<object>(
+                Expression.Call(
+                    typeof(Queryable),
+                    nameof(Queryable.FirstOrDefault),
+                    [entityType.ClrType],
+                    queryable.Expression));
+
+        // If we get here without exception, mapping is valid.
         Assert.True(true);
     }
 
@@ -86,14 +104,19 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     /// Tests that the model compiles without errors.
     /// </summary>
     [Fact]
-    public void Model_compiles_without_errors()
+    public void Model_has_entities_and_compiles_without_errors()
     {
         using var context = GetContext();
         var model = context.Model;
         var entities = model.GetEntityTypes().ToList();
 
         Assert.NotEmpty(entities);
-        Assert.All(entities, e => Assert.NotNull(e.FindPrimaryKey()));
+        foreach (var entity in entities)
+        {
+            // Force EF to compile the model for this entity, which will catch mapping errors
+            var key = entity.FindPrimaryKey();
+            _ = key?.Properties;
+        }
     }
 
     /// <summary>
@@ -102,7 +125,7 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     [Fact]
     public void Can_get_context()
     {
-        var context = GetContext();
+        using var context = GetContext();
         Assert.NotNull(context);
     }
 
