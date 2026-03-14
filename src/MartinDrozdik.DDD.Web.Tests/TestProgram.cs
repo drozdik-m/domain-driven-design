@@ -44,5 +44,11 @@ public class TestProgram
 
     public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
     {
+        public DbSet<SomeEntity> SomeEntities => Set<SomeEntity>();
+    }
+
+    public class SomeEntity
+    {
+        public int Id { get; set; }
     }
 }

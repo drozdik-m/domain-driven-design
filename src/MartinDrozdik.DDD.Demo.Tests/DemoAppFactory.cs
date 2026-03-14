@@ -1,5 +1,4 @@
-﻿using System.Threading;
-using MartinDrozdik.DDD.Demo.Client.Generated;
+﻿using MartinDrozdik.DDD.Demo.Client.Generated;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Options;
@@ -41,7 +40,15 @@ public class DemoAppFactory(ITestOutputHelper testOutputHelper)
 
         if (disposing && File.Exists(_dbPath))
         {
-            File.Delete(_dbPath);
+            try
+            {
+                File.Delete(_dbPath);
+            }
+            catch
+            {
+                // Swallow exceptions, sqlite holds locks on the file and it may not be possible to delete immediately after tests run.
+                // The file will be cleaned up eventually by the OS temp file cleanup.
+            }
         }
     }
 }

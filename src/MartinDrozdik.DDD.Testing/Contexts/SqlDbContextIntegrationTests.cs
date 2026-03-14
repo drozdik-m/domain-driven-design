@@ -104,19 +104,33 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     /// Tests that the model compiles without errors.
     /// </summary>
     [Fact]
-    public void Model_has_entities_and_compiles_without_errors()
+    public void Model_compiles_without_errors()
     {
         using var context = GetContext();
-        var model = context.Model;
-        var entities = model.GetEntityTypes().ToList();
-
-        Assert.NotEmpty(entities);
-        foreach (var entity in entities)
+        var exception = Record.Exception(() =>
         {
-            // Force EF to compile the model for this entity, which will catch mapping errors
-            var key = entity.FindPrimaryKey();
-            _ = key?.Properties;
-        }
+            var model = context.Model;
+            foreach (var entity in model.GetEntityTypes().ToList())
+            {
+                // Force EF to compile the model for this entity, which will catch mapping errors
+                var key = entity.FindPrimaryKey();
+                _ = key?.Properties;
+            }
+        });
+
+        Assert.Null(exception);
+    }
+
+    /// <summary>
+    /// Tests that the context model has entities.
+    /// Context without entities is meaningless.
+    /// </summary>
+    [Fact]
+    public void Model_has_entities()
+    {
+        using var context = GetContext();
+        var model = context.Model.GetEntityTypes().ToList();
+        Assert.NotEmpty(model);
     }
 
     /// <summary>
