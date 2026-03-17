@@ -1,16 +1,40 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FluentValidation;
+using MartinDrozdik.DDD.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Xunit.Abstractions;
+using Xunit;
 
-namespace MartinDrozdik.DDD.Web.Tests.Errors;
+namespace MartinDrozdik.DDD.Testing.Errors;
 
-public class ErrorsTests(ITestOutputHelper testOutputHelper)
+/// <summary>
+/// Base class for error handling tests of ASP.NET Core web applications.
+/// </summary>
+/// <typeparam name="TFactoryBuilder">Type of the app builder.</typeparam>
+/// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
+public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposable
+    where TFactoryBuilder : TestWebApplicationFactoryBuilder<TProgram>
+    where TProgram : class
 {
-    private readonly TestAppFactory _factory = new(testOutputHelper);
+    private readonly TestWebApplicationFactory<TProgram> _factory;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ErrorHandlingTests{TWebApp, TProgram}"/> class.
+    /// </summary>
+    /// <param name="factory">App factory under test. Disposed automatically.</param>
+    protected ErrorHandlingTests(TFactoryBuilder factory)
+    {
+        _factory = factory
+            .WithEndpoints(e => e.MapErrorEndpoints())
+            .Build();
+    }
+
+    /// <summary>
+    /// Asserts basic <see cref="Exception"/> to test the general error handling pipeline.
+    /// </summary>
+    /// <returns><see cref="Task"/>.</returns>
     [Fact]
     public async Task Get_exception()
     {
@@ -18,7 +42,7 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("v1/errors/exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/exception");
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -35,6 +59,10 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
     }
 
+    /// <summary>
+    /// Asserts <see cref="BusinessRuleException"/> to test the general error handling pipeline.
+    /// </summary>
+    /// <returns><see cref="Task"/>.</returns>
     [Fact]
     public async Task Get_business_rule_exception()
     {
@@ -42,7 +70,7 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("v1/errors/business-rule-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-exception");
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -70,6 +98,10 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal("This is error message 2", error2Value));
     }
 
+    /// <summary>
+    /// Asserts <see cref="BusinessRuleValidationException"/> to test the general error handling pipeline.
+    /// </summary>
+    /// <returns><see cref="Task"/>.</returns>
     [Fact]
     public async Task Get_business_rule_validation_exception()
     {
@@ -77,7 +109,7 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("v1/errors/business-rule-validation-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-validation-exception");
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -103,6 +135,10 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal("This is error message 2", error2Value));
     }
 
+    /// <summary>
+    /// Asserts <see cref="ValidationException"/> to test the general error handling pipeline.
+    /// </summary>
+    /// <returns><see cref="Task"/>.</returns>
     [Fact]
     public async Task Get_validation_exception()
     {
@@ -110,7 +146,7 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("v1/errors/validation-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/validation-exception");
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -134,5 +170,21 @@ public class ErrorsTests(ITestOutputHelper testOutputHelper)
         Assert.Multiple(
             () => Assert.Equal("NotEmptyValidator: This is error message 1 ", error1Value),
             () => Assert.Equal("NotEmptyValidator: This is error message 2 ", error2Value));
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <inheritdoc cref="Dispose()"/>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _factory.Dispose();
+        }
     }
 }

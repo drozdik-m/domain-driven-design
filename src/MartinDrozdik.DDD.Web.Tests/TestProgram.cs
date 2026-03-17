@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Testing.Errors;
 using MartinDrozdik.DDD.Web.Databases;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;

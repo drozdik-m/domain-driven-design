@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.Options;
+﻿using MartinDrozdik.DDD.Testing;
+using MartinDrozdik.DDD.Web.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
@@ -12,6 +13,16 @@ public class WebHostBuilderExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
+        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper)
+            .WithOption<TestOptions>(e => e.SomeString, value)
+            .WithConfig(config =>
+            {
+                config.ConfigureServices(services =>
+                {
+                    services.AddAppOptions<TestOptions>();
+                });
+            })
+            .Build();
         var factory = new TestAppFactory(testOutputHelper, config =>
         {
             config.SetOption<TestOptions>(e => e.SomeString, value);

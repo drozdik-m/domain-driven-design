@@ -6,13 +6,26 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
-namespace MartinDrozdik.DDD.Web.Tests;
+namespace MartinDrozdik.DDD.Testing.Errors;
 
+/// <summary>
+/// Provides registration of endpoints that return errors for testing error pipelines.
+/// </summary>
 public static class ErrorEndpoints
 {
+    /// <summary>
+    /// Gets the base path of the error endpoints. Should be unique to avoid conflicts with actual app endpoints.
+    /// </summary>
+    public static string BasePath => "v1/quality-testing-error-path-that-wont-conflict";
+
+    /// <summary>
+    /// Registers endpoints that throw different types of exceptions to test error handling.
+    /// </summary>
+    /// <param name="app">The app to extend.</param>
+    /// <returns>Error group.</returns>
     public static RouteGroupBuilder MapErrorEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("v1/errors").WithTags("Errors");
+        var group = app.MapGroup(BasePath).WithTags("Errors");
 
         group.MapGet("exception", GetException)
             .Produces<string>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)
@@ -78,10 +91,17 @@ public static class ErrorEndpoints
         return Results.Ok();
     }
 
+    /// <summary>
+    /// Used to demonstrate validation errors.
+    /// </summary>
     public class ErrorClass
     {
+        /// <summary>
+        /// Gets or sets an arbitrary string value.
+        /// </summary>
         public string String1 { get; set; } = string.Empty;
 
+        /// <inheritdoc cref="String1" />
         public string String2 { get; set; } = string.Empty;
     }
 

@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -12,7 +13,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_builds_successfully_by_default()
     {
         // Arrange
-        var factory = new TestAppFactory(testOutputHelper);
+        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper).Build();
 
         // Act
         var exception = Record.Exception(factory.StartServer);

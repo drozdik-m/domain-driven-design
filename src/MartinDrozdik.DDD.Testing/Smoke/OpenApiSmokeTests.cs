@@ -6,21 +6,21 @@ namespace MartinDrozdik.DDD.Testing.Smoke;
 /// <summary>
 /// Base class for smoke tests of ASP.NET Core web applications.
 /// </summary>
-/// <typeparam name="TWebApp">Type of the app factory.</typeparam>
+/// <typeparam name="TFactoryBuilder">Type of the app builder.</typeparam>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class OpenApiSmokeTests<TWebApp, TProgram> : IDisposable
-    where TWebApp : TestWebApplicationFactory<TProgram>
+public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
+    where TFactoryBuilder : TestWebApplicationFactoryBuilder<TProgram>
     where TProgram : class
 {
-    private readonly TWebApp _factory;
+    private readonly TestWebApplicationFactory<TProgram> _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenApiSmokeTests{TWebApp, TProgram}"/> class.
     /// </summary>
-    /// <param name="factory">App factory under test. Disposed automatically.</param>
-    protected OpenApiSmokeTests(TWebApp factory)
+    /// <param name="builder">App factory under test.</param>
+    protected OpenApiSmokeTests(TFactoryBuilder builder)
     {
-        _factory = factory;
+        _factory = builder.Build();
     }
 
     /// <summary>

@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Errors;
 
-public class ErrorsTests(ITestOutputHelper testOutputHelper)
+public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
 {
     private readonly DemoAppFactory _factory = new(testOutputHelper);
 

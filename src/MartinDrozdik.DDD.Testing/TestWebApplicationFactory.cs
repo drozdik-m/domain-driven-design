@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Testing;
 
@@ -10,29 +11,26 @@ namespace MartinDrozdik.DDD.Testing;
 /// Represents a base class for creating a test web application factory for integration testing.
 /// </summary>
 /// <typeparam name="TProgram">Type of the entrypoint Program.cs.</typeparam>
-/// <param name="testOutputHelper">Output helper for logging output.</param>
-public class TestWebApplicationFactory<TProgram>(ITestOutputHelper testOutputHelper) : WebApplicationFactory<TProgram>
+public sealed class TestWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>
     where TProgram : class
 {
-    /// <summary>
-    /// Additional configuration for the web host builder.
-    /// </summary>
-    private readonly Action<IWebHostBuilder>? _config;
-
     /// <summary>
     /// List of created scopes to dispose of after the test execution.
     /// </summary>
     private readonly IList<IDisposable> _scopes = [];
 
     /// <summary>
+    /// Options for configuring this factory, including logging, additional configuration and endpoints.
+    /// </summary>
+    private readonly TestWebApplicationFactoryOptions _options;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TestWebApplicationFactory{TProgram}"/> class.
     /// </summary>
-    /// <param name="testOutputHelper">Output helper for logging output.</param>
-    /// <param name="config">Additional configuration for the web host builder.</param>
-    public TestWebApplicationFactory(ITestOutputHelper testOutputHelper, Action<IWebHostBuilder> config)
-        : this(testOutputHelper)
+    /// <param name="options">More detailed options of this factory.</param>
+    public TestWebApplicationFactory(TestWebApplicationFactoryOptions options)
     {
-        _config = config;
+        _options = options;
     }
 
     /// <summary>
@@ -60,11 +58,14 @@ public class TestWebApplicationFactory<TProgram>(ITestOutputHelper testOutputHel
             logging.ClearProviders();
             logging.AddConsole();
             logging.SetMinimumLevel(LogLevel.Information);
-            logging.AddXUnit(testOutputHelper);
+            logging.AddXUnit(_options.TestOutputHelper);
         });
 
+        // Register test endpoints via IStartupFilter
+        builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new EndpointStartupFilter(_options.EndpointConfig)));
+
         // Invoke user-provided additional configuration if available
-        _config?.Invoke(builder);
+        _options.Config.Invoke(builder);
     }
 
     /// <inheritdoc />
@@ -76,8 +77,30 @@ public class TestWebApplicationFactory<TProgram>(ITestOutputHelper testOutputHel
             {
                 scope.Dispose();
             }
+
+            _scopes.Clear();
+
+            foreach (var disposable in _options.Disposables)
+            {
+                disposable.Dispose();
+            }
         }
 
         base.Dispose(disposing);
+    }
+
+    /// <summary>
+    /// Hooks into pipeline construction to append endpoint registrations.
+    /// </summary>
+    /// <param name="configure">The configuration action.</param>
+    private sealed class EndpointStartupFilter(Action<IEndpointRouteBuilder> configure)
+        : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+            => app =>
+            {
+                next(app); // Run the app's normal startup first
+                app.UseEndpoints(configure);
+            };
     }
 }
