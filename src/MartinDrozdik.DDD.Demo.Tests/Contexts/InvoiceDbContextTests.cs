@@ -1,4 +1,5 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
+using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Contexts;
 using Xunit.Abstractions;
 
@@ -6,7 +7,8 @@ namespace MartinDrozdik.DDD.Demo.Tests.Contexts;
 
 public class InvoiceDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContextIntegrationTests<InvoiceDbContext>, IDisposable
 {
-    private readonly DemoAppFactory _factory = new(testOutputHelper);
+    private readonly TestWebApplicationFactory<Program> _factory =
+        new DemoAppFactoryBuilder(testOutputHelper).Build();
 
     public void Dispose()
     {

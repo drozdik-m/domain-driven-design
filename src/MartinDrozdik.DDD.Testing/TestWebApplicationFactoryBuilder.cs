@@ -1,8 +1,9 @@
 ﻿using System.Linq.Expressions;
+using MartinDrozdik.DDD.Testing.Disposing;
 using MartinDrozdik.DDD.Web.Options;
-using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Testing;
@@ -61,8 +62,17 @@ public class TestWebApplicationFactoryBuilder<TProgram>
     public TestWebApplicationFactoryBuilder<TProgram> WithOption<TOptions>(Expression<Func<TOptions, object>> propertySelector, string value)
         where TOptions : IAppOptions
     {
-        _configs.Add(e => e.SetOption(propertySelector, value));
-        return this;
+        return WithConfig(e => e.SetOption(propertySelector, value));
+    }
+
+    /// <summary>
+    /// Adds service configuration for the <see cref="IWebHostBuilder"/>.
+    /// </summary>
+    /// <param name="config">The action to extend services collection.</param>
+    /// <returns>This.</returns>
+    public TestWebApplicationFactoryBuilder<TProgram> WithServices(Action<IServiceCollection> config)
+    {
+        return WithConfig(builder => builder.ConfigureServices(config));
     }
 
     /// <summary>
@@ -87,6 +97,17 @@ public class TestWebApplicationFactoryBuilder<TProgram>
     {
         _disposables.Add(disposable);
         return this;
+    }
+
+    /// <summary>
+    /// Adds a disposable dependency that will be disposed along the factory
+    /// Multiple calls will add multiple disposables.
+    /// </summary>
+    /// <param name="disposeAction">The action to be exectuted at disposal.</param>
+    /// <returns>This.</returns>
+    public TestWebApplicationFactoryBuilder<TProgram> WithDisposable(Action disposeAction)
+    {
+        return WithDisposable(new DisposableAction(disposeAction));
     }
 
     /// <summary>

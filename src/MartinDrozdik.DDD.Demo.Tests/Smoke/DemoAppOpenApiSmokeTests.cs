@@ -1,10 +1,11 @@
-﻿using MartinDrozdik.DDD.Testing.Smoke;
+﻿using MartinDrozdik.DDD.Testing;
+using MartinDrozdik.DDD.Testing.Smoke;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Smoke;
 
 public class DemoAppOpenApiSmokeTests(ITestOutputHelper testOutputHelper)
-    : OpenApiSmokeTests<DemoAppFactory, Program>(new DemoAppFactory(testOutputHelper))
+    : OpenApiSmokeTests<TestWebApplicationFactoryBuilder<Program>, Program>(new TestWebApplicationFactoryBuilder<Program>(testOutputHelper))
 {
     protected override IEnumerable<OpenApiEndpoint> GetOpenApiEndpoints()
     {

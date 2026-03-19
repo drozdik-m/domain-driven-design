@@ -1,4 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated.Models;
+using MartinDrozdik.DDD.Testing;
+using MartinDrozdik.DDD.Testing.Errors;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Xunit.Abstractions;
 
@@ -6,7 +8,9 @@ namespace MartinDrozdik.DDD.Demo.Tests.Errors;
 
 public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
 {
-    private readonly DemoAppFactory _factory = new(testOutputHelper);
+    private readonly TestWebApplicationFactory<Program> _factory =
+        new DemoAppFactoryBuilder(testOutputHelper)
+        .Build();
 
     [Fact]
     public async Task Get_exception()

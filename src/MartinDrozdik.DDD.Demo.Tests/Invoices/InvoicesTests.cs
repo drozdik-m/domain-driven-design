@@ -4,6 +4,7 @@ using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.Enumerations;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
+using MartinDrozdik.DDD.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
@@ -12,11 +13,11 @@ namespace MartinDrozdik.DDD.Demo.Tests.Invoices;
 
 public class InvoicesTests
 {
-    private readonly DemoAppFactory _factory;
+    private readonly TestWebApplicationFactory<Program> _factory;
 
     public InvoicesTests(ITestOutputHelper testOutputHelper)
     {
-        _factory = new DemoAppFactory(testOutputHelper);
+        _factory = new DemoAppFactoryBuilder(testOutputHelper).Build();
 
         // Remove all invoices and persons before each test
         using var scope = _factory.Services.CreateScope();

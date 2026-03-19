@@ -15,22 +15,8 @@ public class WebHostBuilderExtensionsTests(ITestOutputHelper testOutputHelper)
         const string value = "Hello there";
         var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
-            .WithConfig(config =>
-            {
-                config.ConfigureServices(services =>
-                {
-                    services.AddAppOptions<TestOptions>();
-                });
-            })
+            .WithServices(services => services.AddAppOptions<TestOptions>())
             .Build();
-        var factory = new TestAppFactory(testOutputHelper, config =>
-        {
-            config.SetOption<TestOptions>(e => e.SomeString, value);
-            config.ConfigureServices(services =>
-            {
-                services.AddAppOptions<TestOptions>();
-            });
-        });
 
         // Act
         var options = factory.Services.GetRequiredService<IOptions<TestOptions>>();
