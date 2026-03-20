@@ -8,7 +8,7 @@ namespace MartinDrozdik.DDD.Web.Tests.Databases;
 public class TestDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContextIntegrationTests<TestDbContext>, IDisposable
 {
     private readonly TestWebApplicationFactory<TestProgram> _factory
-        = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper).Build();
+        = new TestProgramFactoryBuilder(testOutputHelper).Build();
 
     public void Dispose()
     {

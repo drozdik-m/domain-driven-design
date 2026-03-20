@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Testing;
 /// Builder for creating <see cref="TestWebApplicationFactory{TProgram}"/>.
 /// </summary>
 /// <typeparam name="TProgram">Type of the tested program.</typeparam>
-public class TestWebApplicationFactoryBuilder<TProgram>
+public abstract class TestWebApplicationFactoryBuilder<TProgram>
     where TProgram : class
 {
     private readonly List<Action<IWebHostBuilder>> _configs = [];
@@ -24,7 +24,7 @@ public class TestWebApplicationFactoryBuilder<TProgram>
     /// Initializes a new instance of the <see cref="TestWebApplicationFactoryBuilder{TProgram}"/> class.
     /// </summary>
     /// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
-    public TestWebApplicationFactoryBuilder(ITestOutputHelper testOutputHelper)
+    protected TestWebApplicationFactoryBuilder(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
     }

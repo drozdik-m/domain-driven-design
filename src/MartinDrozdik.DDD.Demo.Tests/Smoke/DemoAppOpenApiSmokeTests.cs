@@ -1,5 +1,4 @@
-﻿using MartinDrozdik.DDD.Testing;
-using MartinDrozdik.DDD.Testing.Smoke;
+﻿using MartinDrozdik.DDD.Testing.Smoke;
 using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Smoke;

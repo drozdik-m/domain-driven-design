@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -13,7 +12,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_builds_successfully_by_default()
     {
         // Arrange
-        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper).Build();
+        var factory = new TestProgramFactoryBuilder(testOutputHelper).Build();
 
         // Act
         var exception = Record.Exception(factory.StartServer);
@@ -27,7 +26,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper)
+        var factory = new TestProgramFactoryBuilder(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
             .WithServices(services => services.AddAppOptions<TestOptions>())
             .Build();
@@ -46,7 +45,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper)
+        var factory = new TestProgramFactoryBuilder(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
             .WithServices(services => services.AddValidatedAppOptions<TestOptions>())
             .Build();
@@ -64,7 +63,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_with_invalid_options_fails_to_run()
     {
         // Arrange
-        var factory = new TestWebApplicationFactoryBuilder<TestProgram>(testOutputHelper)
+        var factory = new TestProgramFactoryBuilder(testOutputHelper)
             .WithServices(services => services.AddValidatedAppOptions<TestOptions>())
             .Build();
 
