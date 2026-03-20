@@ -5,6 +5,6 @@ using Xunit.Abstractions;
 namespace MartinDrozdik.DDD.Demo.Tests.Smoke;
 
 public class DemoAppSmokeTests(ITestOutputHelper testOutputHelper)
-    : WebApplicationSmokeTests<TestWebApplicationFactoryBuilder<Program>, Program>(new TestWebApplicationFactoryBuilder<Program>(testOutputHelper))
+    : WebApplicationSmokeTests<DemoAppFactoryBuilder, Program>(new DemoAppFactoryBuilder(testOutputHelper))
 {
 }
