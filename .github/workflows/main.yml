@@ -14,6 +14,7 @@ env:
   DEMO_PROJECT_TESTS: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
   WEB_PROJECT: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
   WEB_PROJECT_TESTS: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
+  TESTING_PROJECT: './src/MartinDrozdik.DDD.Testing/MartinDrozdik.DDD.Testing.csproj'
 jobs:
   validate-markdown:
     name: Validate Markdown Links
@@ -126,6 +127,8 @@ jobs:
             path: './src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj'
           - project_name: "Web"
             path: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
+          - project_name: "Testing"
+            path: './src/MartinDrozdik.DDD.Testing/MartinDrozdik.DDD.Testing.csproj'
     
     steps:
     - name: Checkout code
