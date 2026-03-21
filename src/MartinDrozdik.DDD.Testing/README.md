@@ -11,7 +11,7 @@ Common test tooling for the DDD libraries. Provides test fixtures, utilities, an
 ## Philosophy
 
 - **Write tests, not test infrastructure** - Stop copy-pasting the same `WebApplicationFactory` boilerplate across every project.
-- **Integration tests, not unit tests** - Test the whole stack with real dependencies – reveals much more. Unit tests still valuable tho.
+- **Integration tests, not unit tests** - Test the whole stack with real dependencies – reveals much more bugs. Unit tests still valuable tho.
 - **Composition over inheritance** – Avoid the giant base test class pitfall.
 - **Consistent with the rest of the DDD stack** - Same pragmatic approach, same "use what makes sense" attitude.
 - **xUnit** - It has more stars than *NUnit* lmao.
@@ -52,6 +52,16 @@ public class MyTests(ITestOutputHelper output) : IDisposable
         response.EnsureSuccessStatusCode();
     }
 
+    [Fact]
+    public async Task Something_other_works()
+    {
+        // Or use the builder directly here
+        var app = new MyAppBuilder(output).Build();
+        var client = app.CreateClient();
+        var response = await client.GetAsync("/something");
+        response.EnsureSuccessStatusCode();
+    }
+
     public void Dispose() => _app.Dispose();
 }
 ```
@@ -61,7 +71,7 @@ public class MyTests(ITestOutputHelper output) : IDisposable
 The `TestedApp<TProgram>` wraps `WebApplicationFactory<TProgram>` (yes, the standard one) and adds the things you always end up adding yourself anyway:
 
 - **xUnit log output** – Your logs actually show up in the test runner. *revoLuTiOnAry*.
-    - *You would be surprised how many people don't do this. And then wonder why they have no logs when their tests fail.*
+    - *You would be surprised how many people don't do this – and then wonder why they have no logs when their tests fail.*
 - **Test endpoint injection** – Register extra endpoints at test time without touching your production app.
 - **Config and options overrides** – Change settings for tests without affecting production defaults.
 - **Disposable tracking** – Attach anything that needs cleanup and it gets disposed with the factory.
@@ -79,9 +89,9 @@ var app = new MyAppBuilder(output)
     .Build();
 ```
 
-Each `With*` call stacks — multiple configs, multiple endpoints, multiple disposables, all applied in order. Readable. Composable. Not a pyramid of constructors.
+Each `With*` call stacks – multiple configs, multiple endpoints, multiple disposables, all applied in order. Readable. Composable. Not a pyramid of constructors.
 
-**Important:** Call `Dispose()` when you're done.
+Call `Dispose()` when you're done.
 
 ## Smoke Tests
 
@@ -132,7 +142,6 @@ public class MyDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContext
     public void Dispose()
     {
         _factory.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     protected override MyDbContext GetContext()
