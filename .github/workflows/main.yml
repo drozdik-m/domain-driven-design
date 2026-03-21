@@ -96,6 +96,9 @@ jobs:
         path: src/
 
     # Required for xUnit runnner
+    - name: Debug bin contents
+      run: find src -path "*/bin/Release/*" -type f | head -30
+
     - name: Make test binaries executable
       run: find src -path "*/bin/Release/*/*Tests" -type f ! -name "*.*" | xargs chmod +x
       
