@@ -8,6 +8,13 @@
 
 Common test tooling for the DDD libraries. Provides test fixtures, utilities, and helpers to make testing your DDD applications easier and more consistent. Check the [demo tests](../MartinDrozdik.DDD.Demo.Tests) for examples of how to use it in real tests.
 
+## Installation
+
+```bash
+dotnet add package xunit.v3
+dotnet add package MartinDrozdik.DDD.Testing
+```
+
 ## Philosophy
 
 - **Write tests, not test infrastructure** - Stop copy-pasting the same `WebApplicationFactory` boilerplate across every project.
