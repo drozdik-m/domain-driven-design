@@ -5,9 +5,9 @@ using Microsoft.Kiota.Http.HttpClientLibrary;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 
-public static class WebApplicationFactoryExtensions
+public static class TestedAppExtensions
 {
-    public static DddClient CreateDddClient(this TestWebApplicationFactory<Program> factory)
+    public static DddClient CreateDddClient(this TestedApp<Program> factory)
     {
         var httpClient = factory.CreateClient();
         var authProvider = new AnonymousAuthenticationProvider();

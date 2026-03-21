@@ -5,9 +5,9 @@ using Xunit;
 namespace MartinDrozdik.DDD.Testing;
 
 /// <summary>
-/// Setup options for new instance of <see cref="TestWebApplicationFactory{TProgram}"/>.
+/// Setup options for new instance of <see cref="TestedApp{TProgram}"/>.
 /// </summary>
-public class TestWebApplicationFactoryOptions
+public class TestedAppOptions
 {
     /// <summary>
     /// Gets the required <see cref="ITestOutputHelper"/> for logging.

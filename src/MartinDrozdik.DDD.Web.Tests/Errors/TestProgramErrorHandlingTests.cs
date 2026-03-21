@@ -3,6 +3,6 @@
 namespace MartinDrozdik.DDD.Web.Tests.Errors;
 
 public class TestProgramErrorHandlingTests(ITestOutputHelper testOutputHelper)
-    : ErrorHandlingTests<TestProgramFactoryBuilder, Program>(new TestProgramFactoryBuilder(testOutputHelper))
+    : ErrorHandlingTests<TestedWebAppBuilder, Program>(new TestedWebAppBuilder(testOutputHelper))
 {
 }

@@ -3,7 +3,7 @@
 namespace MartinDrozdik.DDD.Demo.Tests.Smoke;
 
 public class DemoAppOpenApiSmokeTests(ITestOutputHelper testOutputHelper)
-    : OpenApiSmokeTests<DemoAppFactoryBuilder, Program>(new DemoAppFactoryBuilder(testOutputHelper))
+    : OpenApiSmokeTests<DemoAppBuilder, Program>(new DemoAppBuilder(testOutputHelper))
 {
     protected override IEnumerable<OpenApiEndpoint> GetOpenApiEndpoints()
     {

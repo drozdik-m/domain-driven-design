@@ -12,11 +12,11 @@ namespace MartinDrozdik.DDD.Demo.Tests.Invoices;
 
 public class InvoicesTests
 {
-    private readonly TestWebApplicationFactory<Program> _factory;
+    private readonly TestedApp<Program> _factory;
 
     public InvoicesTests(ITestOutputHelper testOutputHelper)
     {
-        _factory = new DemoAppFactoryBuilder(testOutputHelper).Build();
+        _factory = new DemoAppBuilder(testOutputHelper).Build();
 
         // Remove all invoices and persons before each test
         using var scope = _factory.Services.CreateScope();

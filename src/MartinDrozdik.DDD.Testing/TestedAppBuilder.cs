@@ -9,10 +9,10 @@ using Xunit;
 namespace MartinDrozdik.DDD.Testing;
 
 /// <summary>
-/// Builder for creating <see cref="TestWebApplicationFactory{TProgram}"/>.
+/// Builder for creating <see cref="TestedApp{TProgram}"/>.
 /// </summary>
 /// <typeparam name="TProgram">Type of the tested program.</typeparam>
-public abstract class TestWebApplicationFactoryBuilder<TProgram>
+public abstract class TestedAppBuilder<TProgram>
     where TProgram : class
 {
     private readonly List<Action<IWebHostBuilder>> _configs = [];
@@ -21,10 +21,10 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     private ITestOutputHelper _testOutputHelper;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TestWebApplicationFactoryBuilder{TProgram}"/> class.
+    /// Initializes a new instance of the <see cref="TestedAppBuilder{TProgram}"/> class.
     /// </summary>
     /// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
-    protected TestWebApplicationFactoryBuilder(ITestOutputHelper testOutputHelper)
+    protected TestedAppBuilder(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
     }
@@ -34,7 +34,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithOutput(ITestOutputHelper testOutputHelper)
+    public TestedAppBuilder<TProgram> WithOutput(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
         return this;
@@ -46,7 +46,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="config">The added configuration.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithConfig(Action<IWebHostBuilder> config)
+    public TestedAppBuilder<TProgram> WithConfig(Action<IWebHostBuilder> config)
     {
         _configs.Add(config);
         return this;
@@ -59,7 +59,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// <param name="propertySelector">Expression to select the property.</param>
     /// <param name="value">The value to set.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithOption<TOptions>(Expression<Func<TOptions, object>> propertySelector, string value)
+    public TestedAppBuilder<TProgram> WithOption<TOptions>(Expression<Func<TOptions, object>> propertySelector, string value)
         where TOptions : IAppOptions
     {
         return WithConfig(e => e.SetOption(propertySelector, value));
@@ -70,7 +70,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="config">The action to extend services collection.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithServices(Action<IServiceCollection> config)
+    public TestedAppBuilder<TProgram> WithServices(Action<IServiceCollection> config)
     {
         return WithConfig(builder => builder.ConfigureServices(config));
     }
@@ -81,7 +81,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="endpointConfig">The added endpoint configuration.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithEndpoints(Action<IEndpointRouteBuilder> endpointConfig)
+    public TestedAppBuilder<TProgram> WithEndpoints(Action<IEndpointRouteBuilder> endpointConfig)
     {
         _endpointConfigs.Add(endpointConfig);
         return this;
@@ -93,7 +93,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="disposable">The added dependency.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithDisposable(IDisposable disposable)
+    public TestedAppBuilder<TProgram> WithDisposable(IDisposable disposable)
     {
         _disposables.Add(disposable);
         return this;
@@ -105,19 +105,19 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
     /// </summary>
     /// <param name="disposeAction">The action to be exectuted at disposal.</param>
     /// <returns>This.</returns>
-    public TestWebApplicationFactoryBuilder<TProgram> WithDisposable(Action disposeAction)
+    public TestedAppBuilder<TProgram> WithDisposable(Action disposeAction)
     {
         return WithDisposable(new DisposableAction(disposeAction));
     }
 
     /// <summary>
-    /// Builds the resulting <see cref="TestWebApplicationFactory{TProgram}"/> with the provided configurations.
+    /// Builds the resulting <see cref="TestedApp{TProgram}"/> with the provided configurations.
     /// </summary>
     /// <remarks>
     /// Don't forget to dispose it.
     /// </remarks>
-    /// <returns>New <see cref="TestWebApplicationFactory{TProgram}"/>.</returns>
-    public TestWebApplicationFactory<TProgram> Build()
+    /// <returns>New <see cref="TestedApp{TProgram}"/>.</returns>
+    public TestedApp<TProgram> Build()
     {
         if (_testOutputHelper is null)
         {
@@ -126,7 +126,7 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
 
         var configsCopy = new List<Action<IWebHostBuilder>>(_configs);
         var endpointsCopy = new List<Action<IEndpointRouteBuilder>>(_endpointConfigs);
-        var options = new TestWebApplicationFactoryOptions
+        var options = new TestedAppOptions
         {
             TestOutputHelper = _testOutputHelper,
             Config = builder =>
@@ -146,6 +146,6 @@ public abstract class TestWebApplicationFactoryBuilder<TProgram>
             Disposables = _disposables.ToArray(),
         };
 
-        return new TestWebApplicationFactory<TProgram>(options);
+        return new TestedApp<TProgram>(options);
     }
 }

@@ -11,7 +11,7 @@ public class WebHostBuilderExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new TestProgramFactoryBuilder(testOutputHelper)
+        var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
             .WithServices(services => services.AddAppOptions<TestOptions>())
             .Build();

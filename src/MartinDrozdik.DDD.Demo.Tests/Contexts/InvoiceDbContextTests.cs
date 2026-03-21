@@ -6,8 +6,8 @@ namespace MartinDrozdik.DDD.Demo.Tests.Contexts;
 
 public class InvoiceDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContextIntegrationTests<InvoiceDbContext>, IDisposable
 {
-    private readonly TestWebApplicationFactory<Program> _factory =
-        new DemoAppFactoryBuilder(testOutputHelper).Build();
+    private readonly TestedApp<Program> _factory =
+        new DemoAppBuilder(testOutputHelper).Build();
 
     public void Dispose()
     {

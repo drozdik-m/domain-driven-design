@@ -11,10 +11,10 @@ namespace MartinDrozdik.DDD.Testing.Smoke;
 /// <typeparam name="TFactoryBuilder">Type of the app factory.</typeparam>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
 public abstract class WebApplicationSmokeTests<TFactoryBuilder, TProgram> : IDisposable
-    where TFactoryBuilder : TestWebApplicationFactoryBuilder<TProgram>
+    where TFactoryBuilder : TestedAppBuilder<TProgram>
     where TProgram : class
 {
-    private readonly TestWebApplicationFactory<TProgram> _factory;
+    private readonly TestedApp<TProgram> _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebApplicationSmokeTests{TWebApp, TProgram}"/> class.

@@ -3,11 +3,11 @@ using MartinDrozdik.DDD.Web.Databases;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 
-public class DemoAppFactoryBuilder : TestWebApplicationFactoryBuilder<Program>
+public class DemoAppBuilder : TestedAppBuilder<Program>
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test.db");
 
-    public DemoAppFactoryBuilder(ITestOutputHelper testOutputHelper)
+    public DemoAppBuilder(ITestOutputHelper testOutputHelper)
         : base(testOutputHelper)
     {
         WithOption<DatabaseOptions>(e => e.ConnectionString, $"Data Source={_dbPath}");

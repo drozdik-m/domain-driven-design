@@ -6,8 +6,8 @@ namespace MartinDrozdik.DDD.Demo.Tests.Errors;
 
 public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
 {
-    private readonly TestWebApplicationFactory<Program> _factory =
-        new DemoAppFactoryBuilder(testOutputHelper)
+    private readonly TestedApp<Program> _factory =
+        new DemoAppBuilder(testOutputHelper)
         .Build();
 
     [Fact]

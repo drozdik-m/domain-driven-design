@@ -11,7 +11,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_builds_successfully_by_default()
     {
         // Arrange
-        var factory = new TestProgramFactoryBuilder(testOutputHelper).Build();
+        var factory = new TestedWebAppBuilder(testOutputHelper).Build();
 
         // Act
         var exception = Record.Exception(factory.StartServer);
@@ -25,7 +25,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new TestProgramFactoryBuilder(testOutputHelper)
+        var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
             .WithServices(services => services.AddAppOptions<TestOptions>())
             .Build();
@@ -44,7 +44,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         const string value = "Hello there";
-        var factory = new TestProgramFactoryBuilder(testOutputHelper)
+        var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithOption<TestOptions>(e => e.SomeString, value)
             .WithServices(services => services.AddValidatedAppOptions<TestOptions>())
             .Build();
@@ -62,7 +62,7 @@ public class OptionsExtensionsTests(ITestOutputHelper testOutputHelper)
     public async Task App_with_invalid_options_fails_to_run()
     {
         // Arrange
-        var factory = new TestProgramFactoryBuilder(testOutputHelper)
+        var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithServices(services => services.AddValidatedAppOptions<TestOptions>())
             .Build();
 

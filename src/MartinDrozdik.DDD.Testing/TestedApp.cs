@@ -8,10 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace MartinDrozdik.DDD.Testing;
 
 /// <summary>
-/// Represents a base class for creating a test web application factory for integration testing.
+/// Factory for bootstraping an application in memory for integration testing, with additional features such as logging to xUnit output and easy registration of test endpoints.
 /// </summary>
 /// <typeparam name="TProgram">Type of the entrypoint Program.cs.</typeparam>
-public sealed class TestWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>
+public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
     where TProgram : class
 {
     /// <summary>
@@ -22,13 +22,13 @@ public sealed class TestWebApplicationFactory<TProgram> : WebApplicationFactory<
     /// <summary>
     /// Options for configuring this factory, including logging, additional configuration and endpoints.
     /// </summary>
-    private readonly TestWebApplicationFactoryOptions _options;
+    private readonly TestedAppOptions _options;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TestWebApplicationFactory{TProgram}"/> class.
+    /// Initializes a new instance of the <see cref="TestedApp{TProgram}"/> class.
     /// </summary>
     /// <param name="options">More detailed options of this factory.</param>
-    public TestWebApplicationFactory(TestWebApplicationFactoryOptions options)
+    public TestedApp(TestedAppOptions options)
     {
         _options = options;
     }

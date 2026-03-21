@@ -15,10 +15,10 @@ namespace MartinDrozdik.DDD.Testing.Errors;
 /// <typeparam name="TFactoryBuilder">Type of the app builder.</typeparam>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
 public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposable
-    where TFactoryBuilder : TestWebApplicationFactoryBuilder<TProgram>
+    where TFactoryBuilder : TestedAppBuilder<TProgram>
     where TProgram : class
 {
-    private readonly TestWebApplicationFactory<TProgram> _factory;
+    private readonly TestedApp<TProgram> _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ErrorHandlingTests{TWebApp, TProgram}"/> class.

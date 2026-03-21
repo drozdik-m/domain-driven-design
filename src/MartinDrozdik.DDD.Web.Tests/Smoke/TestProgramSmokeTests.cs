@@ -3,6 +3,6 @@
 namespace MartinDrozdik.DDD.Web.Tests.Smoke;
 
 public class TestProgramSmokeTests(ITestOutputHelper testOutputHelper)
-    : WebApplicationSmokeTests<TestProgramFactoryBuilder, Program>(new TestProgramFactoryBuilder(testOutputHelper))
+    : WebApplicationSmokeTests<TestedWebAppBuilder, Program>(new TestedWebAppBuilder(testOutputHelper))
 {
 }
