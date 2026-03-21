@@ -1,6 +1,5 @@
 ﻿using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Web.Databases;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests;
 

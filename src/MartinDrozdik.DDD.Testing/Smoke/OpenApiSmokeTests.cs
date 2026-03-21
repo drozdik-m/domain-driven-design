@@ -59,11 +59,11 @@ public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
             var client = _factory.CreateClient();
 
             // Act
-            var response = await client.GetAsync(openApi.Url);
+            var response = await client.GetAsync(openApi.Url, TestContext.Current.CancellationToken);
 
             // Assert
             response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
             if (openApi.Type == OpenApiType.Json)
             {

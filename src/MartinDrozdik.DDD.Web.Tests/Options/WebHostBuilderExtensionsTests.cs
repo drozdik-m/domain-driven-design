@@ -1,7 +1,6 @@
 ﻿using MartinDrozdik.DDD.Web.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Web.Tests.Options;
 

@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Testing.Errors;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Errors;
 

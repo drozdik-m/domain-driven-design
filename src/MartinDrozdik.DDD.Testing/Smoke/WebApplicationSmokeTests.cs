@@ -50,7 +50,7 @@ public abstract class WebApplicationSmokeTests<TFactoryBuilder, TProgram> : IDis
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -70,17 +70,17 @@ public abstract class WebApplicationSmokeTests<TFactoryBuilder, TProgram> : IDis
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync(endpoint);
+        var response = await client.GetAsync(endpoint, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         response.EnsureSuccessStatusCode();
 
-        var body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("Unhealthy", body, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Degraded", body, StringComparison.OrdinalIgnoreCase);
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Equal("Healthy", content);
         Assert.Equal("text/plain", response.Content.Headers.ContentType?.MediaType);
         Assert.NotNull(response.Headers.CacheControl);
@@ -97,7 +97,7 @@ public abstract class WebApplicationSmokeTests<TFactoryBuilder, TProgram> : IDis
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         // Assert
         response.EnsureSuccessStatusCode();

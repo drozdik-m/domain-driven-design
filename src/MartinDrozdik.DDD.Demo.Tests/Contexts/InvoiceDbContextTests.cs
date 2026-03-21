@@ -1,7 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Contexts;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Contexts;
 

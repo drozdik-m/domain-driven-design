@@ -1,7 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated.Models;
 using MartinDrozdik.DDD.Testing;
 using Microsoft.Kiota.Abstractions.Serialization;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Errors;
 

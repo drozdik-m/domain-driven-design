@@ -11,6 +11,7 @@
     <Project Path="MartinDrozdik.DDD.Testing/MartinDrozdik.DDD.Testing.csproj" Id="92fd5a4d-466b-4a36-baad-bf5b42aaf0bc" />
   </Folder>
   <Folder Name="/Web/">
+    <Project Path="MartinDrozdik.DDD.Web.Tests.App/MartinDrozdik.DDD.Web.Tests.App.csproj" />
     <Project Path="MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj" />
     <Project Path="MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj" />
   </Folder>

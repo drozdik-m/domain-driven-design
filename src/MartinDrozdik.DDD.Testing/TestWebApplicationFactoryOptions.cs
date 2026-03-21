@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace MartinDrozdik.DDD.Testing;
 

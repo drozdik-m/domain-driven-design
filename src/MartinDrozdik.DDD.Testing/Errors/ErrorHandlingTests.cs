@@ -42,12 +42,12 @@ public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposabl
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/exception", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
-        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(problemDetails);
         Assert.Multiple(
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type),
@@ -70,12 +70,12 @@ public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposabl
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-exception", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
-        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(problemDetails);
         Assert.Multiple(
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type),
@@ -109,12 +109,12 @@ public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposabl
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-validation-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/business-rule-validation-exception", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        var validationProblemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        var validationProblemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(validationProblemDetails);
         Assert.NotNull(validationProblemDetails.Errors);
         Assert.Multiple(
@@ -146,12 +146,12 @@ public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposabl
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/validation-exception");
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/validation-exception", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        var validationProblemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        var validationProblemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(validationProblemDetails);
         Assert.NotNull(validationProblemDetails.Errors);
         Assert.Multiple(

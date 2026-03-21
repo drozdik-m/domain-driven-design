@@ -1,13 +1,12 @@
 ﻿using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Contexts;
-using Xunit.Abstractions;
-using static MartinDrozdik.DDD.Web.Tests.TestProgram;
+using MartinDrozdik.DDD.Web.Tests.App;
 
 namespace MartinDrozdik.DDD.Web.Tests.Databases;
 
 public class TestDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContextIntegrationTests<TestDbContext>, IDisposable
 {
-    private readonly TestWebApplicationFactory<TestProgram> _factory
+    private readonly TestWebApplicationFactory<Program> _factory
         = new TestProgramFactoryBuilder(testOutputHelper).Build();
 
     public void Dispose()

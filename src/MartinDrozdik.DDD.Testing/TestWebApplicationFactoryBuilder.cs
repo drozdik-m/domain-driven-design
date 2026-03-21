@@ -4,7 +4,7 @@ using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace MartinDrozdik.DDD.Testing;
 

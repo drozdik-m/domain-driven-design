@@ -7,7 +7,6 @@ using MartinDrozdik.DDD.Demo.Models.ValueObjects;
 using MartinDrozdik.DDD.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit.Abstractions;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Invoices;
 
@@ -36,8 +35,8 @@ public class InvoicesTests
         var person = Person.Create("John Doe", DateTimeOffset.UtcNow.AddYears(-30));
         var number = InvoiceNumber.Create(2025, 1);
         var invoice = Invoice.CreateDraft(issuer: null, person, number);
-        await context.AddAsync(invoice);
-        await context.SaveChangesAsync();
+        await context.AddAsync(invoice, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var client = _factory.CreateDddClient();
 
@@ -81,7 +80,7 @@ public class InvoicesTests
 
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey);
+        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey, TestContext.Current.CancellationToken);
         Assert.NotNull(invoice);
         Assert.Multiple(
             () => Assert.Null(invoice.Issuer),
@@ -122,7 +121,7 @@ public class InvoicesTests
 
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey);
+        var invoice = await context.Invoices.SingleAsync(e => e.Id == responseKey, TestContext.Current.CancellationToken);
         Assert.NotNull(invoice);
         Assert.NotNull(invoice.Issuer);
         Assert.Multiple(
