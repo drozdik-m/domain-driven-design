@@ -3,7 +3,7 @@
 namespace MartinDrozdik.DDD.Web.Tests.Smoke;
 
 public class TestProgramOpenApiSmokeTests(ITestOutputHelper testOutputHelper)
-    : OpenApiSmokeTests<TestedWebAppBuilder, Program>(new TestedWebAppBuilder(testOutputHelper))
+    : OpenApiSmokeTests<Program>(new TestedWebAppBuilder(testOutputHelper))
 {
     protected override IEnumerable<OpenApiEndpoint> GetOpenApiEndpoints()
     {

@@ -12,19 +12,17 @@ namespace MartinDrozdik.DDD.Testing.Errors;
 /// <summary>
 /// Base class for error handling tests of ASP.NET Core web applications.
 /// </summary>
-/// <typeparam name="TFactoryBuilder">Type of the app builder.</typeparam>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class ErrorHandlingTests<TFactoryBuilder, TProgram> : IDisposable
-    where TFactoryBuilder : TestedAppBuilder<TProgram>
+public abstract class ErrorHandlingTests<TProgram> : IDisposable
     where TProgram : class
 {
     private readonly TestedApp<TProgram> _factory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ErrorHandlingTests{TWebApp, TProgram}"/> class.
+    /// Initializes a new instance of the <see cref="ErrorHandlingTests{TProgram}"/> class.
     /// </summary>
     /// <param name="factory">App factory under test. Disposed automatically.</param>
-    protected ErrorHandlingTests(TFactoryBuilder factory)
+    protected ErrorHandlingTests(TestedAppBuilder<TProgram> factory)
     {
         _factory = factory
             .WithEndpoints(e => e.MapErrorEndpoints())
