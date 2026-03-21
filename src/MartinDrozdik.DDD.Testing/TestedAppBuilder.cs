@@ -1,5 +1,5 @@
 ﻿using System.Linq.Expressions;
-using MartinDrozdik.DDD.Testing.Disposing;
+using MartinDrozdik.DDD.Disposing;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
