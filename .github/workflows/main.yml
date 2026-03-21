@@ -94,6 +94,10 @@ jobs:
       with:
         name: build-artifacts
         path: src/
+
+    # Required for xUnit runnner
+    - name: Make test binaries executable
+      run: find src -path "*/bin/Release/*/*Tests" -type f ! -name "*.*" | xargs chmod +x
       
     - name: Run model tests
       run: dotnet test ${{ matrix.path }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
