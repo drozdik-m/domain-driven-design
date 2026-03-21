@@ -4,6 +4,19 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Authors>Martin Drozdík</Authors>
+    <Description>A library to support testing of websites using the MartinDrozdik.DDD packages.</Description>
+    <PackageProjectUrl>https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Testing</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>ddd-test-icon.png</PackageIcon>
+    <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
+    <PackageTags>ddd;testweb;;domain;template</PackageTags>
+    <Version>0.1.0</Version>
+    <PackageId>MartinDrozdik.DDD.Testing</PackageId>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>© Ing. Martin Drozdík. All rights reserved.</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +49,13 @@
 
   <ItemGroup>
     <Folder Include="Errors\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <PackagePath>\</PackagePath>
+      <Pack>True</Pack>
+    </None>
   </ItemGroup>
 
 </Project>
