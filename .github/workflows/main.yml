@@ -72,10 +72,13 @@ jobs:
         include:
           - project_name: "Models"
             path: './src/MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj'
+            executable: 'src/MartinDrozdik.DDD.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Tests'
           - project_name: "Web"
             path: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
+            executable: 'src/MartinDrozdik.DDD.Web.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Web.Tests'
           - project_name: "Demo"
             path: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
+            executable: 'src/MartinDrozdik.DDD.Demo.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Demo.Tests'
 
     steps:
     - name: Checkout code
@@ -96,11 +99,8 @@ jobs:
         path: src/
 
     # Required for xUnit runnner
-    - name: Debug bin contents
-      run: find src -path "*/bin/Release/*" -type f | head -30
-
-    - name: Make test binaries executable
-      run: find src -path "*/bin/Release/*/*Tests" -type f ! -name "*.*" | xargs chmod +x
+    - name: Make test binary executable
+      run: chmod +x ${{ matrix.executable }}
       
     - name: Run model tests
       run: dotnet test ${{ matrix.path }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
