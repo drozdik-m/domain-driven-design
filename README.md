@@ -54,6 +54,27 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD.Web/README.md) for full 
 
 [![DDD Web Logo](./src/MartinDrozdik.DDD.Web/ddd-web-icon.png)](./src/MartinDrozdik.DDD.Web)
 
+## MartinDrozdik.DDD.Testing
+
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Testing?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Testing)](https://www.nuget.org/packages/MartinDrozdik.DDD.Testing)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Testing?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Testing)
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
+
+**Common test tooling for the DDD libraries. Stop writing the same `WebApplicationFactory` boilerplate for every project.**
+
+Built on top of [xUnit](https://github.com/xunit/xunit) and `MartinDrozdik.DDD.Web`, this package provides reusable test infrastructure:
+
+- **`TestedApp` & `TestedAppBuilder`** – fluently configure your integration testing
+- **Smoke tests** – free base classes for health checks, openapi, error handling and more
+- **EF Core integration tests** – entity mapping, migrations, connectivity, and model compilation checks, all for free
+- **Assertions** – simplification of test assertions
+
+*You still have to write your own tests. But at least you don't have to write the boring parts.*
+
+Check out [very nice README.md](./src/MartinDrozdik.DDD.Testing/README.md) for full details and the [demo tests](./src/MartinDrozdik.DDD.Demo.Tests) for examples.
+
+[![DDD Testing Logo](./src/MartinDrozdik.DDD.Testing/ddd-test-icon.png)](./src/MartinDrozdik.DDD.Testing)
+
 ## MartinDrozdik.DDD.Demo
 
 [![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
