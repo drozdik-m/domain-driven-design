@@ -1,7 +1,6 @@
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Tests.App;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 
 // --- BUILDER ---
@@ -25,6 +24,7 @@ await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 app.UseAppMiddlewares();
 
 app.MapOpenApi("/openapi/doc.json");
+app.MapOpenApi("/openapi/doc.yaml");
 
 app.MapGet("/", () => "Hello World!");
 

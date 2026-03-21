@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 using Xunit;
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 
 namespace MartinDrozdik.DDD.Testing.Smoke;
 
@@ -8,7 +10,7 @@ namespace MartinDrozdik.DDD.Testing.Smoke;
 /// </summary>
 /// <typeparam name="TFactoryBuilder">Type of the app builder.</typeparam>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
+public abstract partial class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
     where TFactoryBuilder : TestWebApplicationFactoryBuilder<TProgram>
     where TProgram : class
 {
@@ -22,29 +24,6 @@ public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
     {
         _factory = builder.Build();
     }
-
-    /// <summary>
-    /// Expected format of the OpenAPI document served by the app.
-    /// </summary>
-    public enum OpenApiType
-    {
-        /// <summary>
-        /// The OpenAPI document is served as JSON, typically at an endpoint like /openapi/doc.json.
-        /// </summary>
-        Json,
-
-        /// <summary>
-        /// The OpenAPI document is served as YAML, typically at an endpoint like /openapi/doc.yaml.
-        /// </summary>
-        Yaml,
-    }
-
-    /// <summary>
-    /// Represents an OpenAPI endpoint to be tested.
-    /// </summary>
-    /// <param name="Url">Target URL.</param>
-    /// <param name="Type">Document type.</param>
-    public record OpenApiEndpoint(string Url, OpenApiType Type);
 
     /// <summary>
     /// Smoke test to verify that the OpenAPI document.
@@ -71,7 +50,7 @@ public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
             }
             else
             {
-                // TODO YAMl check
+                ValidateYamlOpenApiDocument(content);
             }
         }
     }
@@ -128,5 +107,48 @@ public abstract class OpenApiSmokeTests<TFactoryBuilder, TProgram> : IDisposable
             Assert.True(root.TryGetProperty("info", out _), "OpenAPI document must have 'info' section");
             Assert.True(root.TryGetProperty("paths", out _), "OpenAPI document must have 'paths' section");
         }
+    }
+
+    /// <summary>
+    /// Validates that the provided string is valid YAML and a valid OpenAPI document.
+    /// </summary>
+    /// <param name="openApiYaml">The OpenAPI YAML string to validate.</param>
+    private static void ValidateYamlOpenApiDocument(string openApiYaml)
+    {
+        // First, validate it's valid YAML
+        var yamlStream = new YamlStream();
+        try
+        {
+            using var reader = new StringReader(openApiYaml);
+            yamlStream.Load(reader);
+        }
+        catch (YamlException ex)
+        {
+            throw new InvalidOperationException($"Invalid YAML: {ex.Message}", ex);
+        }
+
+        // Validate the document is non-empty and has a root mapping node
+        Assert.True(yamlStream.Documents.Count > 0, "YAML document must not be empty");
+
+        var root = yamlStream.Documents[0].RootNode;
+        Assert.True(root is YamlMappingNode, "OpenAPI YAML root must be a mapping node");
+
+        var rootMapping = (YamlMappingNode)root;
+
+        // Helper to find a key in the root mapping (case-sensitive, per OpenAPI spec)
+        bool HasKey(string key) => rootMapping.Children.Keys.OfType<YamlScalarNode>().Any(k => k.Value == key);
+
+        // Check for required OpenAPI fields
+        Assert.True(HasKey("openapi"), "OpenAPI document must have 'openapi' version field");
+        Assert.True(HasKey("info"), "OpenAPI document must have 'info' section");
+        Assert.True(HasKey("paths"), "OpenAPI document must have 'paths' section");
+
+        // Validate the openapi version value is a non-empty string
+        var versionNode = rootMapping.Children
+            .FirstOrDefault(kvp => kvp.Key is YamlScalarNode { Value: "openapi" })
+            .Value as YamlScalarNode;
+
+        Assert.NotNull(versionNode);
+        Assert.False(string.IsNullOrWhiteSpace(versionNode.Value), "'openapi' version field must not be empty");
     }
 }
