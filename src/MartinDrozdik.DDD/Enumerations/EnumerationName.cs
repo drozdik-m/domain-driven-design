@@ -9,6 +9,7 @@ namespace MartinDrozdik.DDD.Enumerations;
 /// <summary>
 /// Enumeration name acting as a unique identifier for an enumeration value.
 /// Must not be empty or whitespace.
+/// Case sensitive.
 /// </summary>
 [DebuggerDisplay("{Key}")]
 public readonly struct EnumerationName : IIdentity<string>, IEqualityComparer<EnumerationName>, IEquatable<EnumerationName>, IEqualityOperators<EnumerationName, EnumerationName, bool>
@@ -20,11 +21,17 @@ public readonly struct EnumerationName : IIdentity<string>, IEqualityComparer<En
     public EnumerationName(string key)
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(key);
-        Key = key.ToLowerInvariant();
+        Key = key;
+        KeyLowercase = key.ToLowerInvariant();
     }
 
     /// <inheritdoc />
     public string Key { get; init; }
+
+    /// <summary>
+    /// Gets lowercase version of the <see cref="Key"/> for case-insensitive comparisons.
+    /// </summary>
+    public string KeyLowercase { get; init; }
 
     /// <summary>
     /// Implicitly convert a string to an enumeration name.
