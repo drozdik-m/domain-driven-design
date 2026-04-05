@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace MartinDrozdik.DDD.Urls;
+namespace MartinDrozdik.DDD.Integrations;
 
 /// <summary>
 /// Builder for constructing URLs with support for path segments, query parameters, fragments, and parameter replacement.
@@ -8,10 +8,10 @@ namespace MartinDrozdik.DDD.Urls;
 /// </summary>
 public class UrlBuilder
 {
-    private bool _relative = false;
     private readonly List<string> _segments = [];
     private readonly List<QueryParameter> _queryParameters = [];
     private readonly List<ValueParameter> _parameters = [];
+    private bool _relative;
     private string? _fragment;
     private string? _domain;
     private int? _port;

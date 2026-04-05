@@ -1,6 +1,6 @@
 ﻿using MartinDrozdik.DDD.Urls;
 
-namespace MartinDrozdik.DDD.Tests.Urls;
+namespace MartinDrozdik.DDD.Tests.Integrations;
 
 public class UrlBuilderTests
 {
