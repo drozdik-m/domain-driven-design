@@ -17,9 +17,12 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
 
     public static IEnumerable<TheoryDataRow<EndpointTest>> Endpoints()
     {
+        var v1 = new UrlBuilder("v1");
         var root = new UrlBuilder("v1", "invoice");
-        yield return new EndpointTest(System.Net.Http.HttpMethod.Get, root.Build());
-        yield return new EndpointTest(System.Net.Http.HttpMethod.Post, root.Build());
+        yield return new EndpointTest(HttpMethod.Get, root.Build());
+        yield return new EndpointTest(HttpMethod.Post, root.Build());
+
+        root = new UrlBuilder("v1", "invoice");
     }
 }
 */

@@ -78,7 +78,7 @@ public class UrlBuilderTests
 
         if (scheme is not null)
         {
-            builder.WithScheme(scheme);
+            builder = builder.WithScheme(scheme);
         }
 
         // Act
@@ -333,24 +333,48 @@ public class UrlBuilderTests
     }
 
     [Fact]
+    public void With_methods_return_new_instances_and_do_not_mutate_original()
+    {
+        // Arrange
+        var original = new UrlBuilder("api", "users").AsRelative();
+
+        // Act — each With* call returns a new builder; original must remain unchanged
+        var withPath = original.WithPath(["extra"]);
+        var withQuery = original.WithQueryParameter("page", "1");
+        var withParam = original.WithParameter("key", "value");
+        var withFragment = original.WithFragment("section");
+        var withDomain = original.WithDomain("example.com", null);
+        var withScheme = original.AsAbsolute().WithScheme("https").WithDomain("example.com", null);
+        var asAbsolute = original.AsAbsolute();
+
+        // Assert — original is untouched
+        Assert.Equal("api/users", original.Build());
+
+        // Assert — each derived builder reflects only its own change
+        Assert.Equal("api/users/extra", withPath.Build());
+        Assert.Equal("api/users?page=1", withQuery.Build());
+        Assert.Equal("api/users", withParam.Build()); // parameter unused in path
+        Assert.Equal("api/users#section", withFragment.Build());
+        Assert.Throws<InvalidOperationException>(withDomain.Build); // relative + domain → invalid
+        Assert.Equal("https://example.com/api/users", withScheme.Build());
+        Assert.Equal("/api/users", asAbsolute.Build());
+    }
+
+    [Fact]
     public void Build_result_is_not_affected_by_subsequent_builder_mutations()
     {
         // Arrange
-        var builder = new UrlBuilder("api", "users").AsRelative();
+        var original = new UrlBuilder("api", "users").AsRelative();
 
         // Act
-        var urlBeforeMutation = builder.Build();
-
-        builder
+        var mutated = original
             .AsAbsolute()
             .WithScheme("https")
             .WithDomain("example.com", null)
             .WithQueryParameter("page", "1");
 
-        var urlAfterMutation = builder.Build();
-
         // Assert
-        Assert.Equal("api/users", urlBeforeMutation);
-        Assert.Equal("https://example.com/api/users?page=1", urlAfterMutation);
+        Assert.Equal("api/users", original.Build());
+        Assert.Equal("https://example.com/api/users?page=1", mutated.Build());
     }
 }

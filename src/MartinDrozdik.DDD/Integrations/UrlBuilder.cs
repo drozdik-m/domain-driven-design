@@ -1,30 +1,30 @@
-﻿using System.Text;
+﻿using System.Collections.Immutable;
+using System.Text;
 
 namespace MartinDrozdik.DDD.Integrations;
 
 /// <summary>
 /// Builder for constructing URLs with support for path segments, query parameters, fragments, and parameter replacement.
-/// The build is idempotent and independent.
+/// The build is immutable, idempotent and independent.
 /// </summary>
-public class UrlBuilder
+/// <param name="initialSegments">The initial path segments. Same operation as <see cref="WithPath(IEnumerable{string})"/>.</param>
+public record UrlBuilder(params IEnumerable<string> initialSegments)
 {
-    private readonly List<string> _segments = [];
-    private readonly List<QueryParameter> _queryParameters = [];
-    private readonly List<ValueParameter> _parameters = [];
-    private bool _relative;
-    private string? _fragment;
-    private string? _domain;
-    private int? _port;
-    private string? _scheme;
+    private ImmutableList<string> Segments { get; init; } = [.. initialSegments];
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="UrlBuilder"/> class.
-    /// </summary>
-    /// <param name="segments">The initial path segments. Same operation as <see cref="WithPath(IEnumerable{string})"/>.</param>
-    public UrlBuilder(params IEnumerable<string> segments)
-    {
-        WithPath(segments);
-    }
+    private ImmutableList<QueryParameter> QueryParameters { get; init; } = [];
+
+    private ImmutableList<ValueParameter> Parameters { get; init; } = [];
+
+    private bool Relative { get; init; }
+
+    private string? Fragment { get; init; }
+
+    private string? Domain { get; init; }
+
+    private int? Port { get; init; }
+
+    private string? Scheme { get; init; }
 
     /// <summary>
     /// Implicit conversion to string via <see cref="Build"/>.
@@ -43,12 +43,9 @@ public class UrlBuilder
     /// </example>
     /// <remarks>Supports bracketed {parameters}.</remarks>
     /// <param name="segments">Segments to add.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithPath(IEnumerable<string> segments)
-    {
-        _segments.AddRange(segments);
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the segments appended.</returns>
+    public UrlBuilder WithPath(IEnumerable<string> segments) =>
+        this with { Segments = Segments.AddRange(segments) };
 
     /// <summary>
     /// Adds a query parameter to the resulting URL.
@@ -56,24 +53,18 @@ public class UrlBuilder
     /// <remarks>Supports bracketed {parameters}.</remarks>
     /// <param name="name">Key of the query parameter.</param>
     /// <param name="value">Value of the query parameter.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithQueryParameter(string name, string value)
-    {
-        _queryParameters.Add(new QueryParameter(name, value));
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the query parameter added.</returns>
+    public UrlBuilder WithQueryParameter(string name, string value) =>
+        this with { QueryParameters = QueryParameters.Add(new QueryParameter(name, value)) };
 
     /// <summary>
     /// Replaces parameters in format {parameterName} in the URL with the provided value.
     /// </summary>
     /// <param name="key">The "parameterName" inside {parameterName}.</param>
     /// <param name="value">The value to replace {parameterName} with.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithParameter(string key, string value)
-    {
-        _parameters.Add(new ValueParameter(key, value));
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the parameter registered.</returns>
+    public UrlBuilder WithParameter(string key, string value) =>
+        this with { Parameters = Parameters.Add(new ValueParameter(key, value)) };
 
     /// <summary>
     /// Adds a fragment to the resulting URL.
@@ -84,12 +75,9 @@ public class UrlBuilder
     /// </example>
     /// <remarks>Supports bracketed {parameters}.</remarks>
     /// <param name="fragment">The fragment value.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithFragment(string fragment)
-    {
-        _fragment = fragment;
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the fragment set.</returns>
+    public UrlBuilder WithFragment(string fragment) =>
+        this with { Fragment = fragment };
 
     /// <summary>
     /// Sets the domain and optionally the port of the resulting URL.
@@ -97,24 +85,17 @@ public class UrlBuilder
     /// <remarks>Supports bracketed {parameters}.</remarks>
     /// <param name="domain">The domain.</param>
     /// <param name="port">The port.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithDomain(string domain, int? port)
-    {
-        _domain = domain;
-        _port = port;
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the domain and port set.</returns>
+    public UrlBuilder WithDomain(string domain, int? port = null) =>
+        this with { Domain = domain, Port = port };
 
     /// <summary>
     /// Sets the scheme of the resulting URL (e.g., "http", "https").
     /// </summary>
     /// <param name="scheme">The scheme.</param>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder WithScheme(string scheme)
-    {
-        _scheme = scheme;
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> with the scheme set.</returns>
+    public UrlBuilder WithScheme(string scheme) =>
+        this with { Scheme = scheme };
 
     /// <summary>
     /// Makes the resulting URL relative, omitting the leading '/' before the path.
@@ -122,22 +103,16 @@ public class UrlBuilder
     /// <remarks>
     /// Cannot be combined with a domain, as a domain always implies an absolute URL.
     /// </remarks>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder AsRelative()
-    {
-        _relative = true;
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> marked as relative.</returns>
+    public UrlBuilder AsRelative() =>
+        this with { Relative = true };
 
     /// <summary>
     /// Makes the resulting URL absolute, ensuring the leading '/' before the path.
     /// </summary>
-    /// <returns>This <see cref="UrlBuilder"/> for chaining.</returns>
-    public UrlBuilder AsAbsolute()
-    {
-        _relative = false;
-        return this;
-    }
+    /// <returns>A new <see cref="UrlBuilder"/> marked as absolute.</returns>
+    public UrlBuilder AsAbsolute() =>
+        this with { Relative = false };
 
     /// <summary>
     /// Builds the final URL string based on the provided data.
@@ -146,22 +121,22 @@ public class UrlBuilder
     /// <returns>Final URL as string.</returns>
     public string Build()
     {
-        if (_scheme is not null && _domain is null)
+        if (Scheme is not null && Domain is null)
         {
             throw new InvalidOperationException("A scheme cannot be set without a domain.");
         }
 
-        if (_relative && _domain is not null)
+        if (Relative && Domain is not null)
         {
             throw new InvalidOperationException("A relative URL cannot have a domain.");
         }
 
-        if (_relative && _port is not null)
+        if (Relative && Port is not null)
         {
             throw new InvalidOperationException("A relative URL cannot have a port.");
         }
 
-        if (_relative && _scheme is not null)
+        if (Relative && Scheme is not null)
         {
             throw new InvalidOperationException("A relative URL cannot have a scheme.");
         }
@@ -169,47 +144,47 @@ public class UrlBuilder
         var result = new StringBuilder();
 
         // Scheme + domain + port
-        if (_domain is not null)
+        if (Domain is not null)
         {
-            if (_scheme is not null)
+            if (Scheme is not null)
             {
-                result.Append(_scheme);
+                result.Append(Scheme);
                 result.Append("://");
             }
 
-            result.Append(ApplyParameters(_domain));
+            result.Append(ApplyParameters(Domain));
 
-            if (_port is not null)
+            if (Port is not null)
             {
                 result.Append(':');
-                result.Append(_port);
+                result.Append(Port);
             }
         }
 
         // Path segments
-        if (_segments.Count > 0)
+        if (Segments.Count > 0)
         {
-            if (!_relative)
+            if (!Relative)
             {
                 result.Append('/');
             }
 
-            result.AppendJoin('/', ApplyParametersTexts(_segments).Select(Uri.EscapeDataString));
+            result.AppendJoin('/', ApplyParametersTexts(Segments).Select(Uri.EscapeDataString));
         }
 
         // Query string
-        if (_queryParameters.Count > 0)
+        if (QueryParameters.Count > 0)
         {
-            var queryPairs = _queryParameters.Select(q => $"{Uri.EscapeDataString(ApplyParameters(q.Name))}={Uri.EscapeDataString(ApplyParameters(q.Value))}");
+            var queryPairs = QueryParameters.Select(q => $"{Uri.EscapeDataString(ApplyParameters(q.Name))}={Uri.EscapeDataString(ApplyParameters(q.Value))}");
             result.Append('?');
             result.AppendJoin('&', queryPairs);
         }
 
         // Fragment
-        if (_fragment is not null)
+        if (Fragment is not null)
         {
             result.Append('#');
-            result.Append(Uri.EscapeDataString(ApplyParameters(_fragment)));
+            result.Append(Uri.EscapeDataString(ApplyParameters(Fragment)));
         }
 
         return result.ToString();
@@ -217,7 +192,7 @@ public class UrlBuilder
         string ApplyParameters(string text)
         {
             var result = text;
-            foreach (var parameter in _parameters)
+            foreach (var parameter in Parameters)
             {
                 result = result.Replace($"{{{parameter.Key}}}", parameter.Value);
             }
