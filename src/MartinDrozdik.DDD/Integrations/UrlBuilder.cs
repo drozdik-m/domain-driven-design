@@ -27,6 +27,15 @@ public class UrlBuilder
     }
 
     /// <summary>
+    /// Implicit conversion to string via <see cref="Build"/>.
+    /// </summary>
+    /// <param name="builder">The builder to use.</param>
+    public static implicit operator string(UrlBuilder builder)
+    {
+        return builder.Build();
+    }
+
+    /// <summary>
     /// Adds more path segments to the resulting URL.
     /// </summary>
     /// <example>
