@@ -12,7 +12,7 @@
     <PackageIcon>ddd-web-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;web;http;domain;template</PackageTags>
-    <Version>0.1.4</Version>
+    <Version>0.4.1</Version>
     <PackageId>MartinDrozdik.DDD.Web</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -28,7 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MartinDrozdik.DDD" Version="0.4.0" />
+    <PackageReference Include="MartinDrozdik.DDD" Version="0.4.1" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
