@@ -7,8 +7,6 @@ public class DemoAppOpenApiSmokeTests(ITestOutputHelper testOutputHelper)
 {
     protected override IEnumerable<OpenApiEndpoint> GetOpenApiEndpoints()
     {
-        return [
-            new OpenApiEndpoint("/openapi/v1.json", OpenApiType.Json)
-        ];
+        yield return new OpenApiEndpoint("/openapi/v1.json", OpenApiType.Json);
     }
 }

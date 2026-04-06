@@ -5,8 +5,9 @@ using System.Xml.Linq;
 using MartinDrozdik.DDD.Enumerations;
 
 namespace MartinDrozdik.DDD.Testing.Endpoints;
+
 /*
-public static class EndpointLedger<TSelf> : StaticEnumeration<TSelf>
+public static class Endpoints<TSelf> : StaticEnumeration<TSelf>
 {
 
 

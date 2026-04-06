@@ -1,4 +1,4 @@
-﻿using MartinDrozdik.DDD.Urls;
+﻿using MartinDrozdik.DDD.Integrations;
 
 namespace MartinDrozdik.DDD.Tests.Integrations;
 
