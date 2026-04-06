@@ -35,7 +35,7 @@ public abstract class ExceptionHandler(IHostEnvironment environment) : IExceptio
     }
 
     /// <summary>
-    /// Gets error detail. Includes full exception details in development environment only.
+    /// Gets error detail. Includes full exception message.
     /// </summary>
     /// <param name="exception">The exception to get detail from.</param>
     /// <returns>Error detail string.</returns>

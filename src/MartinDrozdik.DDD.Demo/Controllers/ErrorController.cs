@@ -35,6 +35,21 @@ public class ErrorController : ControllerBase
         };
     }
 
+    [HttpGet("business-not-found-exception")]
+    [Produces("application/json")]
+    [ProducesResponseType<string>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<string>> GetBusinessNotFoundException(CancellationToken cancellationToken)
+    {
+        throw new BusinessNotFoundException("Could not find this mate.")
+        {
+            Details =
+            [
+                new ExceptionDetail("Error1", "This is error message 1"),
+                new ExceptionDetail("Error2", "This is error message 2")
+            ],
+        };
+    }
+
     [HttpGet("business-rule-validation-exception")]
     [Produces("application/json")]
     [ProducesResponseType<string>(StatusCodes.Status200OK)]

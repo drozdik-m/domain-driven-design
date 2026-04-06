@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
-/*
+
 /// <summary>
 /// Catches <see cref="BusinessNotFoundException"/> and converts it to proper HTTP response.
 /// </summary>
@@ -19,20 +19,15 @@ public class BusinessNotFoundExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        if (exception is not BusinessNotFoundException validationException)
+        if (exception is not BusinessNotFoundException notFoundException)
         {
             return false;
         }
 
-        RequestLogging.LogError(logger, httpContext, validationException);
+        RequestLogging.LogError(logger, httpContext, notFoundException);
 
-        await Results.ValidationProblem(
-            errors: validationException.DetailsDictionary,
-            detail: GetExceptionDetail(exception),
-            title: ExceptionLocalization.ValidationExceptionTitle,
-            extensions: GetExtensionData()).ExecuteAsync(httpContext);
+        await Results.NotFound().ExecuteAsync(httpContext);
 
         return true;
     }
 }
-*/

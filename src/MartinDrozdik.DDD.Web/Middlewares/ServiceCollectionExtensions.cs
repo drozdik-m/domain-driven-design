@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
     /// Handles:
     /// <list type="bullet">
     /// <item><see cref="BusinessRuleValidationException"/></item>
+    /// <item><see cref="BusinessNotFoundException"/></item>
     /// <item><see cref="BusinessRuleException"/></item>
     /// <item><see cref="ValidationException"/></item>
     /// <item><see cref="Exception"/></item>
@@ -28,6 +29,7 @@ public static class ServiceCollectionExtensions
     {
         return serviceCollection.AddProblemDetails()
             .AddExceptionHandler<BusinessRuleValidationExceptionHandler>()
+            .AddExceptionHandler<BusinessNotFoundExceptionHandler>()
             .AddExceptionHandler<ValidationExceptionHandler>()
             .AddExceptionHandler<GlobalExceptionHandler>();
     }

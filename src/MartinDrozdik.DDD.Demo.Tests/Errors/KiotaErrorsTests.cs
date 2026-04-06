@@ -1,5 +1,6 @@
 ﻿using MartinDrozdik.DDD.Demo.Client.Generated.Models;
 using MartinDrozdik.DDD.Testing;
+using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Serialization;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Errors;
@@ -62,6 +63,20 @@ public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
         Assert.Multiple(
             () => Assert.Equal("This is error message 1", error1Value.GetValue()),
             () => Assert.Equal("This is error message 2", error2Value.GetValue()));
+    }
+
+    [Fact]
+    public async Task Get_business_not_found_exception()
+    {
+        // Arrange
+        var client = _factory.CreateDddClient();
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ApiException>(() => client.V1.Errors.BusinessNotFoundException.GetAsync(cancellationToken: CancellationToken.None));
+
+        // Assert
+        Assert.NotNull(exception);
+        Assert.Equal(404, exception.ResponseStatusCode);
     }
 
     [Fact]

@@ -56,6 +56,45 @@ public abstract class ErrorHandlingTests<TProgram> : IDisposable
             () => Assert.True(problemDetails.Extensions.ContainsKey("exception")),
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
     }
+    /*
+    /// <summary>
+    /// Asserts <see cref="BusinessNotFoundException"/> to test the general error handling pipeline.
+    /// </summary>
+    /// <returns><see cref="Task"/>.</returns>
+    [Fact]
+    public async Task Get_business_not_found_exception()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync(ErrorEndpoints.BasePath + "/not-found-exception", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
+        Assert.NotNull(problemDetails);
+        Assert.Multiple(
+            () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type),
+            () => Assert.Equal("An error occurred while processing the request.", problemDetails.Title),
+            () => Assert.Equal(500, problemDetails.Status),
+            () => Assert.Equal("This is a general exception", problemDetails.Detail),
+            () => Assert.Null(problemDetails.Instance),
+            () => Assert.True(problemDetails.Extensions.ContainsKey("exception")),
+            () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
+
+        var error1 = problemDetails.Extensions["error1"] as JsonElement?;
+        var error2 = problemDetails.Extensions["error2"] as JsonElement?;
+        Assert.NotNull(error1);
+        Assert.NotNull(error2);
+
+        var error1Value = error1.Value.EnumerateArray().First().GetString();
+        var error2Value = error2.Value.EnumerateArray().First().GetString();
+        Assert.Multiple(
+            () => Assert.Equal("This is error message 1", error1Value),
+            () => Assert.Equal("This is error message 2", error2Value));
+    }*/
 
     /// <summary>
     /// Asserts <see cref="BusinessRuleException"/> to test the general error handling pipeline.
