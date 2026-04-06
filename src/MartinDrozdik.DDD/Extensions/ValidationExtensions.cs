@@ -71,9 +71,17 @@ public static class ValidationExtensions
     /// Converts an <see cref="Error"/> to a <see cref="BusinessRuleException"/>.
     /// </summary>
     /// <param name="error">The <see cref="Error"/> to convert.</param>
-    /// <returns>New <see cref="BusinessRuleException"/>.</returns>
+    /// <returns>New <see cref="BusinessRuleException"/> or <see cref="BusinessNotFoundException"/> for <see cref="ErrorCodes.NotFound"/>.</returns>
     public static BusinessRuleException ToBusinessRuleException(this Error error)
     {
+        if (error.Code == ErrorCodes.NotFound)
+        {
+            return new BusinessNotFoundException(error.Message, error.Exception)
+            {
+                Details = error.Details.Select(ToExceptionDetail),
+            };
+        }
+
         return new BusinessRuleException(error.Message, error.Exception)
         {
             Details = error.Details.Select(ToExceptionDetail),

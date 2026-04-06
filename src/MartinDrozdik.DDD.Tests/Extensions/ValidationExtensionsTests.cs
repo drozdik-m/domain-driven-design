@@ -112,6 +112,23 @@ public class ValidationExtensionsTests
     }
 
     [Fact]
+    public void ToBusinessRuleException_should_convert_not_found_error_correctly()
+    {
+        var error = new ErrorBuilder()
+            .WithCode(ErrorCodes.NotFound)
+            .WithMessage("Failure")
+            .WithDetail("field", "invalid")
+            .Build();
+
+        var exception = error.ToBusinessRuleException();
+
+        Assert.IsType<BusinessNotFoundException>(exception);
+        Assert.Equal("Failure", exception.Message);
+        Assert.Single(exception.Details);
+        Assert.Contains(exception.Details, e => e.Key == "field" && e.Value == "invalid");
+    }
+
+    [Fact]
     public void TryGetException_should_return_false_for_valid_result()
     {
         var result = new ValidationResult();
