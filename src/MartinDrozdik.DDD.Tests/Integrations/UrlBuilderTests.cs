@@ -39,8 +39,8 @@ public class UrlBuilderTests
     {
         // Arrange
         var builder = new UrlBuilder("api")
-            .WithPath(["users"])
-            .WithPath(["{id}", "details"]);
+            .WithPath("users")
+            .WithPath("{id}", "details");
 
         // Act
         var url = builder.Build();
@@ -339,7 +339,7 @@ public class UrlBuilderTests
         var original = new UrlBuilder("api", "users").AsRelative();
 
         // Act — each With* call returns a new builder; original must remain unchanged
-        var withPath = original.WithPath(["extra"]);
+        var withPath = original.WithPath("extra");
         var withQuery = original.WithQueryParameter("page", "1");
         var withParam = original.WithParameter("key", "value");
         var withFragment = original.WithFragment("section");

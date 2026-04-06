@@ -1,4 +1,6 @@
-﻿using Xunit;
+﻿using System.Net.Mime;
+using System.Text;
+using Xunit;
 
 namespace MartinDrozdik.DDD.Testing.Smoke;
 
@@ -23,6 +25,10 @@ public class EndpointSmokeTester<TProgram>(TestedAppBuilder<TProgram> builder)
     {
         // Arrange
         var client = _factory.CreateClient();
+        var content = new StringContent(
+            testCase.Content ?? string.Empty,
+            Encoding.UTF8,
+            MediaTypeNames.Application.Json);
 
         // Act
         HttpResponseMessage response;
@@ -32,18 +38,15 @@ public class EndpointSmokeTester<TProgram>(TestedAppBuilder<TProgram> builder)
         }
         else if (testCase.Method == HttpMethod.Post)
         {
-            //response = await client.PostAsync(testCase.Url, testCase.Content, cancellationToken);
-            response = await client.PostAsync(testCase.Url, null, cancellationToken);
+            response = await client.PostAsync(testCase.Url, content, cancellationToken);
         }
         else if (testCase.Method == HttpMethod.Put)
         {
-            //response = await client.PutAsync(testCase.Url, testCase.Content, cancellationToken);
-            response = await client.PutAsync(testCase.Url, null, cancellationToken);
+            response = await client.PutAsync(testCase.Url, content, cancellationToken);
         }
         else if (testCase.Method == HttpMethod.Patch)
         {
-            //response = await client.PatchAsync(testCase.Url, testCase.Content, cancellationToken);
-            response = await client.PatchAsync(testCase.Url, null, cancellationToken);
+            response = await client.PatchAsync(testCase.Url, content, cancellationToken);
         }
         else if (testCase.Method == HttpMethod.Delete)
         {

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using System.Net.Mime;
 using Xunit.Sdk;
 
 namespace MartinDrozdik.DDD.Testing.Smoke;
@@ -12,7 +13,7 @@ namespace MartinDrozdik.DDD.Testing.Smoke;
 /// </remarks>
 /// <param name="method">The HTTP method to use when testing the endpoint.</param>
 /// <param name="url">The URL of the endpoint to be tested. You can use <see cref="UriBuilder"/> or <see cref="Integrations.UrlBuilder"/>.</param>
-//[DebuggerDisplay("{Method} {Url}")]
+[DebuggerDisplay("{Method} {Url}")]
 public class EndpointTest(HttpMethod method, string url) : IXunitSerializable
 {
     /// <summary>
@@ -26,21 +27,26 @@ public class EndpointTest(HttpMethod method, string url) : IXunitSerializable
     public string Url { get; private set; } = url;
 
     /// <summary>
-    /// Gets acceptable status codes for this endpoint test.
+    /// Gets or sets acceptable status codes for this endpoint test.
     /// Besides 2xx status codes, can we consider other status codes as acceptable?
     /// Smoke tests are not meant to be strict, so we can allow some flexibility here.
     /// </summary>
     /// <example>
     /// If an endpoint is protected by authentication, we might expect 401 or 403 status codes, and that would be perfectly fine for a smoke test.
     /// </example>
-    public IEnumerable<HttpStatusCode> AcceptableCodes { get; private set; } = [];
+    public IEnumerable<HttpStatusCode> AcceptableCodes { get; set; } = [];
 
     /// <summary>
-    /// Gets contents to send with the request.
+    /// Gets or sets contents to send with the request.
     /// Only applicable for methods that support a body (e.g., POST, PUT, PATCH).
     /// For GET and DELETE requests, this property will be ignored.
     /// </summary>
-    //public HttpContent? Content { get; init; }
+    public string? Content { get; set; }
+
+    /// <summary>
+    /// Gets or sets Mime type for the <see cref="Content"/>.
+    /// </summary>
+    public string ContentType { get; set; } = MediaTypeNames.Application.Json;
 
     /// <summary>
     /// Adds additional acceptable status codes to this endpoint test.
@@ -55,20 +61,36 @@ public class EndpointTest(HttpMethod method, string url) : IXunitSerializable
         };
     }
 
+    /// <inheritdoc />
     public void Serialize(IXunitSerializationInfo info)
     {
         info.AddValue(nameof(Method), Method.Method);
         info.AddValue(nameof(Url), Url);
-        info.AddValue(nameof(AcceptableCodes), AcceptableCodes
-            .Select(c => (int)c).ToArray());
+        info.AddValue(nameof(Content), Content);
+        info.AddValue(nameof(ContentType), ContentType);
+        info.AddValue(nameof(AcceptableCodes), AcceptableCodes.Select(e => (int)e).ToArray());
     }
 
+    /// <inheritdoc />
     public void Deserialize(IXunitSerializationInfo info)
     {
-        Method = new HttpMethod(info.GetValue<string>(nameof(Method)));
-        Url = info.GetValue<string>(nameof(Url));
-        AcceptableCodes = info.GetValue<int[]>(nameof(AcceptableCodes))
-            .Select(c => (HttpStatusCode)c);
+        var methodString = info.GetValue<string>(nameof(Method));
+        ArgumentNullException.ThrowIfNull(methodString);
+
+        var urlString = info.GetValue<string>(nameof(Url));
+        ArgumentNullException.ThrowIfNull(urlString);
+
+        var acceptableCodesInts = info.GetValue<int[]>(nameof(AcceptableCodes));
+        ArgumentNullException.ThrowIfNull(acceptableCodesInts);
+
+        var contentTypeString = info.GetValue<string>(nameof(ContentType));
+        ArgumentNullException.ThrowIfNull(contentTypeString);
+
+        Method = new HttpMethod(methodString);
+        Url = urlString;
+        AcceptableCodes = acceptableCodesInts.Select(c => (HttpStatusCode)c);
+        Content = info.GetValue<string?>(nameof(Content));
+        ContentType = contentTypeString;
     }
 
     /// <inheritdoc />

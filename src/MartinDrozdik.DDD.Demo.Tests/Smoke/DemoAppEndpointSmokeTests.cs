@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Mime;
 using MartinDrozdik.DDD.Integrations;
 using MartinDrozdik.DDD.Testing.Smoke;
 
@@ -11,20 +12,12 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
         var v1 = new UrlBuilder("v1");
         var invoice = v1.WithPath("invoice");
         yield return new EndpointTest(HttpMethod.Get, invoice);
-        yield return new EndpointTest(HttpMethod.Post, invoice);
-
-        /*var data = new TheoryData<EndpointTest>();
-        var v1 = new UrlBuilder("v1");
-        var invoice = v1.WithPath("invoice");
-        data.Add(new EndpointTest(HttpMethod.Get, invoice));
-        data.Add(new EndpointTest(HttpMethod.Post, invoice));
-        return data;*/
-
-        /*
-        var v1 = new UrlBuilder("v1");
-        var invoice = v1.WithPath("invoice");
-        yield return new EndpointTest(HttpMethod.Get, invoice);
-        yield return new EndpointTest(HttpMethod.Post, invoice);
+        yield return new EndpointTest(HttpMethod.Post, invoice)
+        {
+            Content = "{}",
+            ContentType = MediaTypeNames.Application.Json,
+            AcceptableCodes = [HttpStatusCode.BadRequest],
+        };
 
         var error = v1.WithPath("errors");
         yield return new EndpointTest(HttpMethod.Get, error.WithPath("exception"))
@@ -37,12 +30,12 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
         };
         yield return new EndpointTest(HttpMethod.Get, error.WithPath("business-rule-validation-exception"))
         {
-            AcceptableCodes = [HttpStatusCode.InternalServerError],
+            AcceptableCodes = [HttpStatusCode.BadRequest],
         };
         yield return new EndpointTest(HttpMethod.Get, error.WithPath("validation-exception"))
         {
-            AcceptableCodes = [HttpStatusCode.InternalServerError],
-        };*/
+            AcceptableCodes = [HttpStatusCode.BadRequest],
+        };
     }
 
     [Theory]
