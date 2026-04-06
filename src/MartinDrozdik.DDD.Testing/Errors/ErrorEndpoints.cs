@@ -33,12 +33,12 @@ public static class ErrorEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError)
             .Produces<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest);
 
-        /*group.MapGet("not-found-exception", GetNotFound)
+        group.MapGet("not-found-exception", GetBusinessNotFound)
             .Produces<string>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError)
             .Produces<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest);
-        */
+
         group.MapGet("business-rule-exception", GetBusinessRuleException)
             .Produces<string>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
@@ -65,7 +65,7 @@ public static class ErrorEndpoints
         throw new Exception("This is a general exception");
     }
 
-    /*private static async Task<string> GetNotFound()
+    private static async Task<string> GetBusinessNotFound()
     {
         throw new BusinessNotFoundException("Could not find this mate.")
         {
@@ -75,7 +75,7 @@ public static class ErrorEndpoints
                 new ExceptionDetail("Error2", "This is error message 2")
             ],
         };
-    }*/
+    }
 
     private static string GetBusinessRuleException()
     {
