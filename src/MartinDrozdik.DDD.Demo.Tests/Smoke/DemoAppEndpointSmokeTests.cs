@@ -1,10 +1,50 @@
-﻿using MartinDrozdik.DDD.Integrations;
+﻿using System.Net;
+using MartinDrozdik.DDD.Integrations;
 using MartinDrozdik.DDD.Testing.Smoke;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Smoke;
-/*
+
 public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
 {
+    public static IEnumerable<TheoryDataRow<EndpointTest>> Endpoints()
+    {
+        var v1 = new UrlBuilder("v1");
+        var invoice = v1.WithPath("invoice");
+        yield return new EndpointTest(HttpMethod.Get, invoice);
+        yield return new EndpointTest(HttpMethod.Post, invoice);
+
+        /*var data = new TheoryData<EndpointTest>();
+        var v1 = new UrlBuilder("v1");
+        var invoice = v1.WithPath("invoice");
+        data.Add(new EndpointTest(HttpMethod.Get, invoice));
+        data.Add(new EndpointTest(HttpMethod.Post, invoice));
+        return data;*/
+
+        /*
+        var v1 = new UrlBuilder("v1");
+        var invoice = v1.WithPath("invoice");
+        yield return new EndpointTest(HttpMethod.Get, invoice);
+        yield return new EndpointTest(HttpMethod.Post, invoice);
+
+        var error = v1.WithPath("errors");
+        yield return new EndpointTest(HttpMethod.Get, error.WithPath("exception"))
+        {
+            AcceptableCodes = [HttpStatusCode.InternalServerError],
+        };
+        yield return new EndpointTest(HttpMethod.Get, error.WithPath("business-rule-exception"))
+        {
+            AcceptableCodes = [HttpStatusCode.InternalServerError],
+        };
+        yield return new EndpointTest(HttpMethod.Get, error.WithPath("business-rule-validation-exception"))
+        {
+            AcceptableCodes = [HttpStatusCode.InternalServerError],
+        };
+        yield return new EndpointTest(HttpMethod.Get, error.WithPath("validation-exception"))
+        {
+            AcceptableCodes = [HttpStatusCode.InternalServerError],
+        };*/
+    }
+
     [Theory]
     [MemberData(nameof(Endpoints))]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Blocker Code Smell", "S2699:Tests should include assertions", Justification = "Delegated to tester.")]
@@ -14,15 +54,4 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
         var tester = new EndpointSmokeTester<Program>(builder);
         await tester.Test(testCase, TestContext.Current.CancellationToken);
     }
-
-    public static IEnumerable<TheoryDataRow<EndpointTest>> Endpoints()
-    {
-        var v1 = new UrlBuilder("v1");
-        var invoice = v1.WithPath("invoice");
-        yield return new EndpointTest(HttpMethod.Get, invoice);
-        yield return new EndpointTest(HttpMethod.Post, invoice);
-
-        root = new UrlBuilder("v1", "invoice");
-    }
 }
-*/
