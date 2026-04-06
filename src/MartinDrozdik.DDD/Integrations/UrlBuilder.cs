@@ -44,7 +44,7 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     /// <remarks>Supports bracketed {parameters}.</remarks>
     /// <param name="segments">Segments to add.</param>
     /// <returns>A new <see cref="UrlBuilder"/> with the segments appended.</returns>
-    public UrlBuilder WithPath(IEnumerable<string> segments) =>
+    public UrlBuilder WithPath(params IEnumerable<string> segments) =>
         this with { Segments = Segments.AddRange(segments) };
 
     /// <summary>
