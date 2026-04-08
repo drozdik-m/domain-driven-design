@@ -56,7 +56,7 @@ public abstract class ErrorHandlingTests<TProgram> : IDisposable
             () => Assert.True(problemDetails.Extensions.ContainsKey("exception")),
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
     }
-    
+
     /// <summary>
     /// Asserts <see cref="BusinessNotFoundException"/> to test the general error handling pipeline.
     /// </summary>
