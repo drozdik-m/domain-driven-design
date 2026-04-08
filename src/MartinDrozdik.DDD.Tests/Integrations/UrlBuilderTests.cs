@@ -5,10 +5,23 @@ namespace MartinDrozdik.DDD.Tests.Integrations;
 public class UrlBuilderTests
 {
     [Fact]
-    public void Empty_builder_produces_empty_string()
+    public void Empty_builder_produces_root_string()
     {
         // Arrange
         var builder = new UrlBuilder();
+
+        // Act
+        var url = builder.Build();
+
+        // Assert
+        Assert.Equal("/", url);
+    }
+
+    [Fact]
+    public void Empty_relative_builder_produces_empty_string()
+    {
+        // Arrange
+        var builder = new UrlBuilder().AsRelative();
 
         // Act
         var url = builder.Build();
@@ -18,14 +31,35 @@ public class UrlBuilderTests
     }
 
     [Theory]
+    [InlineData(new string[] { }, "/")]
     [InlineData(new[] { "api", "users" }, "/api/users")]
     [InlineData(new[] { "api", "users", "details" }, "/api/users/details")]
     [InlineData(new[] { "with spaces", "séğmęnt" }, "/with%20spaces/s%C3%A9%C4%9Fm%C4%99nt")]
     [InlineData(new[] { "single" }, "/single")]
-    public void Build_produces_correct_path(string[] segments, string expectedUrl)
+    [InlineData(new[] { "\t", "\n", " ", "  " }, "/%09/%0A/%20/%20%20")]
+    public void Build_produces_correct_absolute_path(string[] segments, string expectedUrl)
     {
         // Arrange
         var builder = new UrlBuilder(segments);
+
+        // Act
+        var url = builder.Build();
+
+        // Assert
+        Assert.Equal(expectedUrl, url);
+    }
+
+    [Theory]
+    [InlineData(new string[] { }, "")]
+    [InlineData(new[] { "api", "users" }, "api/users")]
+    [InlineData(new[] { "api", "users", "details" }, "api/users/details")]
+    [InlineData(new[] { "with spaces", "séğmęnt" }, "with%20spaces/s%C3%A9%C4%9Fm%C4%99nt")]
+    [InlineData(new[] { "single" }, "single")]
+    [InlineData(new[] { "\t", "\n", " ", "  " }, "%09/%0A/%20/%20%20")]
+    public void Build_produces_correct_relative_path(string[] segments, string expectedUrl)
+    {
+        // Arrange
+        var builder = new UrlBuilder(segments).AsRelative();
 
         // Act
         var url = builder.Build();
@@ -50,9 +84,13 @@ public class UrlBuilderTests
     }
 
     [Theory]
-    [InlineData("section1", "#section1")]
-    [InlineData("my fragment", "#my%20fragment")]
-    [InlineData("héllo", "#h%C3%A9llo")]
+    [InlineData(" ", "/#%20")]
+    [InlineData("  ", "/#%20%20")]
+    [InlineData("\t", "/#%09")]
+    [InlineData("\n", "/#%0A")]
+    [InlineData("section1", "/#section1")]
+    [InlineData("my fragment", "/#my%20fragment")]
+    [InlineData("héllo", "/#h%C3%A9llo")]
     public void Build_produces_correct_fragment(string fragment, string expectedSuffix)
     {
         // Arrange
@@ -89,9 +127,12 @@ public class UrlBuilderTests
     }
 
     [Theory]
-    [InlineData("key1", "value1", "key2", "value2", "?key1=value1&key2=value2")]
-    [InlineData("search", "hello world", "page", "1", "?search=hello%20world&page=1")]
-    [InlineData("filter", "a&b", "sort", "asc", "?filter=a%26b&sort=asc")]
+    [InlineData("key1", "value1", "key2", "value2", "/?key1=value1&key2=value2")]
+    [InlineData("key1", "", "key2", "", "/?key1=&key2=")]
+    [InlineData("key1", "  ", "key2", " ", "/?key1=%20%20&key2=%20")]
+    [InlineData("key1", "\n", "key2", "\t", "/?key1=%0A&key2=%09")]
+    [InlineData("search", "hello world", "page", "1", "/?search=hello%20world&page=1")]
+    [InlineData("filter", "a&b", "sort", "asc", "/?filter=a%26b&sort=asc")]
     public void Build_produces_correct_query_string(string key1, string val1, string key2, string val2, string expectedUrl)
     {
         // Arrange
@@ -104,6 +145,17 @@ public class UrlBuilderTests
 
         // Assert
         Assert.Equal(expectedUrl, url);
+    }
+
+    [Fact]
+    public void Empty_query_keys_are_not_allowed()
+    {
+        // Arrange
+        var builder = new UrlBuilder()
+            .WithQueryParameter(string.Empty, "hello");
+
+        // Act
+        Assert.Throws<InvalidOperationException>(builder.Build);
     }
 
     [Fact]
@@ -238,8 +290,8 @@ public class UrlBuilderTests
     }
 
     [Theory]
-    [InlineData("filter", "active", "?status=active")]
-    [InlineData("filter", "hello world", "?status=hello%20world")]
+    [InlineData("filter", "active", "/?status=active")]
+    [InlineData("filter", "hello world", "/?status=hello%20world")]
     public void Build_substitutes_parameters_in_query_values(string key, string value, string expectedUrl)
     {
         // Arrange
@@ -255,8 +307,8 @@ public class UrlBuilderTests
     }
 
     [Theory]
-    [InlineData("section", "intro", "#intro")]
-    [InlineData("section", "my section", "#my%20section")]
+    [InlineData("section", "intro", "/#intro")]
+    [InlineData("section", "my section", "/#my%20section")]
     public void Build_substitutes_parameters_in_fragment(string key, string value, string expectedUrl)
     {
         // Arrange
@@ -376,5 +428,77 @@ public class UrlBuilderTests
         // Assert
         Assert.Equal("api/users", original.Build());
         Assert.Equal("https://example.com/api/users?page=1", mutated.Build());
+    }
+
+    [Theory]
+    [InlineData("http://example.com")]
+    [InlineData("https://example.com/api")]
+    [InlineData("http://example.com:8080")]
+    [InlineData("https://example.com:80/api")]
+    [InlineData("https://example.com:80/api/users")]
+    [InlineData("https://example.com:8080/api/users?page=1")]
+    [InlineData("https://example.com:8080/api/users?page=1#section")]
+    [InlineData("https://example.com/api%20space?q=hello%20world#frag%20ment")]
+    [InlineData("/")]
+    [InlineData("/api")]
+    [InlineData("/api/users")]
+    [InlineData("/api/users?page=1")]
+    [InlineData("/api/users?page=1#section")]
+    [InlineData("api")]
+    [InlineData("api/users")]
+    [InlineData("api/users?page=1")]
+    [InlineData("api/users?page=1#section")]
+    [InlineData("?page=1#section")]
+    [InlineData("#section")]
+    [InlineData("/api?a=1&b=2")]
+    [InlineData("/api?a=1&a=2")]
+    public void FromUrl_roundtrip_urls(string url)
+    {
+        // Act
+        var result = UrlBuilder.FromUrl(url).Build();
+
+        // Assert
+        Assert.Equal(url, result);
+    }
+
+    [Theory]
+    [InlineData("/api?key=", "/api?key=")]
+    [InlineData("/api?key= ", "/api?key=%20")]
+    [InlineData("/api?flag", "/api?flag=")]
+    [InlineData("//", "/")]
+    [InlineData("/api/", "/api")]
+    [InlineData("api/", "api")]
+    [InlineData("/api#", "/api")]
+    [InlineData("/api# ", "/api#%20")]
+    [InlineData("/api/#", "/api")]
+    [InlineData("/api#hello%20world", "/api#hello%20world")]
+    [InlineData("/api//users///details", "/api/users/details")]
+    [InlineData("/api/{id}/details", "/api/%7Bid%7D/details")]
+    [InlineData("/api?filter={value}", "/api?filter=%7Bvalue%7D")]
+    [InlineData("/api#{section}", "/api#%7Bsection%7D")]
+    [InlineData("https://example.com:443/api", "https://example.com/api")]
+    [InlineData("http://example.com:80/api", "http://example.com/api")]
+    [InlineData("https://example.com:8080/api", "https://example.com:8080/api")]
+    public void FromUrl_roundtrip_urls_with_cleaning(string input, string expected)
+    {
+        var result = UrlBuilder.FromUrl(input).Build();
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("http://")]
+    [InlineData("https://")]
+    [InlineData("://example.com")]
+    [InlineData("http:///example.com")]
+    [InlineData("http://exa mple.com")]
+    [InlineData("https:// example.com")]
+    [InlineData("http://example.com:abc")]
+    [InlineData("http://example.com:-1")]
+    [InlineData("http://example.com:999999")]
+    public void FromUrl_invalid_input_throws(string input)
+    {
+        Assert.Throws<ArgumentException>(() => UrlBuilder.FromUrl(input));
     }
 }

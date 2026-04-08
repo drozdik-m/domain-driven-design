@@ -36,6 +36,127 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     }
 
     /// <summary>
+    /// Deconstructs existing URL for futher modifications.
+    /// Supports both absolute and relative URLs.
+    /// </summary>
+    /// <remarks>
+    /// Completely ignores {parameters}.
+    /// The new builder will not contain any {parameters} from the original URL, even if they were present in the path, query or fragment.
+    /// </remarks>
+    /// <param name="url">The url string to parse.</param>
+    /// <returns>New <see cref="UrlBuilder"/> with information from the original <paramref name="url"/>.</returns>
+    public static UrlBuilder FromUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            throw new ArgumentException("URL cannot be null or empty.", nameof(url));
+        }
+
+        // Absolute URL
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absoluteUri))
+        {
+            var segments = absoluteUri.AbsolutePath
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(Uri.UnescapeDataString);
+
+            var queryParameters = ParseQuery(absoluteUri.Query);
+
+            return new UrlBuilder(segments)
+            {
+                Scheme = absoluteUri.Scheme,
+                Domain = absoluteUri.Host,
+                Port = absoluteUri.IsDefaultPort
+                    ? null
+                    : absoluteUri.Port,
+                Fragment = string.IsNullOrEmpty(absoluteUri.Fragment)
+                    ? null
+                    : Uri.UnescapeDataString(absoluteUri.Fragment.TrimStart('#')),
+                QueryParameters = [.. queryParameters],
+                Relative = false,
+            };
+        }
+
+        // Possibly malformed absolute URL
+        if (url.Contains("://") && !Uri.TryCreate(url, UriKind.Absolute, out _))
+        {
+            throw new ArgumentException("Invalid absolute URL format.", nameof(url));
+        }
+
+        // Other cases (relative or absolute starting with '/')
+        if (Uri.TryCreate(url, UriKind.Relative, out var relativeUri))
+        {
+            var isRelative = !url.StartsWith('/');
+            var raw = relativeUri.OriginalString;
+
+            // Fragment
+            string? fragment = null;
+            var hashIndex = raw.IndexOf('#');
+            if (hashIndex >= 0)
+            {
+                fragment = Uri.UnescapeDataString(raw[(hashIndex + 1)..]);
+                raw = raw[..hashIndex];
+            }
+
+            // Query
+            var queryPart = string.Empty;
+            var queryIndex = raw.IndexOf('?');
+            if (queryIndex >= 0)
+            {
+                queryPart = raw[(queryIndex + 1)..];
+                raw = raw[..queryIndex];
+            }
+
+            var segments = raw
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(Uri.UnescapeDataString);
+
+            var queryParameters = ParseQuery(queryPart);
+
+            return new UrlBuilder(segments)
+            {
+                Fragment = fragment,
+                QueryParameters = [.. queryParameters],
+                Relative = isRelative,
+            };
+        }
+
+        throw new ArgumentException("Invalid URL format.", nameof(url));
+    }
+
+    /// <summary>
+    /// Parses an URL query section.
+    /// </summary>
+    /// <param name="query">The query to parse. May start with "?" and contain queries joined via "&amp;".</param>
+    /// <returns>List of parsed <see cref="QueryParameter"/>.</returns>
+    private static IEnumerable<QueryParameter> ParseQuery(string query)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            yield break;
+        }
+
+        var trimmed = query.TrimStart('?');
+
+        foreach (var pair in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var idx = pair.IndexOf('=');
+
+            if (idx >= 0)
+            {
+                var name = Uri.UnescapeDataString(pair[..idx]);
+                var value = Uri.UnescapeDataString(pair[(idx + 1)..]);
+                yield return new QueryParameter(name, value);
+            }
+            else
+            {
+                // key without value (?flag)
+                var name = Uri.UnescapeDataString(pair);
+                yield return new QueryParameter(name, string.Empty);
+            }
+        }
+    }
+
+    /// <summary>
     /// Adds more path segments to the resulting URL.
     /// </summary>
     /// <example>
@@ -141,6 +262,12 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
             throw new InvalidOperationException("A relative URL cannot have a scheme.");
         }
 
+        if (QueryParameters.Any(e => string.IsNullOrEmpty(e.Name)))
+        {
+            var emptyKeys = QueryParameters.Where(e => string.IsNullOrEmpty(e.Name)).Select(e => e.Value);
+            throw new InvalidOperationException($"Empty keys for values {string.Join(", ", emptyKeys)} are not allowed.");
+        }
+
         var result = new StringBuilder();
 
         // Scheme + domain + port
@@ -171,6 +298,10 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
 
             result.AppendJoin('/', ApplyParametersTexts(Segments).Select(Uri.EscapeDataString));
         }
+        else if (!Relative && Domain is null)
+        {
+            result.Append('/');
+        }
 
         // Query string
         if (QueryParameters.Count > 0)
@@ -181,7 +312,7 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
         }
 
         // Fragment
-        if (Fragment is not null)
+        if (Fragment is not null && !string.IsNullOrEmpty(Fragment))
         {
             result.Append('#');
             result.Append(Uri.EscapeDataString(ApplyParameters(Fragment)));
