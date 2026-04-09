@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.Health;
+﻿using MartinDrozdik.DDD.Web.FilePathProviders;
+using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Logging;
 using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
@@ -22,6 +23,7 @@ public static class HostApplicationBuilderExtensions
     ///     <item>Health Checks</item>
     ///     <item>OpenTelemetry</item>
     ///     <item>HTTP Client Resilience</item>
+    ///     <item>Cached static file path provider</item>
     /// </list>
     /// </summary>
     /// <typeparam name="TBuilder">Type of <see cref="IHostApplicationBuilder"/> to configure.</typeparam>
@@ -36,6 +38,7 @@ public static class HostApplicationBuilderExtensions
         builder.AddAppHealthChecks();
         builder.AddAppOpenTelemetry();
         builder.Services.AddHttpClientResilience();
+        builder.AddStaticFilePathProvider();
         return builder;
     }
 }

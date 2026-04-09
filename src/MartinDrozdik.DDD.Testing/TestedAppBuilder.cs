@@ -4,6 +4,7 @@ using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace MartinDrozdik.DDD.Testing;
@@ -42,6 +43,7 @@ public abstract class TestedAppBuilder<TProgram>
 
     /// <summary>
     /// Adds a configuration action for the <see cref="IWebHostBuilder"/>.
+    /// Configuration is applied BEFORE "Program.cs" startup.
     /// Multiple calls will add multiple configurations, which will be executed in the order they were added.
     /// </summary>
     /// <param name="config">The added configuration.</param>
@@ -54,6 +56,7 @@ public abstract class TestedAppBuilder<TProgram>
 
     /// <summary>
     /// Adds an option configuration for the <see cref="IWebHostBuilder"/>.
+    /// Options are applied BEFORE "Program.cs" startup.
     /// </summary>
     /// <typeparam name="TOptions">The type of the <see cref="IAppOptions"/>.</typeparam>
     /// <param name="propertySelector">Expression to select the property.</param>
@@ -108,6 +111,17 @@ public abstract class TestedAppBuilder<TProgram>
     public TestedAppBuilder<TProgram> WithDisposable(Action disposeAction)
     {
         return WithDisposable(new DisposableAction(disposeAction));
+    }
+
+    /// <summary>
+    /// Sets a fake <see cref="TimeProvider"/> for the application.
+    /// </summary>
+    /// <param name="fakeTime">Static fake time shared across the application.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithFakeTime(DateTimeOffset fakeTime)
+    {
+        var fakeTimeProvider = new FakeTimeProvider(fakeTime);
+        return WithServices(services => services.AddSingleton<TimeProvider>(fakeTimeProvider));
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.FilePathProviders.StaticResources;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,13 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddAppServices();
 
 // Add DbContext with SQLite
-var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test_db.db");
-var connectionString = $"Data Source={dbPath}";
-builder.Configuration[$"{DatabaseOptions.Section}:{nameof(DatabaseOptions.ConnectionString)}"] = connectionString;
+//var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test_db.db");
+//var connectionString = $"Data Source={dbPath}";
+//builder.Configuration[$"{DatabaseOptions.Section}:{nameof(DatabaseOptions.ConnectionString)}"] = connectionString;
 builder.AddAppDbContext<TestDbContext>((options, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
 });
+
+// Add static file versioning options
+//builder.Configuration[$"{StaticFileVersioningOptions.Section}:{nameof(StaticFileVersioningOptions.Version)}"] = "6.7.0";
 
 // --- APP ---
 var app = builder.Build();

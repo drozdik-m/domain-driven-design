@@ -61,6 +61,10 @@ public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
             logging.AddXUnit(_options.TestOutputHelper);
         });
 
+        // Change environment to for registering test-specific configuration
+        // Also behaves more like a producation app than development environment
+        builder.UseEnvironment("Testing");
+
         // Register test endpoints via IStartupFilter
         builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new EndpointStartupFilter(_options.EndpointConfig)));
 
