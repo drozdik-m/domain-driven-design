@@ -52,75 +52,105 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
             throw new ArgumentException("URL cannot be null or empty.", nameof(url));
         }
 
-        // Absolute URL
-        if (Uri.TryCreate(url, UriKind.Absolute, out var absoluteUri))
+        var workingUrl = url;
+
+        // 1. Extract Fragment
+        const char fragmentDelimiter = '#';
+        string? fragment = null;
+        var hashIndex = workingUrl.LastIndexOf(fragmentDelimiter);
+        if (hashIndex >= 0)
         {
-            var segments = absoluteUri.AbsolutePath
-                .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                .Select(Uri.UnescapeDataString);
-
-            var queryParameters = ParseQuery(absoluteUri.Query);
-
-            return new UrlBuilder(segments)
-            {
-                Scheme = absoluteUri.Scheme,
-                Domain = absoluteUri.Host,
-                Port = absoluteUri.IsDefaultPort
-                    ? null
-                    : absoluteUri.Port,
-                Fragment = string.IsNullOrEmpty(absoluteUri.Fragment)
-                    ? null
-                    : Uri.UnescapeDataString(absoluteUri.Fragment.TrimStart('#')),
-                QueryParameters = [.. queryParameters],
-                Relative = false,
-            };
+            fragment = Uri.UnescapeDataString(workingUrl[(hashIndex + 1)..]);
+            workingUrl = workingUrl[..hashIndex];
         }
 
-        // Possibly malformed absolute URL
-        if (url.Contains("://") && !Uri.TryCreate(url, UriKind.Absolute, out _))
+        // 2. Extract Query
+        var queryPart = string.Empty;
+        var queryIndex = workingUrl.LastIndexOf('?');
+        if (queryIndex >= 0)
         {
-            throw new ArgumentException("Invalid absolute URL format.", nameof(url));
+            queryPart = workingUrl[(queryIndex + 1)..];
+            workingUrl = workingUrl[..queryIndex];
         }
 
-        // Other cases (relative or absolute starting with '/')
-        if (Uri.TryCreate(url, UriKind.Relative, out var relativeUri))
+        // 3. Extract Scheme
+        const string schemeDelimiter = "://";
+        string? scheme = null;
+        var schemeIndex = workingUrl.IndexOf(schemeDelimiter);
+        if (schemeIndex >= 0)
         {
-            var isRelative = !url.StartsWith('/');
-            var raw = relativeUri.OriginalString;
+            scheme = workingUrl[..schemeIndex];
+            workingUrl = workingUrl[(schemeIndex + schemeDelimiter.Length)..];
 
-            // Fragment
-            string? fragment = null;
-            var hashIndex = raw.IndexOf('#');
-            if (hashIndex >= 0)
+            if (string.IsNullOrWhiteSpace(scheme))
             {
-                fragment = Uri.UnescapeDataString(raw[(hashIndex + 1)..]);
-                raw = raw[..hashIndex];
+                throw new ArgumentException("Scheme cannot be empty if scheme delimiter is present.", nameof(url));
             }
-
-            // Query
-            var queryPart = string.Empty;
-            var queryIndex = raw.IndexOf('?');
-            if (queryIndex >= 0)
-            {
-                queryPart = raw[(queryIndex + 1)..];
-                raw = raw[..queryIndex];
-            }
-
-            var segments = raw
-                .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                .Select(Uri.UnescapeDataString);
-
-            var queryParameters = ParseQuery(queryPart);
-
-            return new UrlBuilder(segments)
-            {
-                Fragment = fragment,
-                QueryParameters = [.. queryParameters],
-                Relative = isRelative,
-            };
         }
 
-        throw new ArgumentException("Invalid URL format.", nameof(url));
+        // 4. Extract Domain and Port
+        string? authority = null;
+        var firstSlash = workingUrl.IndexOf('/');
+        if (firstSlash > 0)
+        {
+            authority = workingUrl[..firstSlash];
+            workingUrl = workingUrl[firstSlash..];
+        }
+        else if (firstSlash != 0)
+        {
+            authority = workingUrl;
+            workingUrl = string.Empty;
+        }
+
+        int? port = null;
+        string? domain = null;
+        if (!string.IsNullOrEmpty(authority))
+        {
+            var portIndex = authority.LastIndexOf(':');
+            if (portIndex >= 0)
+            {
+                var portPart = authority[(portIndex + 1)..];
+                if (int.TryParse(portPart, out var p))
+                {
+                    port = p;
+                    domain = authority[..portIndex];
+                }
+                else
+                {
+                    throw new ArgumentException($"Port {port} could not be parsed as an integer.", nameof(url));
+                }
+            }
+            else
+            {
+                domain = authority;
+            }
+        }
+
+        if (port is not null && port <= 0)
+        {
+            throw new ArgumentException("Port must be a positive integer.", nameof(url));
+        }
+
+        if (port is not null && port > 65535)
+        {
+            throw new ArgumentException("Port must be up to 65535.", nameof(url));
+        }
+
+        // 5. Extract path
+        var isRelative = !workingUrl.StartsWith('/') && string.IsNullOrEmpty(domain);
+        var pathSegments = workingUrl
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(Uri.UnescapeDataString);
+
+        return new UrlBuilder(pathSegments)
+        {
+            Scheme = scheme,
+            Domain = domain,
+            Port = port,
+            QueryParameters = [.. ParseQuery(queryPart)],
+            Fragment = fragment,
+            Relative = isRelative,
+        };
     }
 
     /// <summary>
