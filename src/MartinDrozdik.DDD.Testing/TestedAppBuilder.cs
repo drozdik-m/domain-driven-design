@@ -13,31 +13,37 @@ namespace MartinDrozdik.DDD.Testing;
 /// Builder for creating <see cref="TestedApp{TProgram}"/>.
 /// </summary>
 /// <typeparam name="TProgram">Type of the tested program.</typeparam>
-public abstract class TestedAppBuilder<TProgram>
+/// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
+public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHelper)
     where TProgram : class
 {
     private readonly List<Action<IWebHostBuilder>> _configs = [];
     private readonly List<Action<IEndpointRouteBuilder>> _endpointConfigs = [];
     private readonly List<IDisposable> _disposables = [];
-    private ITestOutputHelper _testOutputHelper;
+    private string _environment = "Testing";
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TestedAppBuilder{TProgram}"/> class.
+    /// Sets the applications environment.
     /// </summary>
-    /// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
-    protected TestedAppBuilder(ITestOutputHelper testOutputHelper)
+    /// <remarks>
+    /// It is recommended to set some non-default environment (e.g. "Testing") to avoid confusion with development environment and to allow environment-specific configurations.
+    /// </remarks>
+    /// <param name="newEnvironment">New environment.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithOutput(string newEnvironment)
     {
-        _testOutputHelper = testOutputHelper;
+        _environment = newEnvironment;
+        return this;
     }
 
     /// <summary>
     /// Sets the required <see cref="ITestOutputHelper"/> for logging.
     /// </summary>
-    /// <param name="testOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
+    /// <param name="newTestOutputHelper">Used <see cref="ITestOutputHelper"/>.</param>
     /// <returns>This.</returns>
-    public TestedAppBuilder<TProgram> WithOutput(ITestOutputHelper testOutputHelper)
+    public TestedAppBuilder<TProgram> WithOutput(ITestOutputHelper newTestOutputHelper)
     {
-        _testOutputHelper = testOutputHelper;
+        testOutputHelper = newTestOutputHelper;
         return this;
     }
 
@@ -133,7 +139,7 @@ public abstract class TestedAppBuilder<TProgram>
     /// <returns>New <see cref="TestedApp{TProgram}"/>.</returns>
     public TestedApp<TProgram> Build()
     {
-        if (_testOutputHelper is null)
+        if (testOutputHelper is null)
         {
             throw new InvalidOperationException($"Output helper is required. Call {nameof(WithOutput)} before building.");
         }
@@ -142,7 +148,8 @@ public abstract class TestedAppBuilder<TProgram>
         var endpointsCopy = new List<Action<IEndpointRouteBuilder>>(_endpointConfigs);
         var options = new TestedAppOptions
         {
-            TestOutputHelper = _testOutputHelper,
+            Environment = _environment,
+            TestOutputHelper = testOutputHelper,
             Config = builder =>
             {
                 foreach (var config in configsCopy)

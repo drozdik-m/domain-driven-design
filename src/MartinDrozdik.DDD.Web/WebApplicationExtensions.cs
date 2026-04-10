@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.Health;
+﻿using MartinDrozdik.DDD.Web.Environments;
+using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Middlewares.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
@@ -10,6 +11,12 @@ namespace MartinDrozdik.DDD.Web;
 /// </summary>
 public static class WebApplicationExtensions
 {
+    /// <inheritdoc cref="UseAppMiddlewares(WebApplication, WebApplicationOptions)" />
+    public static WebApplication UseAppMiddlewares(this WebApplication app)
+    {
+        return UseAppMiddlewares(app, WebApplicationOptions.Default);
+    }
+
     /// <summary>
     /// Adds library-defined:
     /// <list type="bullet">
@@ -19,13 +26,14 @@ public static class WebApplicationExtensions
     /// </list>
     /// </summary>
     /// <param name="app">The <see cref="WebApplication"/> to extend.</param>
+    /// <param name="options">Options for configuring the application. Turn on/off features etc.</param>
     /// <returns>The <see cref="WebApplication"/> for chaining.</returns>
-    public static WebApplication UseAppMiddlewares(this WebApplication app)
+    public static WebApplication UseAppMiddlewares(this WebApplication app, WebApplicationOptions options)
     {
         app.UseExceptionHandler();
         app.MapAppHealthChecks();
         app.UseMiddleware<RequestResponseLoggingMiddleware>();
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment() || app.Environment.IsTesting())
         {
             app.UseHttpLogging();
         }

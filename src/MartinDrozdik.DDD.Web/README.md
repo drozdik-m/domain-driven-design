@@ -54,8 +54,19 @@ The `AddAppServices()` extension registers:
 - **Health Checks** - basic `/health`, `/health/live` and `/health/ready` endpoints
 - **OpenTelemetry** - Metrics, traces, and logs (exports to OTLP when configured via [OTEL environment variables](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/))
 - **HTTP Resilience** - Default policies for HTTP clients
+- **Static file path provider** - Because you probably need to serve some static files at some point
 
 Don't want all of it? Use the individual extensions instead. I won't judge.
+
+Or just turn them off via settings:
+
+```csharp
+var options = MartinDrozdik.DDD.Web.WebApplicationOptions.Default with
+{
+    UseStaticFilePathProvider = false,
+};
+builder.AddAppServices(options);
+```
 
 ## Modules
 
@@ -242,6 +253,31 @@ builder.Services.AddHttpClientResilience();
 ```
 
 Because the network is unreliable and you know it.
+
+### Static File Path Provider
+
+How much time did you spend solving an issue solved by clearing browser cache? *Yeah, me too.* This path modification with query string versioning is the most basic solution to this problem.
+
+```csharp
+IStaticFilePathProvider provider; // inject it where you need it
+provider.PathTo("file.js");
+```
+
+Returns a version depending on the environment:
+
+- **Development**: returns `"file.js?version={unix-timestamp}"` to bust cache on every request.
+- **Production**: returns `"file.js?version=1.2.3"` depending on your appsettings. Bust cache when you deploy a new version, but not on every request.
+
+```json
+// appsettings.json
+{
+  "App": {
+    "StaticFileVersioning": {
+        "Version": "1.2.3"
+    }
+  }
+}
+```
 
 ## Demo App
 

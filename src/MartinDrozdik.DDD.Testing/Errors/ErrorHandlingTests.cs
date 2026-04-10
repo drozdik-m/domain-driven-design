@@ -5,6 +5,7 @@ using FluentValidation;
 using MartinDrozdik.DDD.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace MartinDrozdik.DDD.Testing.Errors;
@@ -13,21 +14,13 @@ namespace MartinDrozdik.DDD.Testing.Errors;
 /// Base class for error handling tests of ASP.NET Core web applications.
 /// </summary>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class ErrorHandlingTests<TProgram> : IDisposable
+/// <param name="factory">App factory under test. Disposed automatically.</param>
+public abstract class ErrorHandlingTests<TProgram>(TestedAppBuilder<TProgram> factory) : IDisposable
     where TProgram : class
 {
-    private readonly TestedApp<TProgram> _factory;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ErrorHandlingTests{TProgram}"/> class.
-    /// </summary>
-    /// <param name="factory">App factory under test. Disposed automatically.</param>
-    protected ErrorHandlingTests(TestedAppBuilder<TProgram> factory)
-    {
-        _factory = factory
+    private readonly TestedApp<TProgram> _factory = factory
             .WithEndpoints(e => e.MapErrorEndpoints())
             .Build();
-    }
 
     /// <summary>
     /// Asserts basic <see cref="Exception"/> to test the general error handling pipeline.
@@ -53,8 +46,16 @@ public abstract class ErrorHandlingTests<TProgram> : IDisposable
             () => Assert.Equal(500, problemDetails.Status),
             () => Assert.Equal("This is a general exception", problemDetails.Detail),
             () => Assert.Null(problemDetails.Instance),
-            () => Assert.True(problemDetails.Extensions.ContainsKey("exception")),
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
+
+        if (_factory.Environment == Environments.Development)
+        {
+            Assert.True(problemDetails.Extensions.ContainsKey("exception"));
+        }
+        else
+        {
+            Assert.False(problemDetails.Extensions.ContainsKey("exception"));
+        }
     }
 
     /// <summary>
@@ -101,7 +102,6 @@ public abstract class ErrorHandlingTests<TProgram> : IDisposable
             () => Assert.Equal(500, problemDetails.Status),
             () => Assert.Equal("This is a general exception", problemDetails.Detail),
             () => Assert.Null(problemDetails.Instance),
-            () => Assert.True(problemDetails.Extensions.ContainsKey("exception")),
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
 
         var error1 = problemDetails.Extensions["error1"] as JsonElement?;
@@ -114,6 +114,15 @@ public abstract class ErrorHandlingTests<TProgram> : IDisposable
         Assert.Multiple(
             () => Assert.Equal("This is error message 1", error1Value),
             () => Assert.Equal("This is error message 2", error2Value));
+
+        if (_factory.Environment == Environments.Development)
+        {
+            Assert.True(problemDetails.Extensions.ContainsKey("exception"));
+        }
+        else
+        {
+            Assert.False(problemDetails.Extensions.ContainsKey("exception"));
+        }
     }
 
     /// <summary>

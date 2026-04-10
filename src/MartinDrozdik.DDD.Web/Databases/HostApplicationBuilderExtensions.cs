@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.Options;
+﻿using MartinDrozdik.DDD.Web.Environments;
+using MartinDrozdik.DDD.Web.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,14 +27,14 @@ public static class HostApplicationBuilderExtensions
         {
             contextBuilder(options);
 
-            if (builder.Environment.IsDevelopment())
+            if (builder.Environment.IsDevelopment() || builder.Environment.IsTesting())
             {
                 options.EnableSensitiveDataLogging()
                     .EnableDetailedErrors();
             }
         });
 
-        if (builder.Environment.IsDevelopment())
+        if (builder.Environment.IsDevelopment() || builder.Environment.IsTesting())
         {
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
         }

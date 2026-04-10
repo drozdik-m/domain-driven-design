@@ -11,7 +11,8 @@ namespace MartinDrozdik.DDD.Testing;
 /// Factory for bootstraping an application in memory for integration testing, with additional features such as logging to xUnit output and easy registration of test endpoints.
 /// </summary>
 /// <typeparam name="TProgram">Type of the entrypoint Program.cs.</typeparam>
-public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
+/// <param name="options">More detailed options of this factory.</param>
+public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicationFactory<TProgram>
     where TProgram : class
 {
     /// <summary>
@@ -20,18 +21,9 @@ public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
     private readonly IList<IDisposable> _scopes = [];
 
     /// <summary>
-    /// Options for configuring this factory, including logging, additional configuration and endpoints.
+    /// Gets the environment this factory is configured to use.
     /// </summary>
-    private readonly TestedAppOptions _options;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TestedApp{TProgram}"/> class.
-    /// </summary>
-    /// <param name="options">More detailed options of this factory.</param>
-    public TestedApp(TestedAppOptions options)
-    {
-        _options = options;
-    }
+    public string Environment => options.Environment;
 
     /// <summary>
     /// Creates a new scope and resolves the specified service type from the service provider.
@@ -58,18 +50,18 @@ public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
             logging.ClearProviders();
             logging.AddConsole();
             logging.SetMinimumLevel(LogLevel.Information);
-            logging.AddXUnit(_options.TestOutputHelper);
+            logging.AddXUnit(options.TestOutputHelper);
         });
 
         // Change environment to for registering test-specific configuration
         // Also behaves more like a producation app than development environment
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(options.Environment);
 
         // Register test endpoints via IStartupFilter
-        builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new EndpointStartupFilter(_options.EndpointConfig)));
+        builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new EndpointStartupFilter(options.EndpointConfig)));
 
         // Invoke user-provided additional configuration if available
-        _options.Config.Invoke(builder);
+        options.Config.Invoke(builder);
     }
 
     /// <inheritdoc />
@@ -84,7 +76,7 @@ public sealed class TestedApp<TProgram> : WebApplicationFactory<TProgram>
 
             _scopes.Clear();
 
-            foreach (var disposable in _options.Disposables)
+            foreach (var disposable in options.Disposables)
             {
                 disposable.Dispose();
             }

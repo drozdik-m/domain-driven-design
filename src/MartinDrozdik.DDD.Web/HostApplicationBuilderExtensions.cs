@@ -14,6 +14,13 @@ namespace MartinDrozdik.DDD.Web;
 /// </summary>
 public static class HostApplicationBuilderExtensions
 {
+    /// <inheritdoc cref="AddAppServices{TBuilder}(TBuilder, WebApplicationOptions)" />
+    public static TBuilder AddAppServices<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        return builder.AddAppServices(WebApplicationOptions.Default);
+    }
+
     /// <summary>
     /// Adds library-defined:
     /// <list type="bullet">
@@ -28,17 +35,27 @@ public static class HostApplicationBuilderExtensions
     /// </summary>
     /// <typeparam name="TBuilder">Type of <see cref="IHostApplicationBuilder"/> to configure.</typeparam>
     /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to configure.</param>
+    /// <param name="options">Options for configuring the application. Turn on/off features etc.</param>
     /// <returns><typeparamref name="TBuilder"/> for chaining.</returns>
-    public static TBuilder AddAppServices<TBuilder>(this TBuilder builder)
+    public static TBuilder AddAppServices<TBuilder>(this TBuilder builder, WebApplicationOptions options)
         where TBuilder : IHostApplicationBuilder
     {
         builder.AddAppLogging();
         builder.Services.AddAppErrorHandling();
         builder.Services.AddAppOpenApi();
         builder.AddAppHealthChecks();
-        builder.AddAppOpenTelemetry();
+        if (options.UseOpenTelemetry)
+        {
+            builder.AddAppOpenTelemetry();
+        }
+
         builder.Services.AddHttpClientResilience();
-        builder.AddStaticFilePathProvider();
+
+        if (options.UseStaticFilePathProvider)
+        {
+            builder.AddStaticFilePathProvider();
+        }
+
         return builder;
     }
 }

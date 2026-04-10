@@ -7,6 +7,7 @@ using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
 using MartinDrozdik.DDD.Web.Options;
 using MartinDrozdik.DDD.Web.Proxy;
@@ -16,7 +17,11 @@ using Scalar.AspNetCore;
 // --- BUILDER ---
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddAppServices();
+var options = MartinDrozdik.DDD.Web.WebApplicationOptions.Default with
+{
+    UseStaticFilePathProvider = false,
+};
+builder.AddAppServices(options);
 
 // Options
 builder.Services.AddValidatedAppOptions<InvoiceOptions>();
@@ -43,9 +48,9 @@ var app = builder.Build();
 await app.EnsureCreatedDatabaseAsync<InvoiceDbContext>();
 
 app.IsBehindProxy(); // well not actually, but this is how you would configure it if you were
-app.UseAppMiddlewares();
+app.UseAppMiddlewares(options);
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsTesting())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();

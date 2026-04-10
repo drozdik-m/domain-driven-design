@@ -93,12 +93,21 @@ var app = new MyAppBuilder(output)
     .WithServices(services => services.AddSingleton<IMyService, MockMyService>())
     .WithEndpoints(endpoints => endpoints.MapGet("/test-only-route", () => "hello"))
     .WithDisposable(() => Console.WriteLine("cleaned up, congrats"))
+    .WithEnvironment(AppEnvironments.Testing)
     .Build();
 ```
 
 Each `With*` call stacks – multiple configs, multiple endpoints, multiple disposables, all applied in order. Readable. Composable. Not a pyramid of constructors.
 
 Call `Dispose()` when you're done.
+
+## Testing environment
+
+By default, the **tests run in the "Testing" environment**. You can change that via the `.WithEnvironment("Development")` builder method.
+
+This is to **strictly separate your test configuration from your development configuration**. You can have different appsettings files, different DI registrations, etc., for "Testing" vs "Development".
+
+Use the `AppEnvironments.Testing` constant or the *classic* `app.Environment.IsTesting()` to check if you're running in the Testing environment.
 
 ## Smoke Tests
 

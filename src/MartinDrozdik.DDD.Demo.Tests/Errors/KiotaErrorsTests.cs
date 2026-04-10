@@ -28,7 +28,7 @@ public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal(500, exception.ResponseStatusCode),
             () => Assert.Equal("This is a general exception", exception.Detail),
             () => Assert.Null(exception.Instance),
-            () => Assert.NotNull(exception.AdditionalData["exception"]),
+            () => Assert.False(exception.AdditionalData.ContainsKey("exception")),
             () => Assert.NotNull(exception.AdditionalData["traceId"]));
     }
 
@@ -49,7 +49,7 @@ public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal(500, exception.ResponseStatusCode),
             () => Assert.Equal("This is a general exception", exception.Detail),
             () => Assert.Null(exception.Instance),
-            () => Assert.NotNull(exception.AdditionalData["exception"]),
+            () => Assert.False(exception.AdditionalData.ContainsKey("exception")),
             () => Assert.NotNull(exception.AdditionalData["traceId"]));
 
         var error1 = exception.AdditionalData["error1"] as UntypedArray;

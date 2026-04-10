@@ -10,12 +10,17 @@ namespace MartinDrozdik.DDD.Testing;
 public class TestedAppOptions
 {
     /// <summary>
+    /// Gets the environment for the web host factory.
+    /// </summary>
+    public required string Environment { get; init; }
+
+    /// <summary>
     /// Gets the required <see cref="ITestOutputHelper"/> for logging.
     /// </summary>
     public required ITestOutputHelper TestOutputHelper { get; init; }
 
     /// <summary>
-    /// Gets additional configuration for the web host builder.
+    /// Gets additional configuration for the web host factory.
     /// </summary>
     public Action<IWebHostBuilder> Config { get; init; } = _ => { };
 

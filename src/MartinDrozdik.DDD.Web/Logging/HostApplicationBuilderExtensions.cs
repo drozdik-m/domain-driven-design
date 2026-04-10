@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.HttpLogging;
+﻿using MartinDrozdik.DDD.Web.Environments;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,7 +21,7 @@ public static class HostApplicationBuilderExtensions
     public static IHostApplicationBuilder AddAppLogging(this IHostApplicationBuilder builder, LogLevel minimumLogLevel = LogLevel.Information)
     {
         builder.Logging.AddConsole();
-        if (builder.Environment.IsDevelopment())
+        if (builder.Environment.IsDevelopment() || builder.Environment.IsTesting())
         {
             builder.Logging.AddDebug();
             builder.Services.AddHttpLogging(options =>

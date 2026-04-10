@@ -1,6 +1,5 @@
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
-using MartinDrozdik.DDD.Web.FilePathProviders.StaticResources;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
 
