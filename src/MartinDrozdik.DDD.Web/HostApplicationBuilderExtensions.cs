@@ -5,6 +5,7 @@ using MartinDrozdik.DDD.Web.Middlewares;
 using MartinDrozdik.DDD.Web.OpenApi;
 using MartinDrozdik.DDD.Web.Resilience;
 using MartinDrozdik.DDD.Web.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace MartinDrozdik.DDD.Web;
@@ -24,6 +25,7 @@ public static class HostApplicationBuilderExtensions
     /// <summary>
     /// Adds library-defined:
     /// <list type="bullet">
+    ///     <item><see cref="TimeProvider.System"/>.</item>
     ///     <item>Logging</item>
     ///     <item>Error Handling Middlewares</item>
     ///     <item>OpenAPI</item>
@@ -40,6 +42,7 @@ public static class HostApplicationBuilderExtensions
     public static TBuilder AddAppServices<TBuilder>(this TBuilder builder, WebApplicationOptions options)
         where TBuilder : IHostApplicationBuilder
     {
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.AddAppLogging();
         builder.Services.AddAppErrorHandling();
         builder.Services.AddAppOpenApi();

@@ -4,6 +4,7 @@ using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
@@ -127,7 +128,11 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     public TestedAppBuilder<TProgram> WithFakeTime(DateTimeOffset fakeTime)
     {
         var fakeTimeProvider = new FakeTimeProvider(fakeTime);
-        return WithServices(services => services.AddSingleton<TimeProvider>(fakeTimeProvider));
+        return WithServices(services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(fakeTimeProvider);
+        });
     }
 
     /// <summary>
