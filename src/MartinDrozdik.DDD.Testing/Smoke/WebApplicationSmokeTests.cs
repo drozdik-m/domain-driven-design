@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using MartinDrozdik.DDD.Web.FilePathProviders.Static;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

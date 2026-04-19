@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Extensions;
-using MartinDrozdik.DDD.Web.Environments;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
