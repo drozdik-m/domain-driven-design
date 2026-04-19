@@ -66,6 +66,18 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     /// Adds an option configuration for the <see cref="IWebHostBuilder"/>.
     /// Options are applied BEFORE "Program.cs" startup.
     /// </summary>
+    /// <param name="key">Key of the option to set.</param>
+    /// <param name="value">The value to set.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithOption(string key, string value)
+    {
+        return With(e => e.UseSetting(key, value));
+    }
+
+    /// <summary>
+    /// Adds an option configuration for the <see cref="IWebHostBuilder"/>.
+    /// Options are applied BEFORE "Program.cs" startup.
+    /// </summary>
     /// <typeparam name="TOptions">The type of the <see cref="IAppOptions"/>.</typeparam>
     /// <param name="propertySelector">Expression to select the property.</param>
     /// <param name="value">The value to set.</param>
