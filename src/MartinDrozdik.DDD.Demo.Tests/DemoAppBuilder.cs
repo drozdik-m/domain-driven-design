@@ -5,19 +5,18 @@ namespace MartinDrozdik.DDD.Demo.Tests;
 
 public class DemoAppBuilder : TestedAppBuilder<Program>
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test.db");
-
     public DemoAppBuilder(ITestOutputHelper testOutputHelper)
         : base(testOutputHelper)
     {
-        WithOption<DatabaseOptions>(e => e.ConnectionString, $"Data Source={_dbPath}");
+        var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_test.db");
+        WithOption<DatabaseOptions>(e => e.ConnectionString, $"Data Source={dbPath}");
         WithDisposable(() =>
         {
-            if (File.Exists(_dbPath))
+            if (File.Exists(dbPath))
             {
                 try
                 {
-                    File.Delete(_dbPath);
+                    File.Delete(dbPath);
                 }
                 catch
                 {
