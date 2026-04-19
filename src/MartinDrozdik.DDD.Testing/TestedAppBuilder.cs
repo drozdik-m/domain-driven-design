@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using MartinDrozdik.DDD.Disposing;
+using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
@@ -21,7 +22,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     private readonly List<Action<IWebHostBuilder>> _configs = [];
     private readonly List<Action<IEndpointRouteBuilder>> _endpointConfigs = [];
     private readonly List<IDisposable> _disposables = [];
-    private string _environment = "Testing";
+    private string _environment = AppEnvironments.Testing;
 
     /// <summary>
     /// Sets the applications environment.
@@ -55,7 +56,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     /// </summary>
     /// <param name="config">The added configuration.</param>
     /// <returns>This.</returns>
-    public TestedAppBuilder<TProgram> WithConfig(Action<IWebHostBuilder> config)
+    public TestedAppBuilder<TProgram> With(Action<IWebHostBuilder> config)
     {
         _configs.Add(config);
         return this;
@@ -72,7 +73,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     public TestedAppBuilder<TProgram> WithOption<TOptions>(Expression<Func<TOptions, object>> propertySelector, string value)
         where TOptions : IAppOptions
     {
-        return WithConfig(e => e.SetOption(propertySelector, value));
+        return With(e => e.SetOption(propertySelector, value));
     }
 
     /// <summary>
@@ -82,7 +83,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     /// <returns>This.</returns>
     public TestedAppBuilder<TProgram> WithServices(Action<IServiceCollection> config)
     {
-        return WithConfig(builder => builder.ConfigureServices(config));
+        return With(builder => builder.ConfigureServices(config));
     }
 
     /// <summary>

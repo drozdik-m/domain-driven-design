@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using MartinDrozdik.DDD.Web.FilePathProviders.Static;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -9,20 +11,10 @@ namespace MartinDrozdik.DDD.Testing.Smoke;
 /// Base class for smoke tests of ASP.NET Core web applications.
 /// </summary>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class WebApplicationSmokeTests<TProgram> : IDisposable
+/// <param name="factoryBuilder">App builder under test.</param>
+public abstract class WebApplicationSmokeTests<TProgram>(TestedAppBuilder<TProgram> factoryBuilder)
     where TProgram : class
 {
-    private readonly TestedApp<TProgram> _factory;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="WebApplicationSmokeTests{TProgram}"/> class.
-    /// </summary>
-    /// <param name="factoryBuilder">App builder under test.</param>
-    protected WebApplicationSmokeTests(TestedAppBuilder<TProgram> factoryBuilder)
-    {
-        _factory = factoryBuilder.Build();
-    }
-
     /// <summary>
     /// All routes that must return non-5xx responses.
     /// </summary>
@@ -45,7 +37,8 @@ public abstract class WebApplicationSmokeTests<TProgram> : IDisposable
     public async Task App_starts_without_exception()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        using var factory = factoryBuilder.Build();
+        var client = factory.CreateClient();
 
         // Act
         var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
@@ -65,7 +58,8 @@ public abstract class WebApplicationSmokeTests<TProgram> : IDisposable
     public async Task Health_endpoint_returns_healthy(string endpoint)
     {
         // Arrange
-        var client = _factory.CreateClient();
+        using var factory = factoryBuilder.Build();
+        var client = factory.CreateClient();
 
         // Act
         var response = await client.GetAsync(endpoint, TestContext.Current.CancellationToken);
@@ -92,7 +86,8 @@ public abstract class WebApplicationSmokeTests<TProgram> : IDisposable
     public async Task Response_headers_are_correct()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        using var factory = factoryBuilder.Build();
+        var client = factory.CreateClient();
 
         // Act
         var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
@@ -121,26 +116,35 @@ public abstract class WebApplicationSmokeTests<TProgram> : IDisposable
     [Fact]
     public void All_options_are_valid()
     {
-        var validator = _factory.Services.GetRequiredService<IStartupValidator>();
+        // Arrange
+        using var factory = factoryBuilder.Build();
+        var validator = factory.Services.GetRequiredService<IStartupValidator>();
 
+        // Act & Assert
         // Runs all IValidateOptions<T> registrations that used ValidateOnStart().
         // Throws OptionsValidationException with all failures if anything is invalid.
         validator.Validate();
     }
 
-    /// <inheritdoc />
-    public void Dispose()
+    /// <summary>
+    /// Smoke test to verify that services are configured correctly.
+    /// </summary>
+    [Fact]
+    public void All_services_are_valid()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
+        // Arrange
+        using var factory = factoryBuilder
+            .With(builder =>
+            {
+                builder.UseDefaultServiceProvider(options =>
+                {
+                    options.ValidateScopes = true;
+                    options.ValidateOnBuild = true;
+                });
+            })
+            .Build();
 
-    /// <inheritdoc cref="Dispose()"/>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _factory.Dispose();
-        }
+        // Act & Assert
+        factory.StartServer();
     }
 }
