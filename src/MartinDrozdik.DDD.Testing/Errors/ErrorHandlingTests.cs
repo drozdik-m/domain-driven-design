@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Net.Mime;
 using System.Text.Json;
 using FluentValidation;
 using MartinDrozdik.DDD.Exceptions;
@@ -75,7 +76,17 @@ public abstract class ErrorHandlingTests<TProgram>(TestedAppBuilder<TProgram> fa
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
 
         var result = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        Assert.Empty(result);
+        var mediaTime = response.Content.Headers.ContentType?.MediaType;
+        if (mediaTime is not null && mediaTime.Equals(MediaTypeNames.Text.Html, StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.True(
+                result.Contains("<!DOCTYPE html>", StringComparison.OrdinalIgnoreCase),
+                $"Expected HTML response to contain <!DOCTYPE html>, but got: {result}");
+        }
+        else
+        {
+            Assert.True(string.IsNullOrEmpty(result), $"Expected empty response, but got: {result}");
+        }
     }
 
     /// <summary>

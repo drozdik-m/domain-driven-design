@@ -12,7 +12,7 @@
     <PackageIcon>ddd-test-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;testweb;;domain;template</PackageTags>
-    <Version>0.5.3.1</Version>
+    <Version>0.5.3.2</Version>
     <PackageId>MartinDrozdik.DDD.Testing</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
