@@ -45,6 +45,12 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     [MemberData(nameof(GetEntityTypeNames))]
     public void Entity_can_be_queried_from_database(string entityName)
     {
+        // Skip check
+        if (SkipEntityTest(entityName))
+        {
+            return;
+        }
+
         // Arrange
         using var context = GetContext();
 
@@ -141,6 +147,18 @@ public abstract class SqlDbContextIntegrationTests<TContext>
     {
         using var context = GetContext();
         Assert.NotNull(context);
+    }
+
+    /// <summary>
+    /// Provides a way for derived test classes to skip testing specific entities if needed.
+    /// (e.g. if some entities require special setup or are not relevant for certain tests).
+    /// </summary>
+    /// <param name="entityName">The full CLR type name of the entity.</param>
+    /// <returns>True if the entity test should be skipped; otherwise, false.</returns>
+    protected virtual bool SkipEntityTest(string entityName)
+    {
+        // Override in derived class to skip specific entities if needed.
+        return false;
     }
 
     /// <summary>

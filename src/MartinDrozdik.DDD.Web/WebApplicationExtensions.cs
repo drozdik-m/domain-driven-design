@@ -2,7 +2,9 @@
 using MartinDrozdik.DDD.Web.Health;
 using MartinDrozdik.DDD.Web.Middlewares.Logging;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web;
 
@@ -30,6 +32,14 @@ public static class WebApplicationExtensions
     /// <returns>The <see cref="WebApplication"/> for chaining.</returns>
     public static WebApplication UseAppMiddlewares(this WebApplication app, WebApplicationOptions options)
     {
+        // Log startup info
+        var logger = app.Services.GetService<ILogger>();
+        if (logger is not null && logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("App working with environment {Environment}", app.Environment.EnvironmentName);
+        }
+
+        // Add middlewares
         app.UseExceptionHandler();
         app.MapAppHealthChecks();
         app.UseMiddleware<RequestResponseLoggingMiddleware>();
