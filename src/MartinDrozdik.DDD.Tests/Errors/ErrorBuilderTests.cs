@@ -103,7 +103,7 @@ public class ErrorBuilderTests
             .WithSubErrors(subError1, subError2)
             .Build();
 
-        Assert.Equal(¨3, error.Details.Count);
+        Assert.Equal(3, error.Details.Count);
 
         Assert.Contains(error.Details, d =>
             d.Key == "FIELD_REQUIRED" &&

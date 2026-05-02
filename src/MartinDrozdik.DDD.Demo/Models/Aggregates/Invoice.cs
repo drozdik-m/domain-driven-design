@@ -48,6 +48,22 @@ public class Invoice : IAggregateRoot<InvoiceId>
         };
     }
 
+    /*public void ChangeIssuer(Person newIssuer)
+    {
+        var spec = new IsDraftSpecification().And(new HasNoIssuerSpecification());
+        if (!spec.TrySatisfyBy(this, out var specResult))
+        {
+            throw new ErrorBuilder()
+                .WithCode("CannotChangeIssuer")
+                .WithMessage("The issuer of the invoice cannot be changed.")
+                .WithSpecificationResult(specResult)
+                .BuildValidationException();
+        }
+
+        Issuer = newIssuer;
+        IssuerId = newIssuer.Id;
+    }*/
+
     /// <summary>
     /// Issues the invoice, changing its state from Draft to Issued.
     /// </summary>
@@ -64,4 +80,36 @@ public class Invoice : IAggregateRoot<InvoiceId>
         Issuer = issuerId;
         State = InvoiceState.Issued;
     }
+
+    /*private class IsDraftSpecification : ISpecification<Invoice>
+    {
+        public SpecificationResult IsSatisfiedBy(Invoice invoice)
+        {
+            if (invoice.State != InvoiceState.Draft)
+            {
+                return new ErrorBuilder()
+                    .WithCode("InvoiceMustBeDraft")
+                    .WithMessage($"The invoice must be in the {InvoiceState.Draft} state.")
+                    .Build();
+            }
+
+            return SpecificationResult.Satisfied;
+        }
+    }
+
+    private class HasNoIssuerSpecification : ISpecification<Invoice>
+    {
+        public SpecificationResult IsSatisfiedBy(Invoice invoice)
+        {
+            if (invoice.IssuerId != null)
+            {
+                return new ErrorBuilder()
+                    .WithCode("InvoiceMustHaveNoIssuer")
+                    .WithMessage("The invoice must not have an issuer.")
+                    .Build();
+            }
+
+            return SpecificationResult.Satisfied;
+        }
+    }*/
 }
