@@ -161,6 +161,92 @@ if (state.CanBeModified()) { /* ... */ }
 
 Serializes to strings/properties in your DB/JSON. Compares by value. Extends like a class. It's beautiful 😍.
 
+### Specifications
+
+Because `bool` is fine until someone asks *"but why did it fail?"* Or even worse, your `if` condition is 10 lines of copy-pasta.
+
+The **Specification Pattern** – a named DDD concept, not something I invented at 3am – lets you encapsulate business rules as composable, reusable objects that evaluate a context and tell you whether it passes, and *why* it doesn't.
+
+Define a specification:
+
+```csharp
+private class IsDraftSpecification : ISpecification<Invoice>
+{
+    public SpecificationResult IsSatisfiedBy(Invoice invoice)
+    {
+        if (invoice.State != InvoiceState.Draft)
+        {
+            return new ErrorBuilder()
+                .WithCode("InvoiceMustBeDraft")
+                .WithMessage($"The invoice must be in the {InvoiceState.Draft} state.")
+                .Build();
+        }
+
+        return SpecificationResult.Satisfied;
+    }
+}
+```
+
+`SpecificationResult` implicitly converts to `bool` and supports *boolean operations*, so simple checks stay simple:
+
+```csharp
+var spec = new OrderTotalGreaterThan(100);
+
+// Simple boolean path - no ceremony
+if (!spec.IsSatisfiedBy(context))
+    return;
+
+// Richer path
+var result = spec.IsSatisfiedBy(context);
+if (!result)
+    return result.Errors; // IReadOnlyList<Error> explaining exactly what went wrong
+
+// Ultimate megatron evolution path
+if (!spec.TrySatisfyBy(this, out var specResult))
+{
+    throw new ErrorBuilder()
+        .WithCode("CannotChangeIssuer")
+        .WithMessage("The issuer of the invoice cannot be changed.")
+        .WithSpecificationResult(specResult)
+        .BuildValidationException();
+}
+```
+
+**Composition** – one rule is never enough. Chain them fluently or use the classes directly:
+
+```csharp
+// Fluent — reads like a sentence, composes like Lego
+var spec = new OrderTotalGreaterThan(100)
+    .And(new CustomerIsVip())
+    .Or(new CustomerActiveYears(5));
+
+// Or use the classes directly if you hate fluent APIs (I will judge tho)
+var spec = new AndSpecification<OrderContext>(
+    new OrderTotalGreaterThan(100),
+    new CustomerIsVip());
+```
+
+All composition operators are available. `&`/`|` aggregate errors from both sides (greedy). `&&`/`||` short-circuit when the outcome is deterministic (as it should be). Check out the docs at [Boolean logical operators - AND, OR, NOT, XOR](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/boolean-logical-operators).
+
+**Negation** — for when you want the opposite of a rule, with your own error message:
+
+```csharp
+var notVip = new CustomerIsVip().Not(new ErrorBuilder()
+    .WithCode("CustomerIsVip")
+    .WithMessage("VIP customers are not eligible for this offer.")
+    .Build());
+```
+
+**Tautology & Contradiction** — for feature flags, defaults, and other situations where the rule is cosmically predetermined:
+
+```csharp
+// Always true
+var permissive = TautologySpecification<OrderContext>.Instance;
+
+// Always false, with a custom error
+var disabled = new ContradictionSpecification<OrderContext>(someError);
+```
+
 ## Exceptions and Errors
 
 *Stuff happens. Sometimes it's your fault. Sometimes it's the network. Sometimes it's both.*

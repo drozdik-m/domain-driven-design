@@ -21,6 +21,7 @@ Contains basic interfaces and building blocks for DDD and quality code, such as:
 - **Object-based enumerations**
 - **Validation** and **error handling** (based on `FluentValidation`, not your tears)
 - **Type-safe ID** patterns (no more Guid soup)
+- **Specifications** – composable business rules that return rich results, not just `bool` (And, Or, Not, Tautology, Contradiction)
 - **Mediator** for commands and queries (with handlers) – integrated via DI
   - And **pipelines**!
 - Other goodies that **make DDD easier without forcing** you into a specific architecture or framework
