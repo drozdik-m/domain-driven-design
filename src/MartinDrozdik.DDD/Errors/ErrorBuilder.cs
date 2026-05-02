@@ -71,6 +71,24 @@ public class ErrorBuilder
     }
 
     /// <summary>
+    /// Adds error details created from <see cref="Errors"/>s.
+    /// Flattens the sub-errors by their code, value and details. Ignores exceptions.
+    /// </summary>
+    /// <param name="subErrors">The sub-errors to add.</param>
+    /// <returns>The current instance of <see cref="Error"/>.</returns>
+    public ErrorBuilder WithSubErrors(params IEnumerable<Error> subErrors)
+    {
+        ArgumentNullException.ThrowIfNull(subErrors);
+        foreach (var subError in subErrors)
+        {
+            WithDetail(subError.Code.Key, subError.Message);
+            WithDetails(subError.Details);
+        }
+
+        return this;
+    }
+
+    /// <summary>
     /// Sets the exception that caused the error.
     /// </summary>
     /// <param name="exception">The exception.</param>
