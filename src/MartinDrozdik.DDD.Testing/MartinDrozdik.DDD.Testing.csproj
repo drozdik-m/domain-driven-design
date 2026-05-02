@@ -11,7 +11,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>ddd-test-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
-    <PackageTags>ddd;testweb;;domain;template</PackageTags>
+    <PackageTags>ddd;testweb;domain;template</PackageTags>
     <Version>0.6.0</Version>
     <PackageId>MartinDrozdik.DDD.Testing</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
