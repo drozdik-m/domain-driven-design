@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Web.Options;
 
-namespace MartinDrozdik.DDD.Web.FilePathProviders.StaticResources;
+namespace MartinDrozdik.DDD.Web.FilePathProviders.Static;
 
 /// <summary>
 /// Options for static file versioning.

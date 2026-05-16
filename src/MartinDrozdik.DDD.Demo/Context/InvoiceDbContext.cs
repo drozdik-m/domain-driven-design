@@ -1,70 +1,16 @@
-﻿using System.Reflection.Emit;
-using MartinDrozdik.DDD.Demo.Models.Aggregates;
+﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
-using MartinDrozdik.DDD.Templates;
+using MartinDrozdik.DDD.Web.Databases;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace MartinDrozdik.DDD.Demo.Context;
 
-/*
-public class DddDbContext(DbContextOptions<DddDbContext> options) : DbContext(options)
+public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options, TimeProvider timeProvider) : DddDbContext(options)
 {
-    /// <inheritdoc />
-    public override int SaveChanges()
-    {
-        OnSaveChanges();
-        return base.SaveChanges();
-    }
+    public const string CreatedAtPropertyName = "CreatedAt";
+    private const string UpdatedAtPropertyName = "UpdatedAt";
 
-    /// <inheritdoc />
-    public override int SaveChanges(bool acceptAllChangesOnSuccess)
-    {
-        OnSaveChanges();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
-    }
-
-    /// <inheritdoc />
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
-    {
-        OnSaveChanges();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        OnSaveChanges();
-        return base.SaveChangesAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Method invoked on any SaveChanges call.
-    /// </summary>
-    private void OnSaveChanges()
-    {
-        var aggregateRoots = ChangeTracker.Entries()
-            .Where()
-        foreach (var entityType in aggregateRootTypes)
-    }
-
-    protected virtual void OnAggregatesSave()
-    {
-
-    }
-
-    protected virtual void OnEntitiesSave()
-    {
-
-    }
-
-    protected virtual void OnObjectsSave()
-    {
-    }
-}*/
-
-
-public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options) : DbContext(options)
-{
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
     public DbSet<Person> People => Set<Person>();
@@ -73,5 +19,37 @@ public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options) : DbCo
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
+
+        // Register audit shadow properties
+        foreach (var entityType in modelBuilder.Model.GetAggregateRoots())
+        {
+            modelBuilder.Entity(entityType.ClrType)
+                        .Property<DateTimeOffset>(CreatedAtPropertyName);
+
+            modelBuilder.Entity(entityType.ClrType)
+                        .Property<DateTimeOffset>(UpdatedAtPropertyName);
+        }
+    }
+
+    protected override void OnAggregatesSave(IEnumerable<EntityEntry> entityEntries)
+    {
+        base.OnAggregatesSave(entityEntries);
+
+        var now = timeProvider.GetUtcNow();
+        UpdateShadowProperties(entityEntries, now);
+    }
+
+    private static void UpdateShadowProperties(IEnumerable<EntityEntry> entityEntries, DateTimeOffset now)
+    {
+        foreach (var entry in entityEntries.Where(e => e.State == EntityState.Added))
+        {
+            entry.Property(CreatedAtPropertyName).CurrentValue = now;
+            entry.Property(UpdatedAtPropertyName).CurrentValue = now;
+        }
+
+        foreach (var entry in entityEntries.Where(e => e.State == EntityState.Modified))
+        {
+            entry.Property(UpdatedAtPropertyName).CurrentValue = now;
+        }
     }
 }

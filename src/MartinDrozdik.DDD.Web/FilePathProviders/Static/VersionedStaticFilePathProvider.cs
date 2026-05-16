@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Integrations;
-using MartinDrozdik.DDD.Web.FilePathProviders.StaticResources;
 using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Web.FilePathProviders.Static;

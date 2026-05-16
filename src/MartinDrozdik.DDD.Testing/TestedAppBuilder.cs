@@ -134,6 +134,20 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     }
 
     /// <summary>
+    /// Sets a <see cref="FakeTimeProvider"/> for the application.
+    /// </summary>
+    /// <param name="fakeTimeProvider">The used fake time provider.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithFakeTime(FakeTimeProvider fakeTimeProvider)
+    {
+        return WithServices(services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(fakeTimeProvider);
+        });
+    }
+
+    /// <summary>
     /// Sets a fake <see cref="TimeProvider"/> for the application.
     /// </summary>
     /// <param name="fakeTime">Static fake time shared across the application.</param>
@@ -141,11 +155,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     public TestedAppBuilder<TProgram> WithFakeTime(DateTimeOffset fakeTime)
     {
         var fakeTimeProvider = new FakeTimeProvider(fakeTime);
-        return WithServices(services =>
-        {
-            services.RemoveAll<TimeProvider>();
-            services.AddSingleton<TimeProvider>(fakeTimeProvider);
-        });
+        return WithFakeTime(fakeTimeProvider);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 ﻿using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Web.Databases;
-using MartinDrozdik.DDD.Web.FilePathProviders.StaticResources;
+using MartinDrozdik.DDD.Web.FilePathProviders.Static;
 
 namespace MartinDrozdik.DDD.Web.Tests;
 
