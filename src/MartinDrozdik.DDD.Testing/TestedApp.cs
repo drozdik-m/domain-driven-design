@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,6 +62,12 @@ public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicati
         // Register test endpoints via IStartupFilter
         builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new EndpointStartupFilter(options.EndpointConfig)));
 
+        // Register a startup filter that injects the specified claims principal
+        if (options.ClaimsPrincipal is not null)
+        {
+            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new ClaimsPrincipalStartupFilter(options.ClaimsPrincipal)));
+        }
+
         // Invoke user-provided additional configuration if available
         options.Config.Invoke(builder);
     }
@@ -97,6 +105,25 @@ public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicati
             {
                 next(app); // Run the app's normal startup first
                 app.UseEndpoints(configure);
+            };
+    }
+
+    /// <summary>
+    /// Injects a middleware at the very front of the pipeline that sets <see cref="HttpContext.User"/>.
+    /// Just shoves in the principal.
+    /// </summary>
+    private sealed class ClaimsPrincipalStartupFilter(ClaimsPrincipal principal) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+            => app =>
+            {
+                app.Use((context, nextMiddleware) =>
+                {
+                    context.User = principal;
+                    return nextMiddleware(context);
+                });
+
+                next(app);
             };
     }
 }

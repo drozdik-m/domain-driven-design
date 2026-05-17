@@ -20,7 +20,7 @@ public static class MutableModelExtensions
     }
 
     /// <summary>
-    /// Gets all entity types from the specified <see cref="IMutableModel"/> whose CLR types are domain entities.   
+    /// Gets all entity types from the specified <see cref="IMutableModel"/> whose CLR types are domain entities.
     /// </summary>
     /// <param name="mutableModel">The <see cref="IMutableModel"/> to enumerate entity types from.</param>
     /// <returns>A sequence of <see cref="IMutableEntityType"/> representing entity types whose CLR types are domain entities.</returns>

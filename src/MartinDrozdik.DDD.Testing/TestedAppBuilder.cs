@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Security.Claims;
 using MartinDrozdik.DDD.Disposing;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Options;
@@ -23,6 +24,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     private readonly List<Action<IEndpointRouteBuilder>> _endpointConfigs = [];
     private readonly List<IDisposable> _disposables = [];
     private string _environment = AppEnvironments.Testing;
+    private ClaimsPrincipal? _claimsPrincipal = null;
 
     /// <summary>
     /// Sets the applications environment.
@@ -159,6 +161,40 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     }
 
     /// <summary>
+    /// Sets a determined <see cref="ClaimsPrincipal"/> for the application.
+    /// </summary>
+    /// <param name="claimsPrincipal">The new claims principal.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
+    {
+        _claimsPrincipal = claimsPrincipal;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a determined <see cref="ClaimsPrincipal"/> for the application from provided user with roles.
+    /// </summary>
+    /// <param name="userId">Id of the user.</param>
+    /// <param name="roles">Roles of the user.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithUserAndRoles(string userId, IEnumerable<string> roles)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId),
+            new(ClaimTypes.Name, userId),
+        };
+
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
+        var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
+        return WithClaimsPrincipal(claimsPrincipal);
+    }
+
+    /// <summary>
     /// Builds the resulting <see cref="TestedApp{TProgram}"/> with the provided configurations.
     /// </summary>
     /// <remarks>
@@ -178,6 +214,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
         {
             Environment = _environment,
             TestOutputHelper = testOutputHelper,
+            ClaimsPrincipal = _claimsPrincipal,
             Config = builder =>
             {
                 foreach (var config in configsCopy)

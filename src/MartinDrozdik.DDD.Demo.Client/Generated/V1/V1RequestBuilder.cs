@@ -2,6 +2,7 @@
 #pragma warning disable CS0618
 using MartinDrozdik.DDD.Demo.Client.Generated.V1.Errors;
 using MartinDrozdik.DDD.Demo.Client.Generated.V1.Invoice;
+using MartinDrozdik.DDD.Demo.Client.Generated.V1.User;
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using System.Collections.Generic;
@@ -25,6 +26,11 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.V1
         public global::MartinDrozdik.DDD.Demo.Client.Generated.V1.Invoice.InvoiceRequestBuilder Invoice
         {
             get => new global::MartinDrozdik.DDD.Demo.Client.Generated.V1.Invoice.InvoiceRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The user property</summary>
+        public global::MartinDrozdik.DDD.Demo.Client.Generated.V1.User.UserRequestBuilder User
+        {
+            get => new global::MartinDrozdik.DDD.Demo.Client.Generated.V1.User.UserRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.V1.V1RequestBuilder"/> and sets the default values.

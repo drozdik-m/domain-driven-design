@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Xunit;
 
@@ -20,6 +22,11 @@ public class TestedAppOptions
     public required ITestOutputHelper TestOutputHelper { get; init; }
 
     /// <summary>
+    /// Gets forced claims principal for the application set to the <see cref="HttpContext.User"/>.
+    /// </summary>
+    public ClaimsPrincipal? ClaimsPrincipal { get; init; }
+
+    /// <summary>
     /// Gets additional configuration for the web host factory.
     /// </summary>
     public Action<IWebHostBuilder> Config { get; init; } = _ => { };
@@ -33,4 +40,5 @@ public class TestedAppOptions
     /// Gets list of dependencies that need to be disposed of after the test execution.
     /// </summary>
     public IEnumerable<IDisposable> Disposables { get; init; } = [];
+
 }
