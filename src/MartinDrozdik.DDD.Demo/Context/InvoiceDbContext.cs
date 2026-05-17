@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Demo.Context;
 public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options, TimeProvider timeProvider) : DddDbContext(options)
 {
     public const string CreatedAtPropertyName = "CreatedAt";
-    private const string UpdatedAtPropertyName = "UpdatedAt";
+    public const string UpdatedAtPropertyName = "UpdatedAt";
 
     public DbSet<Invoice> Invoices => Set<Invoice>();
 

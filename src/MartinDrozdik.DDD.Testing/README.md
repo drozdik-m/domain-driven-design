@@ -94,6 +94,8 @@ var app = new MyAppBuilder(output)
     .WithEndpoints(endpoints => endpoints.MapGet("/test-only-route", () => "hello"))
     .WithDisposable(() => Console.WriteLine("cleaned up, congrats"))
     .WithEnvironment(AppEnvironments.Testing)
+    .WithUserAndRoles("testuser", ["Admin", "User"])
+    .WithClaimsPrincipal(...)
     .Build();
 ```
 

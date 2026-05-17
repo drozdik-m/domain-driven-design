@@ -236,6 +236,47 @@ Check the [docs with full list of OTEL environment variables](https://openteleme
 
 Health check requests are filtered out of traces because who cares about those.
 
+### DDD Context / EF mapping
+
+Expanded `DbContext` child called `DddDbContext` with some extra features tailored for DDD apps, such as:
+
+- **OnAggregatesSave**
+- **OnDomainEntitiesSave**
+
+Coming with useful mapping extensions. Example:
+
+```csharp
+public class InvoiceDbContext(/*...*/) : DddDbContext(options)
+{
+    private const string CreatedAtPropertyName = "CreatedAt";
+
+    // ...
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
+
+        // Register audit shadow properties
+        foreach (var entityType in modelBuilder.Model.GetAggregateRoots())
+        {
+            modelBuilder.Entity(entityType.ClrType)
+                        .Property<DateTimeOffset>(CreatedAtPropertyName);
+            // ...
+        }
+    }
+
+    protected override void OnAggregatesSave(IEnumerable<EntityEntry> entityEntries)
+    {
+        base.OnAggregatesSave(entityEntries);
+        var now = timeProvider.GetUtcNow();
+        foreach (var entry in entityEntries.Where(e => e.State == EntityState.Added))
+        {
+            entry.Property(CreatedAtPropertyName).CurrentValue = now;
+        }
+    }
+}
+```
+
 ### Reverse Proxy Support
 
 One liner for handling proxied requests (nginx, YARP etc.):
