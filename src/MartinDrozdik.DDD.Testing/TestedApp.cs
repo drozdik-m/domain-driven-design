@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Xunit;
 
 namespace MartinDrozdik.DDD.Testing;
 
@@ -14,7 +15,7 @@ namespace MartinDrozdik.DDD.Testing;
 /// </summary>
 /// <typeparam name="TProgram">Type of the entrypoint Program.cs.</typeparam>
 /// <param name="options">More detailed options of this factory.</param>
-public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicationFactory<TProgram>
+public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicationFactory<TProgram>, ITestedApp
     where TProgram : class
 {
     /// <summary>
@@ -22,10 +23,11 @@ public sealed class TestedApp<TProgram>(TestedAppOptions options) : WebApplicati
     /// </summary>
     private readonly IList<IDisposable> _scopes = [];
 
-    /// <summary>
-    /// Gets the environment this factory is configured to use.
-    /// </summary>
+    /// <inheritdoc />
     public string Environment => options.Environment;
+
+    /// <inheritdoc />
+    public ITestOutputHelper TestOutputHelper => options.TestOutputHelper;
 
     /// <summary>
     /// Creates a new scope and resolves the specified service type from the service provider.

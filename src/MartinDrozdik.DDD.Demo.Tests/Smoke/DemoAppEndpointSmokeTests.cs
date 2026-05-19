@@ -40,7 +40,6 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(Endpoints))]
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Blocker Code Smell", "S2699:Tests should include assertions", Justification = "Delegated to tester.")]
     public async Task Test_smoke_endpoint(EndpointTest testCase)
     {
         var builder = new DemoAppBuilder(testOutputHelper);

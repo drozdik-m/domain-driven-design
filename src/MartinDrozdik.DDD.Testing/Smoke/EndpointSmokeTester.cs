@@ -1,5 +1,6 @@
 ﻿using System.Net.Mime;
 using System.Text;
+using MartinDrozdik.DDD.Testing.Attributes;
 using Xunit;
 
 namespace MartinDrozdik.DDD.Testing.Smoke;
@@ -21,6 +22,7 @@ public class EndpointSmokeTester<TProgram>(TestedAppBuilder<TProgram> builder)
     /// <param name="testCase">What endpoint to test with what parameters.</param>
     /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
     /// <returns><see cref="Task"/>.</returns>
+    [AssertionMethod]
     public async Task Test(EndpointTest testCase, CancellationToken cancellationToken)
     {
         // Arrange
