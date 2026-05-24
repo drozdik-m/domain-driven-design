@@ -38,6 +38,46 @@ public static class TestedAppExtensions
         return await ProcessModelResponse<T>(testedApp, response, cancellationToken);
     }
 
+    public static async Task<RequestResult> PostJsonAsync<T>(this ITestedApp testedApp, [StringSyntax(StringSyntaxAttribute.Uri)] string? requestUri, T payload)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = testedApp.CreateClient();
+
+        var content = JsonContent.Create(payload, options: JsonSerializerOptions.Web);
+        var response = await client.PostAsync(requestUri, content, cancellationToken);
+        return ProcessResponse(testedApp, response);
+    }
+
+    public static async Task<RequestResult<S>> PostJsonWithResponseAsync<T, S>(this ITestedApp testedApp, [StringSyntax(StringSyntaxAttribute.Uri)] string? requestUri, T payload)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = testedApp.CreateClient();
+
+        var content = JsonContent.Create(payload, options: JsonSerializerOptions.Web);
+        var response = await client.PostAsync(requestUri, content, cancellationToken);
+        return await ProcessModelResponse<S>(testedApp, response, cancellationToken);
+    }
+
+    public static async Task<RequestResult> PutJsonAsync<T>(this ITestedApp testedApp, [StringSyntax(StringSyntaxAttribute.Uri)] string? requestUri, T payload)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = testedApp.CreateClient();
+
+        var content = JsonContent.Create(payload, options: JsonSerializerOptions.Web);
+        var response = await client.PutAsync(requestUri, content, cancellationToken);
+        return ProcessResponse(testedApp, response);
+    }
+
+    public static async Task<RequestResult<S>> PutJsonWithResponseAsync<T, S>(this ITestedApp testedApp, [StringSyntax(StringSyntaxAttribute.Uri)] string? requestUri, T payload)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = testedApp.CreateClient();
+
+        var content = JsonContent.Create(payload, options: JsonSerializerOptions.Web);
+        var response = await client.PutAsync(requestUri, content, cancellationToken);
+        return await ProcessModelResponse<S>(testedApp, response, cancellationToken);
+    }
+
     private static RequestResult ProcessResponse(ITestedApp testedApp, HttpResponseMessage response)
     {
         LogResponse(testedApp.TestOutputHelper, response);
