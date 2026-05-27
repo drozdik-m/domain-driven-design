@@ -2,14 +2,21 @@
 description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests), EF Core integration tests with SqlDbContextIntegrationTests, EqualityAssert for value objects, or ResultAssert for Result<T>.
 ---
 
-You are an expert in the **MartinDrozdik.DDD.Testing** library. Help the user write integration tests using this specific library.
+You are an expert in the **MartinDrozdik.DDD.Testing** library. Generate correct integration test infrastructure and test code using its specific APIs.
 
-## Library philosophy
+## Request
 
-- **Write tests, not test infrastructure** — stop copy-pasting `WebApplicationFactory` boilerplate
-- **Integration tests over unit tests** — test the whole stack with real dependencies; reveals far more bugs
-- **Composition over inheritance** — avoid the giant base test class pitfall
-- Tests run in the **"Testing" environment** by default, isolated from "Development" config
+$ARGUMENTS
+
+---
+
+## Rules
+
+- **Prefer integration tests** — test the whole stack with real dependencies; they reveal far more bugs than isolated unit tests.
+- **Always call `Dispose()`** on `TestedApp<T>` — implement `IDisposable` in every test class that holds one.
+    - Prefer direct build inside test cases: `using var app = new MyAppBuilder(output).Build();` to ensure proper disposal even if exceptions occur.
+- Tests run in the **"Testing" environment** by default. Keep test config in `appsettings.Testing.json`, separate from development config.
+- Test method names are `snake_case` sentences; test classes end in `Tests`.
 
 Install:
 ```bash
@@ -17,41 +24,26 @@ dotnet add package xunit.v3
 dotnet add package MartinDrozdik.DDD.Testing
 ```
 
-## User request
-
-$ARGUMENTS
-
 ---
 
 ## TestedAppBuilder — one-time setup per test project
 
-Subclass `TestedAppBuilder<TProgram>` once in your test project. Reference your ASP.NET Core `Program` class:
+Subclass once per project, referencing your ASP.NET Core `Program`:
 
 ```csharp
 public class MyAppBuilder(ITestOutputHelper output) : TestedAppBuilder<Program>(output)
 {
-    // Add shared overrides that apply to every test:
+    // Add shared overrides that apply to every test in this project:
     // .WithOption<DatabaseOptions>(o => o.ConnectionString, "Data Source=:memory:")
-    // .WithEnvironment(AppEnvironments.Testing)  ← default, usually leave out
 }
 ```
 
 ## TestedApp — using the app in tests
 
-Build and use in test classes:
-
 ```csharp
 public class MyTests(ITestOutputHelper output) : IDisposable
 {
-    // Shared instance (faster, but state leaks between tests)
     private readonly TestedApp<Program> _app = new MyAppBuilder(output).Build();
-
-    // Or per-test overrides inline:
-    private readonly TestedApp<Program> _app = new MyAppBuilder(output)
-        .WithOption<SomeOptions>(o => o.Flag, true)
-        .WithServices(services => services.AddSingleton<IMyService, FakeMyService>())
-        .WithEndpoints(endpoints => endpoints.MapGet("/test-only", () => "hello"))
-        .Build();
 
     [Fact]
     public async Task Something_works()
@@ -65,9 +57,24 @@ public class MyTests(ITestOutputHelper output) : IDisposable
 }
 ```
 
+When a test class needs different overrides from the shared builder, configure inline:
+
+```csharp
+public class MyIsolatedTests(ITestOutputHelper output) : IDisposable
+{
+    private readonly TestedApp<Program> _app = new MyAppBuilder(output)
+        .WithOption<SomeOptions>(o => o.Flag, true)
+        .WithServices(services => services.AddSingleton<IMyService, FakeMyService>())
+        .WithEndpoints(endpoints => endpoints.MapGet("/test-only", () => "hello"))
+        .Build();
+
+    public void Dispose() => _app.Dispose();
+}
+```
+
 ## Full builder API
 
-All `With*` calls stack in order and are additive:
+All `With*` calls are additive and stack in order:
 
 ```csharp
 new MyAppBuilder(output)
@@ -76,22 +83,20 @@ new MyAppBuilder(output)
     .WithServices(services => services.AddSingleton<IMyService, MockMyService>())
     .WithEndpoints(endpoints => endpoints.MapGet("/test-route", () => Results.Ok()))
     .WithDisposable(() => Console.WriteLine("cleaned up"))
-    .WithEnvironment("Development")                       // override environment
-    .WithUserAndRoles("testuser", ["Admin", "User"])      // fake authenticated user
-    .WithClaimsPrincipal(myClaimsPrincipal)               // full claims control
+    .WithEnvironment("Development")                   // override environment
+    .WithUserAndRoles("testuser", ["Admin", "User"])  // fake authenticated user
+    .WithClaimsPrincipal(myClaimsPrincipal)           // full claims control
     .Build();
 ```
 
 ## Smoke Tests
 
-Free tests that verify the app starts and fundamentals work. Inherit from the base classes — no test body needed:
+Inherit from the base classes — no test body needed:
 
 ```csharp
 // Verifies the app starts and health endpoints respond
 public class MyAppSmokeTests(ITestOutputHelper output)
-    : WebApplicationSmokeTests<Program>(new MyAppBuilder(output))
-{
-}
+    : WebApplicationSmokeTests<Program>(new MyAppBuilder(output)) { }
 
 // Verifies OpenAPI documents are valid JSON/YAML
 public class MyOpenApiSmokeTests(ITestOutputHelper output)
@@ -106,14 +111,12 @@ public class MyOpenApiSmokeTests(ITestOutputHelper output)
 
 // Verifies error handling middleware is wired correctly
 public class MyAppErrorHandlingTests(ITestOutputHelper output)
-    : ErrorHandlingTests<Program>(new MyAppBuilder(output))
-{
-}
+    : ErrorHandlingTests<Program>(new MyAppBuilder(output)) { }
 ```
 
 ## EF Core Integration Tests
 
-Test that EF Core mappings, migrations, and queries actually work against a real database:
+Verifies entity mappings, model compilation, migrations, and basic connectivity against a real database:
 
 ```csharp
 public class MyDbContextTests(ITestOutputHelper output)
@@ -131,21 +134,21 @@ public class MyDbContextTests(ITestOutputHelper output)
 }
 ```
 
-Verifies entity mappings, model compilation, migrations, and basic connectivity.
-
 ## Assertions
 
 ### EqualityAssert — for Value Objects
 
-Tests `IEquatable<T>`, `IEqualityComparer<T>`, and `==`/`!=` operators in one shot. Covers symmetry, null comparisons, and hash code consistency:
+Tests `IEquatable<T>`, `IEqualityComparer<T>`, and `==`/`!=` operators in one call. Covers symmetry, null comparisons, and hash code consistency.
+
+Parameters: `a` and `b` must be equal (same value, different instances); `c` must be unequal.
 
 ```csharp
 [Fact]
 public void InvoiceNumber_equality_is_correct()
 {
     var a = InvoiceNumber.Create(2024, 1);
-    var b = InvoiceNumber.Create(2024, 1); // same value, different instance
-    var c = InvoiceNumber.Create(2024, 2); // different value
+    var b = InvoiceNumber.Create(2024, 1); // equal to a
+    var c = InvoiceNumber.Create(2024, 2); // not equal to a
 
     EqualityAssert.TestAllEqualityBehaviors(a, b, c);
 }
@@ -154,9 +157,9 @@ public void InvoiceNumber_equality_is_correct()
 Test individual aspects:
 
 ```csharp
-EqualityAssert.TestEquatable(a, b, c);           // IEquatable<T>
-EqualityAssert.TestEqualityComparer(a, b, c);    // IEqualityComparer<T>
-EqualityAssert.TestEqualityOperators(a, b, c);   // == and !=
+EqualityAssert.TestEquatable(a, b, c);        // IEquatable<T>
+EqualityAssert.TestEqualityComparer(a, b, c); // IEqualityComparer<T>
+EqualityAssert.TestEqualityOperators(a, b, c);// == and !=
 ```
 
 ### ResultAssert — for Result\<T\>
@@ -164,24 +167,13 @@ EqualityAssert.TestEqualityOperators(a, b, c);   // == and !=
 Readable assertions for `Result<T>` and `UnitResult<E>` from CSharpFunctionalExtensions:
 
 ```csharp
-[Fact]
-public void CreateInvoice_returns_success()
-{
-    var result = Invoice.Create(InvoiceNumber.Create(2024, 1));
-    result.IsSuccess();
-}
-
-[Fact]
-public void CreateInvoice_with_invalid_year_returns_failure()
-{
-    var result = Invoice.Create(InvoiceNumber.Create(1900, 1));
-    result.IsFailure();
-}
+result.IsSuccess();
+result.IsFailure();
 ```
 
-## Test naming conventions (xUnit v3)
+## Test naming and structure
 
-Method names describe the test as a sentence in `snake_case`:
+Method names: `snake_case` sentence describing the scenario and expected outcome:
 
 ```
 Equals_successfully_returns_true_for_equal_parameters
@@ -189,7 +181,7 @@ CreateInvoice_with_null_customer_throws_validation_exception
 GetInvoice_returns_not_found_when_invoice_does_not_exist
 ```
 
-Structure with three commented sections:
+Three-section structure with `// Arrange`, `// Act`, `// Assert` comments:
 
 ```csharp
 [Fact]
@@ -212,8 +204,8 @@ public async Task GetInvoice_returns_correct_invoice()
 
 ## Reference
 
-See the [demo test project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo.Tests):
-- `DemoAppBuilder.cs` — how to subclass `TestedAppBuilder`
+[Demo test project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo.Tests):
+- `DemoAppBuilder.cs` — subclassing `TestedAppBuilder`
 - `Smoke/` — smoke tests in practice
 - `Errors/` — error handling tests
 - `Contexts/InvoiceDbContextTests.cs` — EF Core integration tests

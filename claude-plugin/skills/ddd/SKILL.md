@@ -2,21 +2,25 @@
 description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, or the CQRS Mediator with Commands, Queries, and Pipelines.
 ---
 
-You are an expert in the **MartinDrozdik.DDD** library. Help the user implement correct DDD patterns using this specific library.
+You are an expert in the **MartinDrozdik.DDD** library. Generate correct, idiomatic code using its specific APIs and patterns.
 
-## Library philosophy
-
-- **Pragmatic over purist** — use what makes sense, ignore what doesn't
-- **Composition over inheritance** — interfaces, not deep abstract hierarchies
-- **Explicit over implicit** — code should be obvious without explanation
-- **Type safety** — compiler errors beat runtime errors; no primitive obsession
-- **Fail fast** — validation and error handling built in from the start
-
-Install: `dotnet add package MartinDrozdik.DDD`
-
-## User request
+## Request
 
 $ARGUMENTS
+
+If the domain model is ambiguous (unclear whether something is an Entity or Value Object, what the aggregate boundary is, etc.) ask one focused question before generating code.
+
+---
+
+## Rules
+
+- **Use** naked `Guid`, `int`, or `string` for entity/aggregate IDs or typed identity wrappers depending on current project practices.
+- **Never** use base classes where interfaces suffice — `IDomainEntity`, `IAggregateRoot` are marker interfaces, not base classes.
+- **Never** use `Guid.NewGuid()` — use `Guid.CreateVersion7()`.
+- **Prefer** `Result<T>` for expected domain failures; throw exceptions at API boundaries where middleware translates them to HTTP responses.
+- **Use** FluentValidation at system boundaries (input DTOs); use Specifications for named, reusable domain rules on domain objects.
+
+Install: `dotnet add package MartinDrozdik.DDD`
 
 ---
 
@@ -24,56 +28,54 @@ $ARGUMENTS
 
 ### Value Object vs Entity
 
-Use a **Value Object** when the concept has no meaningful identity — two instances with the same data are interchangeable. They are immutable and compared by their attributes. Examples: `Money`, `Address`, `InvoiceNumber`, `DateRange`, `PhoneNumber`.
+| | Value Object | Entity |
+|---|---|---|
+| Identity | None — defined by its attributes | Persistent ID, independent of attributes |
+| Equality | By value (all attributes equal) | By ID |
+| Mutability | Immutable | Mutable over its lifetime |
+| Examples | `Money`, `Address`, `InvoiceNumber`, `DateRange` | `Person`, `Order`, `Product` |
 
-Use an **Entity** when the concept has an identity that persists over time even as its attributes change. A `Person` is still the same person after a name change. Entities are tracked by their ID, not their data.
-
-Decision question: *"If I swap this instance for another with identical data, does it matter?"* If no → Value Object. If yes → Entity.
+**Decision test:** *"If I replace this instance with another that has identical data, does it matter?"* No → Value Object. Yes → Entity.
 
 ### Entity vs Aggregate Root
 
-Use an **Entity** for concepts that belong inside an aggregate and are only accessible through the aggregate root. They cannot be loaded or saved independently.
+An **Entity** belongs inside an aggregate; it is only accessible through its root and cannot be loaded or saved independently.
 
-Use an **Aggregate Root** for concepts that are:
-- The consistency boundary (enforce all invariants for entities inside them)
-- The unit of persistence (but one aggregate can span multiple tables if needed)
-- Accessible directly from application code
+An **Aggregate Root** is:
+- The consistency boundary — enforces all invariants for the entities it contains
+- The unit of persistence — one `DbSet<T>` per aggregate root
+- Directly accessible from application code
 
-Decision question: *"Can this concept exist and be loaded independently, or does it only make sense as part of something else?"* Standalone → Aggregate Root. Subordinate → Entity. Ask the user to clarify the business case.
+**Decision test:** *"Can this concept be loaded and manipulated independently, or does it only make sense as part of something else?"* Standalone → Aggregate Root. Subordinate → Entity.
 
 ### Enumeration vs enum
 
-Use a plain `enum` when: values are purely numeric flags, there is no behavior, no extra properties, and no string serialization needed.
+Use `enum` when: purely numeric flags, no behavior, no extra properties, no string serialization.
 
 Use `Enumeration` when any of the following apply:
-- The values need to serialize to strings in the database or JSON
-- The values carry behavior (methods like `CanBeModified()`)
-- The values have extra display or metadata properties
-- You need to add new values without changing switch statements everywhere
+- Must serialize to strings in DB or JSON
+- Carries behavior (methods like `CanBeModified()`)
+- Has extra display or metadata properties
+- Needs to be extended without touching switch statements
 
 ### Specifications vs FluentValidation
 
-Use **FluentValidation** at system boundaries: validating incoming API request DTOs, checking data format, type, and range. This is input sanitization — keep it at the edge.
+**FluentValidation** — input validation at system boundaries (API request DTOs): format, type, nullability, range.
 
-Use **Specifications** inside the domain for business rules that:
-- Have a meaningful name worth reusing (`IsDraftSpecification`, `CustomerIsEligibleForDiscount`)
-- Need to explain *why* they failed, not just *that* they failed
-- Are composed from simpler rules
-- Apply to domain objects, not raw input DTOs
-- Only use for complex reusable rules, try to keep is simple
+**Specifications** — business rules inside the domain layer, when:
+- The rule has a meaningful reusable name (`IsDraftSpecification`)
+- The rule must explain *why* it failed, not just *that* it failed
+- Rules are composed from simpler rules
 
-Never use Specifications for simple null or format checks — that is FluentValidation's job.
+Never use Specifications for null checks or format validation — that is FluentValidation's job. Keep specifications focused on complex, reusable domain rules.
 
 ### Result\<T\> vs Exceptions
 
-Use **`Result<T>`** when failure is an expected, normal outcome of a business operation. It forces the caller to handle both paths and keeps failures explicit in the return type.
+**`Result<T>`** — when failure is an expected, valid business outcome; forces callers to handle both paths explicitly.
 
-Use **exceptions** when:
-- The failure is truly unexpected (programming error)
-- You are at an API handler boundary where exceptions bubble to the error middleware anyway
-- Passing `Result<T>` through many layers would add noise without value
+**Exceptions** — when the failure is truly unexpected, or at an API handler boundary where exceptions bubble to error middleware anyway.
 
-Exception → HTTP status mapping (when using `MartinDrozdik.DDD.Web`):
+Exception → HTTP status (via `MartinDrozdik.DDD.Web`):
 
 | Exception | HTTP status | When to throw |
 |---|---|---|
@@ -82,30 +84,19 @@ Exception → HTTP status mapping (when using `MartinDrozdik.DDD.Web`):
 | `BusinessNotFoundException` | **404 Not Found** | A required resource does not exist |
 | `BusinessRuleException` | 500 Internal Server Error | Unexpected business state violation |
 
-Throw `BusinessNotFoundException` (subclass of `BusinessRuleException`) when a lookup fails and the caller should receive 404:
+### Mediator vs direct calls
 
-```csharp
-var invoice = await repository.FindAsync(id)
-    ?? throw new BusinessNotFoundException($"Invoice {id} not found.");
-```
+Use the **Mediator** when commands/queries cross module boundaries or when you need pipeline behavior (logging, validation, transactions) applied uniformly.
 
-### Mediator (CQRS) vs direct calls
+Use direct service calls within a single, self-contained module where mediator overhead adds no value.
 
-Use the **Mediator** when:
-- Commands or queries cross module or service boundaries
-- You want pipeline behavior (logging, validation, transactions) applied uniformly across handlers
-
-Use direct method/service calls when the operation is simple CRUD within a single module — mediator overhead is not justified there.
-
-Commands mutate state; Queries only read it. Never mix the two in one handler.
+**Commands** mutate state. **Queries** only read. Never mix them in one handler.
 
 ---
 
-## Building blocks — how to implement them correctly
+## Implementation reference
 
-### Value Objects
-
-Compared by value, not identity. Override `GetEqualityComponents()`:
+### Value Object
 
 ```csharp
 public class InvoiceNumber : ValueObject
@@ -120,9 +111,7 @@ public class InvoiceNumber : ValueObject
     public int Order { get; }
 
     public static InvoiceNumber Create(int year, int order)
-    {
-        return new InvoiceNumber(year, order);
-    }
+        => new(year, order);
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {
@@ -132,9 +121,7 @@ public class InvoiceNumber : ValueObject
 }
 ```
 
-### Entities
-
-Compared by identity. Implement `IDomainEntity<TIdentity>` (marker interface only — no base class):
+### Entity
 
 ```csharp
 public class Person : IDomainEntity<PersonId>
@@ -149,15 +136,13 @@ public class Person : IDomainEntity<PersonId>
     public string FullName { get; }
 
     public static Person Create(string fullName)
-    {
-        return new Person(new PersonId(Guid.CreateVersion7()), fullName);
-    }
+        => new(new PersonId(Guid.CreateVersion7()), fullName);
 }
 ```
 
-### Aggregate Roots
+### Aggregate Root
 
-Same as Entity, just use `IAggregateRoot<TIdentity>` — marks consistency boundaries:
+Same shape as Entity — only the interface changes:
 
 ```csharp
 public class Invoice : IAggregateRoot<InvoiceId> { ... }
@@ -165,15 +150,11 @@ public class Invoice : IAggregateRoot<InvoiceId> { ... }
 
 ### Strongly-Typed Identities
 
-Never use naked `Guid`, `int`, or `string` for IDs:
-
 ```csharp
-public class PersonId(Guid key) : GuidIdentity<PersonId>(key);
-public class OrderId(int key) : IntIdentity<OrderId>(key);
-public class SkuId(string key) : StringIdentity<SkuId>(key);
+public class PersonId(Guid key)   : GuidIdentity<PersonId>(key);
+public class OrderId(int key)     : IntIdentity<OrderId>(key);
+public class SkuId(string key)    : StringIdentity<SkuId>(key);
 ```
-
-Use `Guid.CreateVersion7()` for new GUIDs (not `Guid.NewGuid()`).
 
 EF Core mapping:
 
@@ -182,26 +163,20 @@ builder.Property(e => e.Id)
     .HasIdentityConvertor(new IdentityConverter<InvoiceId, Guid>());
 ```
 
-### Enumerations
-
-When `enum` isn't enough (you need behavior, extra properties, string serialization):
+### Enumeration
 
 ```csharp
 public class InvoiceState(EnumerationName name) : Enumeration(name)
 {
-    public static InvoiceState Draft => new(new EnumerationName("Draft"));
+    public static InvoiceState Draft  => new(new EnumerationName("Draft"));
     public static InvoiceState Issued => new(new EnumerationName("Issued"));
-    public static InvoiceState Paid => new(new EnumerationName("Paid"));
+    public static InvoiceState Paid   => new(new EnumerationName("Paid"));
 
     public bool CanBeModified() => this == Draft;
 }
 ```
 
-Compares by value, serializes to string in DB/JSON, extends like a class.
-
 ### Specifications
-
-Encapsulate business rules as composable, named objects that explain *why* they fail:
 
 ```csharp
 private class IsDraftSpecification : ISpecification<Invoice>
@@ -209,71 +184,59 @@ private class IsDraftSpecification : ISpecification<Invoice>
     public SpecificationResult IsSatisfiedBy(Invoice invoice)
     {
         if (invoice.State != InvoiceState.Draft)
-        {
             return new ErrorBuilder()
                 .WithCode("InvoiceMustBeDraft")
-                .WithMessage($"The invoice must be in the {InvoiceState.Draft} state.")
+                .WithMessage($"Invoice must be in {InvoiceState.Draft} state.")
                 .Build();
-        }
+
         return SpecificationResult.Satisfied;
     }
 }
 ```
 
-`SpecificationResult` implicitly converts to `bool`. Three usage paths:
+`SpecificationResult` implicitly converts to `bool`. Three evaluation paths:
 
 ```csharp
-// Simple boolean check
+// 1. Boolean only
 if (!spec.IsSatisfiedBy(context)) return;
 
-// Rich errors
+// 2. Rich errors
 var result = spec.IsSatisfiedBy(context);
 if (!result) return result.Errors; // IReadOnlyList<Error>
 
-// Throw on failure
+// 3. Throw on failure
 if (!spec.TrySatisfyBy(this, out var specResult))
-{
     throw new ErrorBuilder()
         .WithCode("CannotChangeIssuer")
         .WithMessage("The issuer cannot be changed.")
         .WithSpecificationResult(specResult)
         .BuildValidationException();
-}
 ```
 
-Composition — operators map to their boolean counterparts:
+Composition:
 
 ```csharp
-// Fluent
 var spec = new OrderTotalGreaterThan(100)
     .And(new CustomerIsVip())
     .Or(new CustomerActiveYears(5));
 
-// & / | are greedy (collect errors from both sides)
-// && / || short-circuit when outcome is deterministic
+// & / |  — greedy: collect errors from both sides
+// && / || — short-circuit when outcome is deterministic
 ```
 
-Negation with a custom error:
-
 ```csharp
+// Negation with a custom error
 var notVip = new CustomerIsVip().Not(new ErrorBuilder()
     .WithCode("CustomerIsVip")
     .WithMessage("VIP customers are not eligible.")
     .Build());
-```
 
-Always-true / always-false guards:
-
-```csharp
+// Always-true / always-false guards
 var permissive = TautologySpecification<OrderContext>.Instance;
-var disabled = new ContradictionSpecification<OrderContext>(someError);
+var disabled   = new ContradictionSpecification<OrderContext>(someError);
 ```
 
 ### Error Handling
-
-Prefer `Result<T>` for expected business failures; throw exceptions when bubbling to HTTP handlers.
-
-Build errors fluently:
 
 ```csharp
 var error = new ErrorBuilder()
@@ -282,11 +245,10 @@ var error = new ErrorBuilder()
     .WithDetail("Year", year.ToString())
     .Build();
 
-// Convert to exceptions
 throw error.ToBusinessRuleException();
 ```
 
-When a resource is not found, throw `BusinessNotFoundException` — it is a subclass of `BusinessRuleException` and the web middleware maps it to **404 Not Found**:
+`BusinessNotFoundException` is a subclass of `BusinessRuleException`; throw it when a lookup yields nothing — the web middleware maps it to **404**:
 
 ```csharp
 var invoice = await repository.FindAsync(id)
@@ -296,65 +258,49 @@ var invoice = await repository.FindAsync(id)
 FluentValidation integration:
 
 ```csharp
-// Return error from validation
-if (new YourFluentValidator().Validate(obj).TryGetError(out var error))
+if (new YourValidator().Validate(obj).TryGetError(out var error))
     return error;
 
-// Throw business exception
-new YourFluentValidator().ValidateAndThrowBusiness(result);
+new YourValidator().ValidateAndThrowBusiness(obj);
 ```
 
 ### Mediator (CQRS)
 
-Define commands (state mutations) and queries (reads) as records:
-
 ```csharp
-// Command
 public record CreateInvoiceCommand(string CustomerName, decimal Total) : ICommand<InvoiceId>;
-
-// Query
 public record GetInvoiceQuery(InvoiceId Id) : IQuery<Invoice>;
 ```
-
-Handlers:
 
 ```csharp
 public class CreateInvoiceCommandHandler : ICommandHandler<CreateInvoiceCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(
-        CreateInvoiceCommand command,
-        CancellationToken cancellationToken)
+        CreateInvoiceCommand command, CancellationToken cancellationToken)
     {
-        // implementation
+        // ...
     }
 }
 ```
 
-Registration with pipelines:
-
 ```csharp
+// Registration
 builder.Services.AddMediator(config =>
 {
-    var integration = new LoggingPipelineIntegrator()
+    var pipeline = new LoggingPipelineIntegrator()
         .Merge<ValidationPipelineIntegrator>();
 
-    config.WithCommand<CreateInvoiceCommand, InvoiceId, CreateInvoiceCommandHandler>(integration);
-    config.WithQuery<GetInvoiceQuery, Invoice, GetInvoiceQueryHandler>(integration);
+    config.WithCommand<CreateInvoiceCommand, InvoiceId, CreateInvoiceCommandHandler>(pipeline);
+    config.WithQuery<GetInvoiceQuery, Invoice, GetInvoiceQueryHandler>(pipeline);
 });
-```
 
-Dispatch:
-
-```csharp
+// Dispatch
 var invoiceId = await mediator.SendCommand<CreateInvoiceCommand, InvoiceId>(
-    new CreateInvoiceCommand(customerName, total),
-    cancellationToken);
+    new CreateInvoiceCommand(customerName, total), cancellationToken);
 
 var invoice = await mediator.SendQuery<GetInvoiceQuery, Invoice>(
-    new GetInvoiceQuery(id),
-    cancellationToken);
+    new GetInvoiceQuery(id), cancellationToken);
 ```
 
 ## Reference
 
-See the [demo project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo) for full working examples — Models/, Requests/, Context/.
+[Demo project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo) — Models/, Requests/, Context/ for full working examples.

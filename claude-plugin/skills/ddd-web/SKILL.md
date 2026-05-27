@@ -2,27 +2,25 @@
 description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, validated options, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, reverse proxy, or HTTP client resilience.
 ---
 
-You are an expert in the **MartinDrozdik.DDD.Web** library. Help the user configure ASP.NET Core infrastructure using this specific library.
+You are an expert in the **MartinDrozdik.DDD.Web** library. Generate correct ASP.NET Core infrastructure setup using its specific APIs.
 
-## Library philosophy
-
-Everything is **optional and composable**. Use what helps, ignore the rest. The one-liner setup gives a production-ready baseline; individual extension methods let you pick exactly what you need.
-
-Install: `dotnet add package MartinDrozdik.DDD.Web`
-
-## User request
+## Request
 
 $ARGUMENTS
 
 ---
 
-## Quick start — bare minimum
+**Every module is optional.** `AddAppServices()` / `UseAppMiddlewares()` register all of them as a bundle; call individual extension methods to include only what you need.
 
-Two extension methods wire up logging, error handling, OpenAPI, health checks, OpenTelemetry, and HTTP resilience:
+Install: `dotnet add package MartinDrozdik.DDD.Web`
+
+---
+
+## Quick start
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
-builder.AddAppServices();
+builder.AddAppServices(); // logging, error handling, OpenAPI, health checks, OTEL, HTTP resilience
 
 var app = builder.Build();
 app.UseAppMiddlewares();
@@ -30,27 +28,27 @@ app.UseAppMiddlewares();
 await app.RunAsync();
 ```
 
-Turn off individual modules via options:
+Opt out of individual modules:
 
 ```csharp
-var options = MartinDrozdik.DDD.Web.WebApplicationOptions.Default with
+builder.AddAppServices(WebApplicationOptions.Default with
 {
     UseStaticFilePathProvider = false,
-};
-builder.AddAppServices(options);
+});
 ```
+
+---
 
 ## Modules
 
 ### Validated Options
 
-Fail fast on bad config. Implement `IValidatedAppOptions<T>` with a FluentValidation validator:
+Use `IValidatedAppOptions<T>` when options must be validated on startup (fail-fast). Use `IAppOptions` for options with no validation requirement.
 
 ```csharp
 public class InvoiceOptions : IValidatedAppOptions<InvoiceOptions>
 {
     public static string Section => "App:Invoice";
-
     public static AbstractValidator<InvoiceOptions> Validator { get; } = new OptionsValidator();
 
     public required int StartingId { get; init; }
@@ -66,11 +64,8 @@ public class InvoiceOptions : IValidatedAppOptions<InvoiceOptions>
     }
 }
 
-// Register:
 builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 ```
-
-For options that don't need validation, implement `IAppOptions`:
 
 ```csharp
 public class SimpleOptions : IAppOptions
@@ -84,7 +79,7 @@ builder.Services.AddAppOptions<SimpleOptions>();
 
 ### Error Handling
 
-Converts DDD exceptions to RFC 7807 HTTP responses automatically:
+Converts DDD exceptions to RFC 7807 HTTP responses. Domain layer throws; middleware translates. No HTTP concerns in business logic.
 
 | Exception | HTTP status |
 |---|---|
@@ -94,7 +89,7 @@ Converts DDD exceptions to RFC 7807 HTTP responses automatically:
 | `BusinessRuleException` | 500 Internal Server Error |
 | Anything else | 500 Internal Server Error |
 
-Development gets detailed error info; production gets clean, safe messages.
+Development responses include stack traces and details; production responses are clean and safe.
 
 ```csharp
 builder.Services.AddAppErrorHandling();
@@ -102,12 +97,9 @@ builder.Services.AddAppErrorHandling();
 app.UseExceptionHandler();
 ```
 
-Your domain layer throws; the middleware translates. No HTTP plumbing in business logic.
-
 ### EF Core / Database
 
 ```json
-// appsettings.json
 {
   "App": {
     "Database": {
@@ -118,32 +110,29 @@ Your domain layer throws; the middleware translates. No HTTP plumbing in busines
 ```
 
 ```csharp
-// Bind connection string from config automatically:
+// Auto-binds connection string from App:Database:ConnectionString
 builder.AddAppDbContext<YourDbContext>((options, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
 });
 
-// Or configure manually:
+// Manual configuration (no DatabaseOptions binding)
 builder.AddAppDbContext<YourDbContext>(dbBuilder =>
 {
     dbBuilder.UseSqlServer(connectionString);
 });
 ```
 
-Dev environment gets sensitive data logging and detailed errors; production does not.
-
-Ensure the database exists on startup:
+Dev: sensitive data logging + detailed errors. Production: neither.
 
 ```csharp
-await app.EnsureCreatedDatabaseAsync<YourDbContext>();
-// or run pending migrations:
-await app.MigrateDatabaseAsync<YourDbContext>();
+await app.EnsureCreatedDatabaseAsync<YourDbContext>(); // ensure DB exists
+await app.MigrateDatabaseAsync<YourDbContext>();        // run pending migrations
 ```
 
 ### DddDbContext
 
-Extended `DbContext` for DDD apps. Hooks fire around EF Core `SaveChanges`:
+Extend `DddDbContext` when you need lifecycle hooks on EF Core `SaveChanges`. Two overridable hooks: `OnAggregatesSave`, `OnDomainEntitiesSave`.
 
 ```csharp
 public class InvoiceDbContext(DbContextOptions options, TimeProvider timeProvider)
@@ -155,7 +144,6 @@ public class InvoiceDbContext(DbContextOptions options, TimeProvider timeProvide
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
 
-        // Add audit shadow properties to all aggregate roots
         foreach (var entityType in modelBuilder.Model.GetAggregateRoots())
         {
             modelBuilder.Entity(entityType.ClrType)
@@ -168,27 +156,24 @@ public class InvoiceDbContext(DbContextOptions options, TimeProvider timeProvide
         base.OnAggregatesSave(entityEntries);
         var now = timeProvider.GetUtcNow();
         foreach (var entry in entityEntries.Where(e => e.State == EntityState.Added))
-        {
             entry.Property(CreatedAtPropertyName).CurrentValue = now;
-        }
     }
 }
 ```
 
-Available hooks: `OnAggregatesSave`, `OnDomainEntitiesSave`.
-
 ### Health Checks
+
+Registers `/health/live` and `/health/ready` endpoints.
 
 ```csharp
 builder.AddAppHealthChecks();
 
-// With custom checks:
 builder.AddAppHealthChecks(checks =>
 {
     checks.AddDbContextCheck<YourDbContext>();
 });
 
-app.MapAppHealthChecks(); // registers /health/live and /health/ready
+app.MapAppHealthChecks();
 ```
 
 ### OpenTelemetry
@@ -197,7 +182,7 @@ app.MapAppHealthChecks(); // registers /health/live and /health/ready
 builder.AddAppOpenTelemetry();
 ```
 
-Configure export via environment variables (compatible with Aspire out of the box):
+Configure via environment variables (compatible with Aspire out of the box):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4317
@@ -205,37 +190,31 @@ OTEL_SERVICE_NAME=your-service
 OTEL_SERVICE_VERSION=1.0.0
 ```
 
-Health check requests are filtered from traces automatically.
+Health check requests are excluded from traces automatically.
 
 ### Reverse Proxy
 
-When running behind nginx, YARP, or similar:
-
 ```csharp
-app.IsBehindProxy(); // handles X-Forwarded-* headers
+app.IsBehindProxy(); // processes X-Forwarded-* headers (nginx, YARP, etc.)
 ```
 
 ### HTTP Client Resilience
 
 ```csharp
-builder.Services.AddHttpClientResilience();
+builder.Services.AddHttpClientResilience(); // default retry + timeout policies
 ```
-
-Applies default retry and timeout policies to all HTTP clients.
 
 ### Static File Path Provider
 
-Cache-busting query string versioning injected via `IStaticFilePathProvider`:
+Cache-busting via query string versioning. Inject `IStaticFilePathProvider`:
 
 ```csharp
-IStaticFilePathProvider provider; // inject
 provider.PathTo("app.js");
-// Dev:  "app.js?version=<unix-timestamp>"  (busts every request)
-// Prod: "app.js?version=1.2.3"             (busts on deploy)
+// Development: "app.js?version=<unix-timestamp>"  — busts on every request
+// Production:  "app.js?version=1.2.3"             — busts on deploy
 ```
 
 ```json
-// appsettings.json
 {
   "App": {
     "StaticFileVersioning": { "Version": "1.2.3" }
@@ -245,4 +224,4 @@ provider.PathTo("app.js");
 
 ## Reference
 
-See the [demo project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo) — Program.cs for full wiring, Context/ for DddDbContext examples.
+[Demo project](https://github.com/drozdik-m/domain-driven-design/tree/main/src/MartinDrozdik.DDD.Demo) — Program.cs for full startup wiring, Context/ for DddDbContext examples.
