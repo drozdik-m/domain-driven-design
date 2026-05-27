@@ -16,19 +16,19 @@ Skills also trigger automatically when Claude detects you are working with these
 
 ### 1. Add this repository as a marketplace
 
-```
-/plugin marketplace add drozdik-m/domain-driven-design
+``` bash
+/plugin marketplace add drozdik-m/domain-driven-design/claude-plugin
 ```
 
 ### 2. Install the plugin
 
-```
+``` bash
 /plugin install martin-drozdik-ddd@domain-driven-design
 ```
 
 ### 3. Verify
 
-```
+```bash
 /martin-drozdik-ddd:ddd
 /martin-drozdik-ddd:ddd-web
 /martin-drozdik-ddd:ddd-testing
@@ -38,7 +38,7 @@ Skills also trigger automatically when Claude detects you are working with these
 
 Invoke a skill directly with an optional request:
 
-```
+```bash
 /martin-drozdik-ddd:ddd create an Invoice aggregate with a strongly-typed ID and state enumeration
 /martin-drozdik-ddd:ddd-web set up EF Core with DddDbContext and audit timestamps
 /martin-drozdik-ddd:ddd-testing write smoke tests and an EF Core integration test for InvoiceDbContext
