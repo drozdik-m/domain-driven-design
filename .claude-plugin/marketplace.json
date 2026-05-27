@@ -1,4 +1,9 @@
 {
+  "name": "MartinDrozdik.DDD",
+  "owner": {
+    "name": "Martin Drozdík",
+    "url": "https://github.com/drozdik-m"
+  },
   "plugins": [
     {
       "name": "martin-drozdik-ddd",
