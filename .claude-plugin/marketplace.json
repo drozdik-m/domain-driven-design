@@ -5,7 +5,8 @@
       "description": "DDD building blocks: ValueObject, Entity, AggregateRoot, Identities, Enumerations, Specifications, error handling, and CQRS Mediator",
       "source": {
         "source": "github",
-        "repo": "drozdik-m/domain-driven-design/claude"
+        "repo": "https://github.com/drozdik-m/domain-driven-design",
+        "path": "claude"
       }
     }
   ]
