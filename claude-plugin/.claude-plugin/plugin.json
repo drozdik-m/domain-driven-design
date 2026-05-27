@@ -1,0 +1,11 @@
+{
+  "name": "martin-drozdik-ddd",
+  "description": "Skills for MartinDrozdik.DDD and its optional extensions — MartinDrozdik.DDD.Web (ASP.NET Core infrastructure: error handling, OpenTelemetry, health checks, EF Core setup) and MartinDrozdik.DDD.Testing (integration test helpers: TestedApp, smoke tests, EF Core assertions)",
+  "version": "0.7.0",
+  "author": {
+    "name": "Martin Drozdík"
+  },
+  "homepage": "https://github.com/drozdik-m/domain-driven-design",
+  "repository": "https://github.com/drozdik-m/domain-driven-design",
+  "license": "MIT"
+}
