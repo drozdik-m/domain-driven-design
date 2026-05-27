@@ -17,13 +17,8 @@ Skills also trigger automatically when Claude detects you are working with these
 ### 1. Add this repository as a marketplace
 
 ```
-/plugin marketplace add drozdik-m/domain-driven-design/claude-plugin
+/plugin marketplace add drozdik-m/domain-driven-design
 ```
-
-> If your Claude Code version does not support subdirectory paths, clone the repo and use a local path instead:
-> ```
-> /plugin marketplace add ./path/to/domain-driven-design/claude-plugin
-> ```
 
 ### 2. Install the plugin
 
