@@ -17,13 +17,13 @@ Skills also trigger automatically when Claude detects you are working with these
 ### 1. Add this repository as a marketplace
 
 ``` bash
-/plugin marketplace add drozdik-m/domain-driven-design/claude-plugin
+/plugin marketplace add https://github.com/drozdik-m/domain-driven-design
 ```
 
 ### 2. Install the plugin
 
 ``` bash
-/plugin install martin-drozdik-ddd@domain-driven-design
+/plugin install martin-drozdik-ddd@MartinDrozdik.DDD
 ```
 
 ### 3. Verify
