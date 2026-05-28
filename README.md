@@ -91,6 +91,8 @@ Install inside Claude Code:
 
 Check out [very nice Claude README.md](./claude/README.md) for further reading.
 
+![Claude Logo](./docs/claude-logo.png)
+
 ## MartinDrozdik.DDD.Demo
 
 [![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
