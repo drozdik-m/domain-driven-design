@@ -42,7 +42,7 @@ await app.RunAsync();
 
 Done. You've got a production-ready baseline. Now go build your actual features.
 
-You want to use **Apire**? We got you fam! The OTEL works with Apire out of the box.
+You want to use **Aspire**? We got you fam! The OTEL works with Aspire out of the box.
 
 ## All-in-One Setup
 
@@ -122,6 +122,7 @@ Automatic conversion of DDD exceptions to HTTP responses:
 
 - `BusinessRuleValidationException` → 400 Bad Request
 - `ValidationException` (FluentValidation) → 400 Bad Request
+- `BusinessNotFoundException` → 404 Not Found
 - `BusinessRuleException` → 500 Internal Server Error (with business details)
 - Anything else → 500 Internal Server Error
 

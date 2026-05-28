@@ -23,7 +23,7 @@ dotnet add package MartinDrozdik.DDD
 - **Explicit over implicit** - Code should be obvious, not something you need to explain in a meeting
 - **Fewer layers, sharper boundaries** – Layers exist to solve problems, not to satisfy diagrams or blog posts
 - **Type safety** - Compiler errors > Runtime errors (reflection is for edge cases, not architecture)
-- **Fail fast** - Built with validation and error hadling in mind
+- **Fail fast** - Built with validation and error handling in mind
 
 *Use the parts that help. Ignore the rest. Good luck.*
 
@@ -83,15 +83,15 @@ public class InvoiceNumber : ValueObject
 Compared by identity, not value. Just implement the marker interface and you're good to go:
 
 ```csharp
-public class Person : IDomainEntity<Guid> // or IAggregateRoot<Guid>
+public class Person : IDomainEntity<PersonId> // or IAggregateRoot<PersonId>
 {
-    private Person(Guid id, string fullName)
+    private Person(PersonId id, string fullName)
     {
         Id = id;
         FullName = fullName;
     }
 
-    public Guid Id { get; }
+    public PersonId Id { get; }
     public string FullName { get; }
 
     public static Person Create(string fullName)

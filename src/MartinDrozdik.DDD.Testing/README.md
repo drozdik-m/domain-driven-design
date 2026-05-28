@@ -31,9 +31,9 @@ Spin up your app in memory, make requests, assert things. Zero extra ceremony:
 
 ```csharp
 // 1. Subclass the builder for your Program.cs (once, in your test project)
-public class MyAppBuilder(ITestOutputHelper output) : TestedAppBuilder<Program>(output)
+public class MyAppBuilder : TestedAppBuilder<Program>
 {
-    MyAppBuilder(ITestOutputHelper output) : base(output)
+    public MyAppBuilder(ITestOutputHelper output) : base(output)
     {
         // Add more configuration here
         // Or leave it empty. Nobody's judging.
@@ -88,7 +88,7 @@ Build it with the fluent `TestedAppBuilder<TProgram>`:
 
 ```csharp
 var app = new MyAppBuilder(output)
-    .WithConfig(builder => builder.UseSetting("SomeSetting", "SomeValue"))
+    .With(builder => builder.UseSetting("SomeSetting", "SomeValue"))
     .WithOption<DatabaseOptions>(o => o.ConnectionString, "Data Source=:memory:")
     .WithServices(services => services.AddSingleton<IMyService, MockMyService>())
     .WithEndpoints(endpoints => endpoints.MapGet("/test-only-route", () => "hello"))
