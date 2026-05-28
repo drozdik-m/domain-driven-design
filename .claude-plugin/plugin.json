@@ -1,7 +1,7 @@
 {
   "name": "martin-drozdik-ddd",
   "version": "0.7.0",
-  "description": "Skills for MartinDrozdik.DDD containing DDD building blocks and its optional extensions — MartinDrozdik.DDD.Web (ASP.NET Core infrastructure: error handling, OpenTelemetry, health checks, EF Core setup) and MartinDrozdik.DDD.Testing (integration test helpers: TestedApp, smoke tests, EF Core assertions)",
+  "description": "Claude Code skills for the MartinDrozdik.DDD library family — core DDD primitives, ASP.NET Core infrastructure, and integration test helpers.",
   "author": {
     "name": "Martin Drozdík",
     "url": "https://github.com/drozdik-m"
