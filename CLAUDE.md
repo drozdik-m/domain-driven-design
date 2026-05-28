@@ -69,6 +69,7 @@ Entry point is two extension methods: `AddAppServices()` and `UseAppMiddlewares(
 ## Demo as reference
 
 When looking for usage examples, check `src/MartinDrozdik.DDD.Demo/`:
+
 - `Models/` — Aggregate, Entity, ValueObject, Enumeration examples
 - `Requests/` — Command/Query handlers
 - `Context/` — EF Core setup with strongly-typed ID converters
