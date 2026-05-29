@@ -91,7 +91,7 @@ Install inside Claude Code:
 
 Check out [very nice Claude README.md](./claude/README.md) for further reading.
 
-![Claude Logo](./docs/claude-logo.png)
+[![Claude Logo](./docs/claude-logo.png)](./claude/README.md)
 
 ## MartinDrozdik.DDD.Demo
 

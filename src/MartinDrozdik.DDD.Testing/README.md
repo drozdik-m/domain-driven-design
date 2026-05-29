@@ -15,6 +15,8 @@ dotnet add package xunit.v3
 dotnet add package MartinDrozdik.DDD.Testing
 ```
 
+Also check this repos' [DDD Claude Code plugin](../../claude/README.md) for better AI code generation.
+
 ## Philosophy
 
 - **Write tests, not test infrastructure** - Stop copy-pasting the same `WebApplicationFactory` boilerplate across every project.

@@ -16,6 +16,8 @@ dotnet add package MartinDrozdik.DDD
 
 *duh...*
 
+Also check this repos' [DDD Claude Code plugin](../../claude/README.md) for better AI code generation.
+
 ## Philosophy
 
 - **Pragmatic over purist** - Use what makes sense, ignore what doesn't

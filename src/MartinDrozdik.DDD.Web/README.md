@@ -14,6 +14,8 @@ Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](../MartinDr
 dotnet add package MartinDrozdik.DDD.Web
 ```
 
+Also check this repos' [DDD Claude Code plugin](../../claude/README.md) for better AI code generation.
+
 ## Philosophy
 
 **Same as the [core DDD library](../MartinDrozdik.DDD).**
