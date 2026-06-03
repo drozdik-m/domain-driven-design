@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Planned improvements, known bugs, and open questions are tracked per package in [ROADMAP.md](./ROADMAP.md). Consult and update it when working on review findings.
+
 ## Build & Test
 
 Solution file: `src/MartinDrozdik.DDD.slnx` (modern `.slnx` format, requires VS 2022+ or .NET 10 CLI).
