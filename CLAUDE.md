@@ -4,6 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Planned improvements, known bugs, and open questions are tracked per package in [ROADMAP.md](./ROADMAP.md). Consult and update it when working on review findings.
 
+## Code reviews & ROADMAP
+
+[ROADMAP.md](./ROADMAP.md) is the single source of truth for review findings. It has one chapter per NuGet package (`MartinDrozdik.DDD`, `MartinDrozdik.DDD.Web`, `MartinDrozdik.DDD.Testing`), each split into categories: **Bugs**, **Design**, **Dependency issues**, **NuGet split**, **Minor**, **Tests**, and a **Notes (keep doing)** list.
+
+When **doing a code review** of a package:
+
+- Review code detail *and* overall cohesive design / alignment with DDD ideas. Consult `README.md`, the package's own `README.md`, and the `src/MartinDrozdik.DDD.Demo/` reference app for intended usage.
+- Record findings as checklist items under the matching package chapter and category. Each item: a **bold one-line title**, then the specifics with `file:line` references and a suggested fix. Add wins to **Notes (keep doing)**.
+
+When **fixing a ROADMAP item**:
+
+- Implement the fix, add/adjust a test that guards against regression where it makes sense, and run the relevant tests.
+- **Closing an item is just ticking its checkbox** — change `- [ ]` to `- [x]` in ROADMAP.md (optionally append a short `**Fixed:** …` note). Do not delete the item.
+
 ## Build & Test
 
 Solution file: `src/MartinDrozdik.DDD.slnx` (modern `.slnx` format, requires VS 2022+ or .NET 10 CLI).

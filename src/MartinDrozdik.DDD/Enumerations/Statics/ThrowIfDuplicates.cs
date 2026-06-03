@@ -29,7 +29,7 @@ internal static partial class EnumerationMembers
         }
 
         // Duplicates found
-        var duplicatesCount = duplicates.Select(e => (e.First(), e.Count()));
-        throw new ArgumentException($"Found {duplicatesCount} duplicate enumeration members.");
+        var offending = string.Join(", ", duplicates.Select(e => $"{e.Key} (x{e.Count()})"));
+        throw new ArgumentException($"Found {duplicates.Count} duplicate enumeration member(s): {offending}.");
     }
 }

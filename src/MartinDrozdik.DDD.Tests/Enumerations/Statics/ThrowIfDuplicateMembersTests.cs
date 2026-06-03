@@ -22,8 +22,13 @@ public class ThrowIfDuplicateMembersTests
         // Arrange
         List<TestEnum> values = [TestEnum.Value1, TestEnum.DuplicateValue1, TestEnum.Value2];
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => values.ThrowIfDuplicateMembers());
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => values.ThrowIfDuplicateMembers());
+
+        // Assert
+        Assert.Contains("1 duplicate", exception.Message);
+        Assert.Contains(nameof(TestEnum.Value1), exception.Message);
+        Assert.Contains("x2", exception.Message);
     }
 
     private class TestEnum : StaticEnumeration<TestEnum>
