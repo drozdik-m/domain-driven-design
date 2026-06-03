@@ -7,6 +7,8 @@ This repository contains a set of libraries that provide NuGet packages for Doma
 
 *Setup your maintainable .NET website project today!*
 
+See the [ROADMAP.md](./ROADMAP.md) for planned improvements, fixes, and open questions per package.
+
 ## MartinDrozdik.DDD
 
 [![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD?style=flat-square&logo=nuget&label=MartinDrozdik.DDD)](https://www.nuget.org/packages/MartinDrozdik.DDD)
