@@ -6,7 +6,7 @@ Tracked improvements, fixes, and open questions per package. Findings are groupe
 
 ## MartinDrozdik.DDD
 
-Core DDD primitives. Reviewed (excluding `Mediator`).
+Core DDD primitives. Reviewed (including `Mediator`).
 
 ### Bugs
 
@@ -44,36 +44,128 @@ Core DDD primitives. Reviewed (excluding `Mediator`).
 - Specifications module is excellent: clean composition, deferred allocations (`errors ??= []`), correct AND/OR short-circuit semantics.
 - `ErrorBuilder` fluent API with fail-fast guards; correct, bounds-safe span/stackalloc usage; immutable `record` `UrlBuilder` with invariant checks; consistent file-scoped namespaces, thorough XML docs, `DebuggerDisplay`.
 
+### Mediator
+
+CQRS mediator (`Mediator/`): marker interfaces (`IMessage`/`IRequest`/`ICommand`/`IQuery`), `ServiceMediator`, DI registration (`AddMediator` → `ServiceMediatorConfig`), composable pipeline behaviors, and the `IServicePipelineIntegrator` extensibility point (`ValidationPipelineIntegrator` here, `LoggingPipelineIntegrator` in `.Web`). Reviewed against the Demo (`InvoiceController`, `Requests/Invoices/*`) and README usage.
+
+#### Bugs
+
+- [ ] **`IMediator.SendCommand<TRequest>` param doc is wrong** — `Mediator/IMediator.cs:37` documents `<param name="request">Type of the response.</param>`; it's the request, not "the response" (copy-paste from the response typeparam). Fix the summary.
+- [ ] **Validation pipeline throws synchronously instead of returning a faulted task** — `ValidationPipeline<TRequest>` / `<TRequest,TOutput>` (`Pipelines/Validations/…`) call `ThrowIfInvalid(input)` from a non-`async` `HandleAsync`, so the `BusinessRuleValidationException` is thrown on the *calling* thread before a `Task` is returned. When validation is the outermost behavior (no wrapping behavior), a caller that does `var t = SendCommand(...)` then `await t` gets the throw at call time, not await time — violating Task exception semantics. Inside another behavior it's masked because `await next(ct)` re-wraps it. Make `HandleAsync` `async`, or return `Task.FromException`.
+
+#### Design
+
+- [ ] **`IValidatedMessage<TMessage>` forces the request to own its validator and bypasses DI** — `Pipelines/Validations/IValidatedMessage.cs` requires the message to expose `AbstractValidator<TMessage> Validator { get; }`, so the message must construct its own validator (the Demo/tests do `=> new XValidator()` on every access). Validators with dependencies (e.g. a DB uniqueness check) can't be resolved from the container. Prefer resolving `IValidator<TMessage>` from the `IServiceProvider` inside the pipeline (FluentValidation's idiomatic registration) rather than carrying it on the request. Also couples application requests directly to FluentValidation.
+- [ ] **Validator property typed as concrete `AbstractValidator<T>` not `IValidator<T>`** — `IValidatedMessage.cs:14` — using the concrete base prevents composed/decorated/wrapped validators. Type it as `IValidator<TMessage>`.
+- [ ] **Validation is sync-only** — `ValidationPipeline<TRequest>.ThrowIfInvalid` calls `validator.Validate(...)`; any async rule (`MustAsync`/`CustomAsync`) throws `AsyncValidatorInvokedSynchronouslyException` at runtime. The rest of the codebase already exposes `ValidateAndThrowBusinessAsync`. Add an async validation path (`await validator.ValidateAsync(..., ct)`).
+- [ ] **`IMediator` methods lack the `Async` suffix** — `SendQuery`/`SendCommand` return `Task` but aren't `…Async`, unlike `HandleAsync` everywhere else in the codebase. Inconsistent naming convention.
+- [ ] **Dispatch is by compile-time `TRequest`, no polymorphic send** — callers must name the concrete request type (`SendCommand<CreateInvoiceDraftCommand, InvoiceId>`); you can't dispatch from an `IRequest<T>`/`ICommand<T>` reference and have the handler resolved by runtime type (MediatR-style `Send(IRequest<T>)`). Reasonable as a deliberate trade-off, but document it — passing a base type silently resolves the wrong (or no) handler.
+- [ ] **Three pipeline builders, two ordering mechanisms** — `PipelineBuilder<TInput,TOutput>.Add` appends and `Build()` does `.Reverse()` (`Pipelines/PipelineBuilder.cs:36`); both `ServicePipelineBuilder<>`/`<,>` instead `Insert(0)` in `Add` and **don't** reverse in `Build`. Same net order, but two strategies for one concept is confusing — and `ServicePipelineBuilder<TInput>.Build` names its local `reversedPipelines` (`ServicePipelineBuilder{TInput}.cs:57`) although nothing is reversed (misleading; the `<,>` variant correctly calls it `pipelines`). Pick one mechanism and align the naming.
+- [ ] **Builder asymmetry / dead API** — there is an instance-based `PipelineBuilder<TInput,TOutput>` but no `PipelineBuilder<TInput>` for unit commands, and the instance-based builder appears unused (only the `ServicePipelineBuilder` variants are wired through `ServiceMediatorConfig`/integrators). Either complete the symmetry or drop the unused instance builder.
+- [ ] **Redundant/inconsistent `abstract` on interface members** — `IServicePipelineIntegrator` marks the `Build…Pipeline` methods `public abstract` but the `Register…Pipeline` methods just `public` (`Integrators/IServicePipelineIntegrator.cs`). Interface methods are implicitly abstract; drop the modifier for consistency.
+
+#### Tests
+
+- [ ] **Integrator path is untested** — `ValidationPipelineIntegrator`, `EmptyPipelineIntegrator`, `MergedPipelineIntegrator`, and the `ServiceMediatorConfig.WithCommand/WithQuery(IServicePipelineIntegrator)` overloads have no coverage. `ServiceCollectionExtensionsTests` only exercises the manual `ServicePipelineBuilder` overloads; the merged Logging+Validation flow shown in the README/Demo is never integration-tested end-to-end through `ServiceMediator`.
+- [ ] **No test that a missing handler throws `MediatorException`** — the `?? throw new MediatorException(...)` branches in `ServiceMediator` (all three send methods) are uncovered.
+- [ ] **Ordering tests don't pin execution order** — `PipelineTests` record into the call stack *after* awaiting `next` (post-order), so they pass for either inner/outer arrangement; add a pre-`next` ordering assertion to actually guard behavior order.
+- [ ] **Cancellation branch untested** — the `IsCancellationRequested` → `Task.FromCanceled` short-circuit in `Pipeline<TInput>`/`Pipeline<TInput,TOutput>` has no test.
+
+#### Minor
+
+- [ ] **Imprecise diagnostics in exception messages** — `ServiceMediator` uses `typeof(TRequest).Name` (ambiguous across namespaces) and `nameof(IQueryHandler<TRequest,TResponse>)` which drops the generic args (renders just `IQueryHandler`). Consider `FullName` / a formatted closed-generic name.
+- [ ] **Stray `code-dump/ServiceMediatorConfig.cs`** — a copy of the config lives outside `src/`; remove if it's leftover scratch (repo hygiene).
+
+#### Notes (keep doing)
+
+- Clean marker-interface hierarchy with correct variance: `IRequest<out TResponse>`, `ICommand<out TResponse>`, `in TCommand`/`in TQuery` on handlers.
+- `EmptyPipeline<…>` singletons avoid allocation/branching when no behaviors are registered; per-behavior cancellation checks between steps.
+- Integrator + `Merge` composition is a genuinely nice, open/closed extension point — `.Web`'s `LoggingPipelineIntegrator` extends the core pipeline story without touching core, and `MergedPipelineIntegrator` flattens nested merges.
+- Thorough XML docs, file-scoped namespaces, `nameof` in messages, and DI lifetimes (`Scoped` handlers/pipelines, singleton empty pipeline) are all consistent.
+
 ---
 
 ## MartinDrozdik.DDD.Web
 
-ASP.NET Core infrastructure. _Not yet reviewed._
+ASP.NET Core infrastructure. Reviewed folder-by-folder (`Options`, `Middlewares` + `Middlewares/Exceptions`, `Databases`, `Health`, `Telemetry`, `Resilience`, `OpenApi`, `Logging`, `FilePathProviders`, `Proxy`, `Environments`, `Mediator/Pipelines/Logging`) against the README and the Demo `Program.cs`.
 
 ### Bugs
 
+- [ ] **Production `RequestLogging` ships under a `.Tests.` namespace** — `Middlewares/RequestLogging.cs:5` declares `namespace MartinDrozdik.DDD.Web.Tests.Middlewares` even though it's a `public` type in the shipping package, used by all four exception handlers and `RequestResponseLoggingMiddleware`. Consumers must `using MartinDrozdik.DDD.Web.Tests.Middlewares`, and it collides with the real test project's `MartinDrozdik.DDD.Web.Tests.*` root. Move it to `MartinDrozdik.DDD.Web.Middlewares` (update the 5 importers).
+- [ ] **Health-check request timeout is never enforced** — `Health/HostApplicationBuilderExtensions.cs` registers a `"HealthChecks"` timeout policy and `Health/WebApplicationExtensions.cs` tags the endpoints with `WithRequestTimeout("HealthChecks")`, but `UseAppMiddlewares` (`WebApplicationExtensions.cs:33`) never calls `app.UseRequestTimeouts()`. Without that middleware the timeout metadata is inert — health endpoints can still hang. Add `app.UseRequestTimeouts()` before the health mapping (or drop the dead config).
+- [ ] **`AddAppDbContext(DatabaseOptions, …)` builds a throwaway `ServiceProvider`** — `Databases/HostApplicationBuilderExtensions.cs:58` does `builder.Services.BuildServiceProvider().GetRequiredService<IOptions<DatabaseOptions>>()` at registration time: the documented ASP.NET anti-pattern. It spins up a second container, duplicates singletons, captures a one-shot options snapshot, and forces binding/validation before the rest of registration and outside `ValidateOnStart`. Bind directly via `builder.Configuration.GetRequiredValidatedOptions<DatabaseOptions>()` (the helper already exists in `Options/ConfigurationManagerExtensions.cs`).
+
 ### Design
+
+- [ ] **`GlobalExceptionHandler` leaks `exception.Message` to clients in every environment** — `Middlewares/Exceptions/GlobalExceptionHandler.cs:25` sets `detail: GetExceptionDetail(exception)` (= raw `exception.Message`) on the catch-all 500 ProblemDetails regardless of environment, while `GetExtensionDataWithDetails` is careful to gate the full `exception.ToString()` to Development only. The README promises "clean and safe error messages" in production; a raw catch-all message can disclose internals (DB/driver text, file paths). Return a generic detail in production, detailed only in Development.
+- [ ] **4xx client errors logged at `Error` level** — every handler (`BusinessRuleValidationException`/`ValidationException` → 400, `BusinessNotFoundException` → 404) calls `RequestLogging.LogError`, which is `[LoggerMessage(Level = LogLevel.Error)]`. Client faults will spam error logs and trip alerting. Log 4xx at `Warning`/`Information`. Also inconsistent with `RequestResponseLoggingMiddleware`, which treats a bare 404 as *success*.
+- [ ] **Exceptions are error-logged twice** — in `UseAppMiddlewares`, `RequestResponseLoggingMiddleware` is registered *after* `UseExceptionHandler`, so it sits downstream of the exception handler. A thrown exception is logged once by the middleware's `catch` (then rethrown) and again by the matched `IExceptionHandler`. Pick a single place to log.
+- [ ] **Validated-options `Validator` typed as concrete `AbstractValidator<T>`** — `Options/IValidatedAppOptions.cs:15` (and the `DatabaseOptions`/`StaticFileVersioningOptions` implementations) expose `AbstractValidator<T>` rather than `IValidator<T>`, preventing composed/decorated validators. Same finding as the Mediator `IValidatedMessage` one — worth fixing consistently.
+- [ ] **`IsBehindProxy()` enables `ForwardedHeaders.All` with no trusted-proxy config** — `Proxy/WebApplicationExtensions.cs:21` forwards *all* headers (including `X-Forwarded-Host`) without setting `KnownProxies`/`KnownNetworks`. Same-host loopback proxies are saved by the framework defaults, but the one-liner invites host-header/IP spoofing with an off-box proxy. Default to `XForwardedFor | XForwardedProto` and document trusted-proxy setup.
 
 ### Dependency issues
 
 ### NuGet split
 
 ### Minor
+
+- [ ] **Static file provider forces a `Version` even in Development** — `FilePathProviders/HostApplicationBuilderExtensions.cs:22` calls `AddValidatedAppOptions<StaticFileVersioningOptions>()` unconditionally (with `ValidateOnStart`), but Development resolves `TimestampedStaticFilePathProvider`, which never reads `Version`. Dev startup then fails unless an unused `App:StaticFileVersioning:Version` is configured. Register/validate the options only on the production branch.
+- [ ] **Health-check timeout comment/code drift** — `Health/HostApplicationBuilderExtensions.cs` comment says "10 seconds is reasonable" but the policy is `TimeSpan.FromSeconds(5)`.
+- [ ] **README ↔ API drift** — README shows `app.MigrateDatabaseAsync<T>()` but the method is `EnsureMigratedDatabaseAsync<T>`; the "Mediator" README section is really request/response logging; and `AddAppErrorHandling`'s doc lists `BusinessRuleException` as if it had a dedicated handler — it's actually covered by `GlobalExceptionHandler` (fine, but the list implies otherwise).
+- [ ] **Misleading comment in `CustomSchemaIds`** — `OpenApi/OpenApiExtensions.cs:29-30` skips schemas lacking `x-schema-id`, but the comment claims it's "because we don't want to decorate the schema multiple times"; the real reason is "only rename schemas that became named components."
+- [ ] **`IStaticFilePathProvider` doc typos** — summary says "intefrace" and advertises "method overloads for RazorClassLibrary resources" that don't exist on the interface.
+
+### Notes (keep doing)
+
+- Clean split of `AddAppServices` (host builder) vs `UseAppMiddlewares` (app), everything optional behind a `WebApplicationOptions.Default` record; individual module extensions are independently usable.
+- `IExceptionHandler` chain ordered specific→general with `GlobalExceptionHandler` last, mapping DDD exceptions to RFC 7807 ProblemDetails; `traceId` surfaced in extensions; full exception detail gated to Development.
+- Health endpoints correctly split into `live`/`ready`/all by tag with proper probe semantics; OpenTelemetry filters health-check requests out of traces and honors `OTEL_*` env vars.
+- `DddDbContext` hooks (`OnAggregatesSave`/`OnDomainEntitiesSave`/`OnObjectsSave`) are wired through every `SaveChanges`/`SaveChangesAsync` overload; `IValidatedAppOptions` gives fail-fast config with `ValidateOnStart` and strict binding (`ErrorOnUnknownConfiguration = true`).
+- `TimeProvider`-based cache-busting in `TimestampedStaticFilePathProvider` (testable); consistent file-scoped namespaces and thorough XML docs throughout.
 
 ---
 
 ## MartinDrozdik.DDD.Testing
 
-xUnit test helpers. _Not yet reviewed._
+xUnit v3 test helpers. Reviewed folder-by-folder (`TestedApp*`/`ITestedApp`/`TestedAppExtensions`, `ResultAssert`, `EqualityAssert`, `Attributes`, `Smoke`, `Errors`, `Contexts`) against the package README.
 
 ### Bugs
 
+- [ ] **Environment setter is misnamed `WithOutput(string)`; the documented `WithEnvironment` doesn't exist** — `TestedAppBuilder.cs:37` declares `WithOutput(string newEnvironment)` that sets `_environment`, overloading the real `WithOutput(ITestOutputHelper)`. The README (lines 98, 110) calls `.WithEnvironment(...)`, which won't compile. Rename the string overload to `WithEnvironment` and keep `WithOutput` for the helper.
+- [ ] **`EndpointTest.WithAcceptableCodes` silently drops `Content` and `ContentType`** — `Smoke/EndpointTest.cs:56-62` builds `new EndpointTest(Method, Url) { AcceptableCodes = … }` without copying `Content`/`ContentType`, so a body set before `WithAcceptableCodes(...)` is lost. Copy all properties.
+- [ ] **`EndpointSmokeTester` ignores `EndpointTest.ContentType`** — `Smoke/EndpointSmokeTester.cs:30-33` hardcodes `MediaTypeNames.Application.Json` for the request body instead of `testCase.ContentType`, so the configurable property has no effect.
+- [ ] **`RequestResult<T>.IsSuccess` is always `true` for value-type `T`** — `TestedAppExtensions.cs:208` uses `IsSuccess => _value is not null`. For a value-type `TResponse` (`int`, enum, record struct), the unconstrained `T? _value` is never null, so `Failure(...)` reports success and `Value` returns `default`. Track success explicitly (store the bool or the status code).
+
 ### Design
 
+- [ ] **`EqualityAssert.TestEqualityComparer` asserts hash codes differ for unequal values** — `EqualityAssert.cs:81` `Assert.NotEqual(comparer.GetHashCode(value1), comparer.GetHashCode(differentValue))`. Distinct hashes for unequal values is *not* part of the `GetHashCode` contract (collisions are legal); a correct type with a colliding sample fails spuriously. Drop the assertion or document it as a heuristic.
+- [ ] **`EqualityAssert` "null" checks actually compare to `default(T)`** — `TestEquatable`/`TestEqualityOperators`/`TestEqualityComparer` pass `default` with messages saying "compared to null". For a value-type `T`, `default` is a real value, so `value1 != default` may be wrong and the messages mislead. Constrain the null-semantics helpers to `where T : class` (or split value/reference variants).
+- [ ] **`SqlDbContextIntegrationTests` bundles migration checks with mapping checks** — `Contexts/SqlDbContextIntegrationTests.cs:92` `No_pending_migrations` calls `GetPendingMigrations()`, which fails for apps that create their schema via `EnsureCreated` (no migrations assembly) — like the Demo. Split migration-specific tests into an opt-in base class or guard them.
+- [ ] **`Entity_can_be_queried_from_database` ends with `Assert.True(true)`** — `Contexts/SqlDbContextIntegrationTests.cs:85` the real check is "no exception thrown"; the tautology is a smell (and is exactly the S2699 that `[AssertionMethod]` was introduced to suppress elsewhere). Mark the method `[AssertionMethod]` and drop the no-op, or assert something concrete.
+- [ ] **`ErrorHandlingTests` bakes in the production message leak** — `Errors/ErrorHandlingTests.cs:48,114` assert `problemDetails.Detail == "This is a general exception"` *unconditionally* (only the `exception` extension is environment-gated). This locks in the `GlobalExceptionHandler` behavior flagged in the Web review (raw `exception.Message` returned in all environments); fixing that Web bug requires updating these base tests.
+
 ### Dependency issues
+
+- [ ] **Test-helper package forces heavy/opinionated deps on every consumer** — `MartinDrozdik.DDD.Testing.csproj` pulls `YamlDotNet` (only for optional YAML OpenAPI validation), `FluentValidation`, `CSharpFunctionalExtensions` (transitively, surfaced through `ResultAssert`), and hard-locks to **xUnit v3** (`xunit.v3.*`, `MartinCostello.Logging.XUnit.v3`, `Mvc.Testing`). Anyone referencing the package inherits all of it. Consider gating YAML validation behind a separate package/extension and documenting the xUnit-v3-only constraint.
+- [ ] **Version skew: Testing `0.7.1.1` pins `MartinDrozdik.DDD.Web` `0.7.0`** — the helper ships newer than the Web package it builds on, so consumers may not pick up the latest Web fixes through this dependency. Keep the referenced version in lockstep.
 
 ### NuGet split
 
 ### Minor
 
+- [ ] **`async` methods without `await` in `ErrorEndpoints`** — `Errors/ErrorEndpoints.cs:63,68` `GetException`/`GetBusinessNotFound` are `async Task<string>` with no `await` (CS1998) and inconsistent with the sibling sync throwers. Make them synchronous.
+- [ ] **`Health_endpoint_returns_healthy` reads the body twice and over-asserts** — `Smoke/WebApplicationSmokeTests.cs:70,74` reads the content twice and asserts an exact `"Healthy"` / `text/plain` body, which breaks if the app customizes the health writer. De-dup the read; consider relaxing.
+- [ ] **Typo `AssertSensityHeaderNotPresent`** — `Smoke/WebApplicationSmokeTests.cs:108` (should be "Sensitive").
+- [ ] **Leftover empty-folder include** — `<Folder Include="Errors\" />` in the csproj is unnecessary now that `Errors/` has files.
+- [ ] **Shared mutable builder risk** — `WebApplicationSmokeTests.All_services_are_valid` calls `factoryBuilder.With(...)`, mutating the injected builder. Safe under xUnit's per-test instantiation, but a consumer sharing the builder via a fixture would leak `ValidateScopes`/`ValidateOnBuild` into sibling tests. Build from a copy.
+
 ### Tests
+
+- [ ] **The helpers themselves are largely unverified** — `EqualityAssert`, `ResultAssert`, `RequestResult<T>`, and `EndpointTest` serialization/`WithAcceptableCodes` have no unit tests in `MartinDrozdik.DDD.Testing.Tests` (would have caught the value-type `IsSuccess` and `WithAcceptableCodes` bugs above). Add self-tests for the assertion/result utilities.
+
+### Notes (keep doing)
+
+- `TestedApp`/`TestedAppBuilder` is a clean fluent wrapper over `WebApplicationFactory`: xUnit output logging, `IStartupFilter`-based test-endpoint and `ClaimsPrincipal` injection, `FakeTimeProvider` wiring, and tracked scope/disposable cleanup.
+- Ready-made base classes (`WebApplicationSmokeTests`, `OpenApiSmokeTests`, `ErrorHandlingTests`, `SqlDbContextIntegrationTests`) deliver real coverage out of the box; `Entity_can_be_queried_from_database` exercising the full EF pipeline via reflected `Set<T>()` is a genuinely strong mapping smoke test.
+- `EndpointTest` implements `IXunitSerializable` for proper Test Explorer enumeration; the `[AssertionMethod]` attribute is thoughtfully added for S2699; the security-header smoke test guards against info leaks; `All_options_are_valid`/`All_services_are_valid` validate `ValidateOnStart` options and DI scope/build correctness.
+- `RequestResult`/`RequestResult<T>` ergonomics (`EnsureSuccessAsync` surfaces the response body on failure) and consistent `JsonSerializerOptions.Web` usage throughout.
