@@ -8,7 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.OpenApi" Version="3.9.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1">
       <TreatAsUsed>true</TreatAsUsed>
@@ -50,6 +49,10 @@
     <ProjectReference Include="..\MartinDrozdik.DDD.Demo.Client\MartinDrozdik.DDD.Demo.Client.csproj" />
     <ProjectReference Include="..\MartinDrozdik.DDD.Demo\MartinDrozdik.DDD.Demo.csproj" />
     <ProjectReference Include="..\MartinDrozdik.DDD.Testing\MartinDrozdik.DDD.Testing.csproj" />
+    <!-- The test-data builder source generator (analyzer only; base class + attribute come from Testing). -->
+    <ProjectReference Include="..\MartinDrozdik.DDD.Testing.Generators\MartinDrozdik.DDD.Testing.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
