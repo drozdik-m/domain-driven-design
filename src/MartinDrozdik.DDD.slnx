@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Core/">
+    <Project Path="MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj" />
+    <Project Path="MartinDrozdik.DDD/MartinDrozdik.DDD.csproj" />
+  </Folder>
   <Folder Name="/Demo/">
     <Project Path="MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj" />
     <Project Path="MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj" />
@@ -8,6 +12,7 @@
     <File Path=".editorconfig" />
   </Folder>
   <Folder Name="/Testing/">
+    <Project Path="MartinDrozdik.DDD.Testing.Generators/MartinDrozdik.DDD.Testing.Generators.csproj" Id="ad47ede4-4c4c-4449-92d0-7e723b68e0f1" />
     <Project Path="MartinDrozdik.DDD.Testing/MartinDrozdik.DDD.Testing.csproj" Id="92fd5a4d-466b-4a36-baad-bf5b42aaf0bc" />
   </Folder>
   <Folder Name="/Web/">
@@ -15,6 +20,4 @@
     <Project Path="MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj" />
     <Project Path="MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj" />
   </Folder>
-  <Project Path="MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj" />
-  <Project Path="MartinDrozdik.DDD/MartinDrozdik.DDD.csproj" />
 </Solution>
