@@ -50,9 +50,6 @@
     <ProjectReference Include="..\MartinDrozdik.DDD.Demo\MartinDrozdik.DDD.Demo.csproj" />
     <ProjectReference Include="..\MartinDrozdik.DDD.Testing\MartinDrozdik.DDD.Testing.csproj" />
     <!-- The test-data builder source generator (analyzer only; base class + attribute come from Testing). -->
-    <ProjectReference Include="..\MartinDrozdik.DDD.Testing.Generators\MartinDrozdik.DDD.Testing.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
