@@ -29,7 +29,7 @@ public class BusinessRuleValidationExceptionHandler(
         await Results.ValidationProblem(
             errors: validationException.DetailsDictionary,
             detail: GetExceptionDetail(exception),
-            title: ExceptionLocalization.ValidationExceptionTitle,
+            title: ExceptionMessages.ValidationExceptionTitle,
             extensions: GetExtensionData()).ExecuteAsync(httpContext);
 
         return true;

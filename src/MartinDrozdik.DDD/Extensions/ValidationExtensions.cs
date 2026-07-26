@@ -42,8 +42,8 @@ public static class ValidationExtensions
     {
         // Build the error
         var message = failures.Count() == 1
-            ? WellKnownErrorsResource.InvariantError
-            : WellKnownErrorsResource.InvariantErrors;
+            ? WellKnownErrorMessages.InvariantError
+            : WellKnownErrorMessages.InvariantErrors;
 
         var details = failures
             .Select(x => new ErrorDetail(x.PropertyName, $"{x.ErrorCode}: {x.ErrorMessage} {x.AttemptedValue?.ToString() ?? "`null`"}"))

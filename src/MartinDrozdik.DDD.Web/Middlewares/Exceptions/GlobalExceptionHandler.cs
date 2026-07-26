@@ -24,7 +24,7 @@ public class GlobalExceptionHandler(
         await Results.Problem(
             detail: GetExceptionDetail(exception),
             statusCode: StatusCodes.Status500InternalServerError,
-            title: ExceptionLocalization.ExceptionTitle,
+            title: ExceptionMessages.ExceptionTitle,
             extensions: GetExtensionDataWithDetails(exception)).ExecuteAsync(httpContext);
 
         return true;

@@ -19,7 +19,7 @@ public static class EnumerationErrors
         var enumName = typeof(TEnumeration).Name;
         return new ErrorBuilder()
             .WithCode(EnumerationErrorCodes.EnumerationNameNotFound)
-            .WithMessage(string.Format(EnumerationErrorsResource.EnumerationNameNotFoundError, name, name))
+            .WithMessage($"Enumeration value {name} not found for {enumName}.")
             .WithDetail("Enumeration", enumName)
             .WithDetail("Name", name.Key)
             .Build();

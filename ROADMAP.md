@@ -34,7 +34,7 @@ Core DDD primitives. Reviewed (including `Mediator`).
 
 ### Minor
 
-- [ ] **Doc/naming drift** — `CLAUDE.md` says `ValidationException` but the type is `BusinessRuleValidationException`. `StringExtensions` & `CurrencyFormatExtensions` both have the XML summary "Extensions for currency formatting." (copy-paste). `EnumerationErrors.EnumerationNameNotFound` passes `name` twice to `string.Format` — verify the resx uses `{0}`/`{1}`.
+- [ ] **Doc/naming drift** — `CLAUDE.md` says `ValidationException` but the type is `BusinessRuleValidationException`. `StringExtensions` & `CurrencyFormatExtensions` both have the XML summary "Extensions for currency formatting." (copy-paste). `EnumerationErrors.EnumerationNameNotFound` passes `name` twice to `string.Format` — verify the resx uses `{0}`/`{1}`. **Partially fixed:** the `string.Format` bug is gone — resx files were removed library-wide (localization is not wanted, it made error messages culture-dependent) and the message is now an interpolated English string using `name` and `enumName`.
 - [ ] **`ToUrlFriendlyFileName` no-extension branch** (`Extensions/UrlExtensions.cs:36-38`) — missing the `.Trim('-')` the other branches apply, and the outer `Substring(0, maxLength)` is redundant since `ToUrlFriendly` already enforced `maxLength`.
 - [ ] **`SpecificationResult.NotSatisfied(IEnumerable<Error>)` contract mismatch** — throws on empty, while the private ctor silently normalizes empty → satisfied. Harmless but inconsistent.
 - [ ] **`IdentityConverter` only provides `CreateGuid`** — no `CreateInt`/`CreateString` factory counterpart (mirrors the `GuidIdentity`-only reality above).

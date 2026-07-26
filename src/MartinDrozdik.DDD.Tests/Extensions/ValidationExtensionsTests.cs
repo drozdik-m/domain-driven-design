@@ -55,7 +55,7 @@ public class ValidationExtensionsTests
         var error = failures.GetError();
 
         Assert.Equal(ErrorCodes.InvalidObject, error.Code);
-        Assert.Equal(WellKnownErrorsResource.InvariantError, error.Message);
+        Assert.Equal(WellKnownErrorMessages.InvariantError, error.Message);
         Assert.Single(error.Details);
     }
 
@@ -71,7 +71,7 @@ public class ValidationExtensionsTests
         var error = failures.GetError();
 
         Assert.Equal(ErrorCodes.InvalidObject, error.Code);
-        Assert.Equal(WellKnownErrorsResource.InvariantErrors, error.Message);
+        Assert.Equal(WellKnownErrorMessages.InvariantErrors, error.Message);
         Assert.Equal(2, error.Details.Count);
         Assert.Multiple(
             () => Assert.Contains(error.Details, e => e.Key == "Name"),
@@ -89,7 +89,7 @@ public class ValidationExtensionsTests
         var exception = failures.GetException();
 
         Assert.IsType<BusinessRuleValidationException>(exception);
-        Assert.Equal(WellKnownErrorsResource.InvariantError, exception.Message);
+        Assert.Equal(WellKnownErrorMessages.InvariantError, exception.Message);
         Assert.Single(exception.Details);
         Assert.Contains(exception.Details, e => e.Key == "Name");
     }
@@ -151,7 +151,7 @@ public class ValidationExtensionsTests
 
         Assert.True(hasException);
         Assert.IsType<BusinessRuleValidationException>(exception);
-        Assert.Equal(WellKnownErrorsResource.InvariantError, exception.Message);
+        Assert.Equal(WellKnownErrorMessages.InvariantError, exception.Message);
         Assert.Single(exception.Details);
         Assert.Contains(exception.Details, e => e.Key == "Name");
     }
