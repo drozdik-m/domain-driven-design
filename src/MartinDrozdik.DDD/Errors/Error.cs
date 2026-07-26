@@ -77,7 +77,7 @@ public class Error : ValueObject
         {
             sb.AppendLine();
             sb.AppendLine("Exception:");
-            sb.AppendLine(Exception.ToString()!);
+            sb.AppendLine(Exception.ToString());
         }
 
         return sb.ToString();

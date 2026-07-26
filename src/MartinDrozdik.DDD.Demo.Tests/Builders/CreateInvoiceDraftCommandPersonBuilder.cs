@@ -1,4 +1,4 @@
-using MartinDrozdik.DDD.Demo.Client.Generated.Models;
+/*using MartinDrozdik.DDD.Demo.Client.Generated.Models;
 using MartinDrozdik.DDD.Testing.Builders;
 
 namespace MartinDrozdik.DDD.Demo.Tests.Builders;
@@ -17,3 +17,4 @@ public partial class CreateInvoiceDraftCommandPersonBuilder
         DateOfBirth = DateTimeOffset.UtcNow.AddYears(-25),
     };
 }
+*/
