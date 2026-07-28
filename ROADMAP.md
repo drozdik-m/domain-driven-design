@@ -105,6 +105,9 @@ ASP.NET Core infrastructure. Reviewed folder-by-folder (`Options`, `Middlewares`
 
 ### Dependency issues
 
+- [x] **Transitive `Microsoft.OpenApi` 2.0.0 carries a high-severity advisory** — `Microsoft.AspNetCore.OpenApi` 10.0.10 (`MartinDrozdik.DDD.Web.csproj:34`) declares `Microsoft.OpenApi` version `2.0.0` as a *minimum*, and NuGet resolved exactly that, tripping NU1903 on every project in the solution (GHSA-v5pm-xwqc-g5wc — circular schema references may terminate OpenAPI parsing; patched in 2.7.5). **Fixed:** direct `PackageReference` to `Microsoft.OpenApi` 2.11.0 (head of the 2.x line ASP.NET Core 10 targets) in both `MartinDrozdik.DDD.Web.csproj` and `MartinDrozdik.DDD.Testing.csproj` — the latter is needed separately because `Testing` reaches `Web` through the published package, not a `ProjectReference`. Revisit once an ASP.NET Core 10.0.11+ patch ships with a raised floor; the pin can then be dropped.
+- [ ] **`SQLitePCLRaw.lib.e_sqlite3` 2.1.11 has a high-severity advisory with no 2.x fix** — GHSA-2m69-gcr7-jv3q; arrives via `Microsoft.EntityFrameworkCore.Sqlite` 10.0.10 in `MartinDrozdik.DDD.Demo` and `MartinDrozdik.DDD.Web.Tests.App` only, so it does not reach any shipped package. No patched 2.x release exists, and the 3.x line is a native-code major bump that EF Core 10 does not declare support for. Track upstream rather than forcing it.
+
 ### NuGet split
 
 ### Minor
