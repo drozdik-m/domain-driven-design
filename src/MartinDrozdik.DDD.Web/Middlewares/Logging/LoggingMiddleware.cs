@@ -16,6 +16,12 @@ public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<Requ
 
     /// <summary>
     /// Logs basic request and response information.
+    /// The response log level follows the HTTP status class:
+    /// <list type="bullet">
+    ///     <item>1xx/2xx/3xx are informational,</item>
+    ///     <item>4xx is a warning (the client is at fault),</item>
+    ///     <item>and 5xx is an error.</item>
+    /// </list>
     /// Keeps context as-is.
     /// </summary>
     /// <param name="context">The context as source of loggin information.</param>
@@ -30,16 +36,8 @@ public class RequestResponseLoggingMiddleware(RequestDelegate next, ILogger<Requ
         {
             await _next(context);
 
-            // Check success
-            if ((context.Response.StatusCode >= 200 && context.Response.StatusCode < 300) ||
-                context.Response.StatusCode == 404)
-            {
-                RequestLogging.LogSuccessResponseInformation(_logger, context);
-            }
-            else
-            {
-                RequestLogging.LogError(_logger, context, exception: null);
-            }
+            // Log the response with a level matching the status code
+            RequestLogging.LogResponseInformation(_logger, context);
         }
         catch (Exception e)
         {

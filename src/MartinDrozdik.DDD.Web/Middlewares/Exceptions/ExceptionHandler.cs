@@ -1,10 +1,12 @@
 ﻿using System.Diagnostics;
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Extensions;
+using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Web.Middlewares.Exceptions;
 
@@ -15,6 +17,33 @@ public abstract class ExceptionHandler(IHostEnvironment environment) : IExceptio
 {
     /// <inheritdoc />
     public abstract ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes <paramref name="result"/> to the response and then logs it.
+    /// <para>
+    /// The log level follows the <see cref="RequestLogging.LogResponseInformation"/> method.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// The result is written <em>before</em> logging so that the logged status code is the one the client actually receives.
+    /// </remarks>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="httpContext">The context the <paramref name="result"/> is written to.</param>
+    /// <param name="exception">The handled exception, logged alongside the response.</param>
+    /// <param name="result">The response to write.</param>
+    /// <returns><see langword="true"/>, as the exception has been handled.</returns>
+    protected static async ValueTask<bool> WriteResponseAndLogAsync(
+        ILogger logger,
+        HttpContext httpContext,
+        Exception exception,
+        IResult result)
+    {
+        await result.ExecuteAsync(httpContext);
+
+        RequestLogging.LogResponseInformation(logger, httpContext, exception);
+
+        return true;
+    }
 
     /// <summary>
     /// Construct extension data for error response.

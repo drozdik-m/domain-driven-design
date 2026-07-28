@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using MartinDrozdik.DDD.Extensions;
-using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,14 +26,14 @@ public class ValidationExceptionHandler(
 
         var businessException = validationException.Errors.GetException();
 
-        RequestLogging.LogError(logger, httpContext, exception);
-
-        await Results.ValidationProblem(
-            errors: businessException.DetailsDictionary,
-            detail: GetExceptionDetail(exception),
-            title: ExceptionMessages.ValidationExceptionTitle,
-            extensions: GetExtensionData()).ExecuteAsync(httpContext);
-
-        return true;
+        return await WriteResponseAndLogAsync(
+            logger,
+            httpContext,
+            exception,
+            Results.ValidationProblem(
+                errors: businessException.DetailsDictionary,
+                detail: GetExceptionDetail(exception),
+                title: ExceptionMessages.ValidationExceptionTitle,
+                extensions: GetExtensionData()));
     }
 }

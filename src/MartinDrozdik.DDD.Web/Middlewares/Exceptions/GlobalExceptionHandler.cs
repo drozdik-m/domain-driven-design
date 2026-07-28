@@ -19,14 +19,14 @@ public class GlobalExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        RequestLogging.LogError(logger, httpContext, exception);
-
-        await Results.Problem(
-            detail: GetExceptionDetail(exception),
-            statusCode: StatusCodes.Status500InternalServerError,
-            title: ExceptionMessages.ExceptionTitle,
-            extensions: GetExtensionDataWithDetails(exception)).ExecuteAsync(httpContext);
-
-        return true;
+        return await WriteResponseAndLogAsync(
+            logger,
+            httpContext,
+            exception,
+            Results.Problem(
+                detail: GetExceptionDetail(exception),
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: ExceptionMessages.ExceptionTitle,
+                extensions: GetExtensionDataWithDetails(exception)));
     }
 }

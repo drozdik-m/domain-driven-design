@@ -22,9 +22,9 @@ public static class WebApplicationExtensions
     /// <summary>
     /// Adds library-defined:
     /// <list type="bullet">
+    ///     <item>Request/Response Logging Middleware</item>
     ///     <item>Exception Handler Middleware</item>
     ///     <item>Health Check Endpoints</item>
-    ///     <item>Request/Response Logging Middleware</item>
     /// </list>
     /// </summary>
     /// <param name="app">The <see cref="WebApplication"/> to extend.</param>
@@ -40,9 +40,11 @@ public static class WebApplicationExtensions
         }
 
         // Add middlewares
+        // * The logging middleware is registered first so that it logs the most final results
+        // * Should be definitely before exception handlers
+        app.UseMiddleware<RequestResponseLoggingMiddleware>();
         app.UseExceptionHandler();
         app.MapAppHealthChecks();
-        app.UseMiddleware<RequestResponseLoggingMiddleware>();
         if (app.Environment.IsDevelopment() || app.Environment.IsTesting())
         {
             app.UseHttpLogging();

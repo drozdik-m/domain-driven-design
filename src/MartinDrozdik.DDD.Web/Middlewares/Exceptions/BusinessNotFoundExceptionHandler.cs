@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Exceptions;
-using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,10 +23,10 @@ public class BusinessNotFoundExceptionHandler(
             return false;
         }
 
-        RequestLogging.LogError(logger, httpContext, notFoundException);
-
-        await Results.NotFound().ExecuteAsync(httpContext);
-
-        return true;
+        return await WriteResponseAndLogAsync(
+            logger,
+            httpContext,
+            notFoundException,
+            Results.NotFound());
     }
 }

@@ -10,6 +10,35 @@ namespace MartinDrozdik.DDD.Web.Tests.Middlewares;
 public static partial class RequestLogging
 {
     /// <summary>
+    /// Logs the response of a finished HTTP request, choosing the log level by the response status code:
+    /// <list type="bullet">
+    ///     <item>1xx, 2xx and 3xx (informational, success, redirection) — <see cref="LogLevel.Information"/></item>
+    ///     <item>4xx (client error) — <see cref="LogLevel.Warning"/></item>
+    ///     <item>5xx (server error) — <see cref="LogLevel.Error"/></item>
+    /// </list>
+    /// </summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="context">Source <see cref="HttpContext"/>.</param>
+    /// <param name="exception">Optional exception to log.</param>
+    public static void LogResponseInformation(ILogger logger, HttpContext context, Exception? exception = null)
+    {
+        var statusCode = context.Response.StatusCode;
+
+        if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
+            LogError(logger, context, exception);
+        }
+        else if (statusCode >= StatusCodes.Status400BadRequest)
+        {
+            LogClientErrorResponseInformation(logger, context, exception);
+        }
+        else
+        {
+            LogSuccessResponseInformation(logger, context);
+        }
+    }
+
+    /// <summary>
     /// Logs error details with provided <see cref="HttpContext"/>.
     /// </summary>
     /// <param name="logger">Target logger.</param>
@@ -58,6 +87,24 @@ public static partial class RequestLogging
     }
 
     /// <summary>
+    /// Logs a client-error (4xx) HTTP response with provided <see cref="HttpContext"/>.
+    /// A client fault is not an application failure, so it is logged at <see cref="LogLevel.Warning"/>.
+    /// </summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="context">Source <see cref="HttpContext"/>.</param>
+    /// <param name="exception">Optional exception to log.</param>
+    public static void LogClientErrorResponseInformation(ILogger logger, HttpContext context, Exception? exception)
+    {
+        var fullUrl = GetRequestUrl(context.Request);
+        var method = context.Request.Method;
+        var traceId = GetTraceId();
+        var statusCode = context.Response.StatusCode;
+
+        // Log details
+        LogClientErrorResponseInformation(logger, exception, method, fullUrl, statusCode, traceId, Environment.MachineName);
+    }
+
+    /// <summary>
     /// Gets the full URL from the HTTP context.
     /// </summary>
     /// <param name="request">Source request.</param>
@@ -86,4 +133,7 @@ public static partial class RequestLogging
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Successfully processed HTTP request {Method} {FullUrl} => {StatusCode}.\nTraceId: {TraceId}.\nMachine: {MachineName}")]
     private static partial void LogSuccessResponseInformation(ILogger logger, string method, string fullUrl, int statusCode, string traceId, string machineName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Client error processing request {Method} {FullUrl} => {StatusCode}.\nTraceId: {TraceId}.\nMachine: {MachineName}")]
+    private static partial void LogClientErrorResponseInformation(ILogger logger, Exception? exception, string method, string fullUrl, int statusCode, string traceId, string machineName);
 }

@@ -1,5 +1,4 @@
 ﻿using MartinDrozdik.DDD.Exceptions;
-using MartinDrozdik.DDD.Web.Tests.Middlewares;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,14 +23,14 @@ public class BusinessRuleValidationExceptionHandler(
             return false;
         }
 
-        RequestLogging.LogError(logger, httpContext, validationException);
-
-        await Results.ValidationProblem(
-            errors: validationException.DetailsDictionary,
-            detail: GetExceptionDetail(exception),
-            title: ExceptionMessages.ValidationExceptionTitle,
-            extensions: GetExtensionData()).ExecuteAsync(httpContext);
-
-        return true;
+        return await WriteResponseAndLogAsync(
+            logger,
+            httpContext,
+            validationException,
+            Results.ValidationProblem(
+                errors: validationException.DetailsDictionary,
+                detail: GetExceptionDetail(exception),
+                title: ExceptionMessages.ValidationExceptionTitle,
+                extensions: GetExtensionData()));
     }
 }
