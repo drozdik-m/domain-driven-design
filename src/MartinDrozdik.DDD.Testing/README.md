@@ -98,6 +98,7 @@ var app = new MyAppBuilder(output)
     .WithEnvironment(AppEnvironments.Testing)
     .WithUserAndRoles("testuser", ["Admin", "User"])
     .WithClaimsPrincipal(...)
+    .WithTestingLogger(out var testingLogger)
     .Build();
 ```
 
@@ -169,6 +170,35 @@ public class MyDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContext
         return _factory.GetScopedService<MyDbContext>();
     }
 }
+```
+
+## Asserting on logs
+
+`WithTestingLogger` registers a `TestLogger` that keeps everything the app logs in memory, so you can assert on it. The `out` overload hands it to you mid-chain – no lookup, no field:
+
+```csharp
+using var app = new MyAppBuilder(output)
+    .WithTestingLogger(out var testingLogger)
+    .Build();
+
+await app.CreateClient().GetAsync("/orders/does-not-exist");
+
+// A 404 is the client's problem, not ours – it must not show up as an error
+Assert.Empty(testingLogger.AtLeast(LogLevel.Error));
+Assert.Contains(testingLogger.From("MyApp"), entry => entry.Level == LogLevel.Warning);
+```
+
+Pass your own instance with `WithTestingLogger(testLogger)` when you need it before the chain – e.g. to share one logger across two apps.
+
+The same logger works for plain unit tests – `For<T>()` gives you an `ILogger<T>` recording into it:
+
+```csharp
+var testLogger = new TestLogger();
+var handler = new MyHandler(testLogger.For<MyHandler>());
+
+await handler.HandleAsync(...);
+
+Assert.Equal(LogLevel.Warning, testLogger.Last.Level);
 ```
 
 ## Assertions

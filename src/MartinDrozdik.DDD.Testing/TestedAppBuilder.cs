@@ -1,12 +1,14 @@
 ﻿using System.Linq.Expressions;
 using System.Security.Claims;
 using MartinDrozdik.DDD.Disposing;
+using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
@@ -24,7 +26,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     private readonly List<Action<IEndpointRouteBuilder>> _endpointConfigs = [];
     private readonly List<IDisposable> _disposables = [];
     private string _environment = AppEnvironments.Testing;
-    private ClaimsPrincipal? _claimsPrincipal = null;
+    private ClaimsPrincipal? _claimsPrincipal;
 
     /// <summary>
     /// Sets the applications environment.
@@ -98,6 +100,34 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     public TestedAppBuilder<TProgram> WithServices(Action<IServiceCollection> config)
     {
         return With(builder => builder.ConfigureServices(config));
+    }
+
+    /// <summary>
+    /// Registers a <see cref="TestLogger"/> capturing everything the application logs, so a test can assert on it.
+    /// </summary>
+    /// <remarks>
+    /// Use the <see cref="WithTestingLogger(out TestLogger)"/> overload to get hold of the logger directly.
+    /// <para>
+    /// The application logs at <see cref="LogLevel.Information"/> and above by default, so entries below that level never reach the logger.
+    /// </para>
+    /// </remarks>
+    /// <param name="testLogger">The <see cref="TestLogger"/> instance to use for logging.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithTestingLogger(TestLogger testLogger)
+    {
+        return WithServices(services => services.AddSingleton<ILoggerProvider>(testLogger));
+    }
+
+    /// <summary>
+    /// Registers a <see cref="TestLogger"/> capturing everything the application logs and hands it out,
+    /// so a test can assert on it without resolving it from the application.
+    /// </summary>
+    /// <param name="testingLogger">The registered logger, recording from the moment the application starts.</param>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithTestingLogger(out TestLogger testingLogger)
+    {
+        testingLogger = new TestLogger();
+        return WithTestingLogger(testingLogger);
     }
 
     /// <summary>
