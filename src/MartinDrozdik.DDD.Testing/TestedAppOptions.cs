@@ -40,5 +40,4 @@ public class TestedAppOptions
     /// Gets list of dependencies that need to be disposed of after the test execution.
     /// </summary>
     public IEnumerable<IDisposable> Disposables { get; init; } = [];
-
 }

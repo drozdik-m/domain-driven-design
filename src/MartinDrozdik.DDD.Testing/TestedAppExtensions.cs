@@ -157,7 +157,7 @@ public static class TestedAppExtensions
             Assert.Fail($"Failed to parse response content as JSON of type {typeof(T).FullName}. Content: {responseContent}");
         }
 
-        return RequestResult<T>.Success(responseModel!, response);
+        return RequestResult<T>.Success(responseModel, response);
     }
 
     private static void LogResponse(
