@@ -1,0 +1,13 @@
+{
+  "ignorePatterns": [
+    { "pattern": "^https?://localhost(:\\d+)?(/|$)" },
+    { "pattern": "^https?://127\\.0\\.0\\.1(:\\d+)?(/|$)" },
+    { "pattern": "^https?://0\\.0\\.0\\.0(:\\d+)?(/|$)" },
+    { "pattern": "^https?://host\\.docker\\.internal(:\\d+)?(/|$)" }
+  ],
+  "aliveStatusCodes": [200, 206],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 5,
+  "fallbackRetryDelay": "30s"
+}

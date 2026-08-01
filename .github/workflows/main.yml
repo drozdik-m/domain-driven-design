@@ -26,6 +26,8 @@ jobs:
       
     - name: Check markdown links
       uses: tcort/github-action-markdown-link-check@v1
+      with:
+        config-file: '.github/workflows/mlc_config.json'
         
   build:
     name: Build
@@ -60,7 +62,7 @@ jobs:
         retention-days: 1
 
   test:
-    name: Tests – ${{ matrix.project_name }}
+    name: Tests ï¿½ ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: build
     permissions: # for test results
@@ -113,10 +115,10 @@ jobs:
         comment_mode: off
         files: |
           TestResults/**/*.trx
-        check_name: Test results – ${{ matrix.project_name }}
+        check_name: Test results ï¿½ ${{ matrix.project_name }}
 
   publish-nuget:
-    name: Publish NuGet – ${{ matrix.project_name }}
+    name: Publish NuGet ï¿½ ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: [build, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
