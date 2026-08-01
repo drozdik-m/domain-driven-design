@@ -38,7 +38,7 @@ builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
 builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
 {
     taskOptions.InitialDelay = TimeSpan.FromSeconds(30);
-    taskOptions.Period = TimeSpan.FromHours(1);
+    taskOptions.Period = TimeSpan.FromMinutes(1);
 });
 
 builder.Services.AddControllers();
