@@ -1,6 +1,7 @@
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,14 @@ builder.AddAppServices();
 builder.AddAppDbContext<TestDbContext>((options, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
+});
+
+// A recurring task scheduled far enough away that it only runs when a test triggers it
+builder.Services.AddSingleton<TestRecurringTaskRuns>();
+builder.AddRecurringTask<TestRecurringTask>(options =>
+{
+    options.InitialDelay = TimeSpan.FromHours(1);
+    options.Period = TimeSpan.FromHours(1);
 });
 
 // --- APP ---

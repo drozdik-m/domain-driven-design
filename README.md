@@ -50,6 +50,7 @@ Built on top of `MartinDrozdik.DDD`, this package provides all the web plumbing 
 - Basic **Health checks**
 - **HTTP resilience**
 - **OpenAPI**
+- **Recurring background tasks** – on a schedule, or right now when you say so
 
 *Everything is optional and composable.* Use what helps, ignore the rest. I won't tell.
 

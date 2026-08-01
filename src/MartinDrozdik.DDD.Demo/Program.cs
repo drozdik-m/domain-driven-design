@@ -1,6 +1,7 @@
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
+using MartinDrozdik.DDD.Demo.RecurringTasks;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
@@ -11,6 +12,7 @@ using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
 using MartinDrozdik.DDD.Web.Options;
 using MartinDrozdik.DDD.Web.Proxy;
+using MartinDrozdik.DDD.Web.RecurringTasks;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -30,6 +32,13 @@ builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
+});
+
+// A background job on a schedule, also triggerable on demand from a controller
+builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
+{
+    taskOptions.InitialDelay = TimeSpan.FromSeconds(30);
+    taskOptions.Period = TimeSpan.FromHours(1);
 });
 
 builder.Services.AddControllers();

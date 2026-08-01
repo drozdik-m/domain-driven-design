@@ -323,6 +323,74 @@ Returns a version depending on the environment:
 }
 ```
 
+### Recurring Background Tasks
+
+**Every app ends up needing that one job on a loop.** Cleanup, reindexing, sending the queued mail. And every hand-rolled version gets the same four things wrong: it dies on the first unhandled exception, it grabs a `DbContext` from the root scope, it uses `Task.Delay` so you can't test it, and there's no way to say *"actually, run it now"*.
+
+*Write the job. Skip the plumbing.*
+
+```csharp
+public class CleanupTask(InvoiceDbContext context, ILogger<CleanupTask> logger) : IRecurringTask
+{
+    // Resolved from a fresh DI scope every iteration, so scoped services just work
+    public async Task RunAsync(CancellationToken cancellationToken)
+    {
+        var removed = await context.Drafts.Where(d => d.IsAbandoned).ExecuteDeleteAsync(cancellationToken);
+        logger.LogInformation("Swept up {Removed} abandoned drafts.", removed);
+    }
+}
+
+// Register it, schedule and all:
+builder.AddRecurringTask<CleanupTask>(options =>
+{
+    options.InitialDelay = TimeSpan.FromSeconds(30);
+    options.Period = TimeSpan.FromMinutes(10);
+    options.Timeout = TimeSpan.FromMinutes(5);
+});
+```
+
+- **`InitialDelay`** – how long to wait after startup, so background work doesn't elbow its way into the startup burst.
+- **`Period`** – the gap between iterations, measured from when the previous one **finished**, not when it started. Iterations never overlap and a slow run can never build a backlog.
+- **`Timeout`** – optional. Cancels the iteration's token when it overruns, then carries on.
+- **`Enabled`** – decided at startup. `false` and the loop never even begins.
+
+All options are validated.
+
+A failing iteration is logged with its exception and the loop keeps going. **One bad run does not silently kill your job**.
+
+The schedule lives in code and memory. **Light and simple on purpose**. For heavy-duty complex stuff with complex crons and distributed schedules, I would recommend:
+
+- [Quartz.NET](https://www.quartz-scheduler.net/)
+- [Hangfire](https://www.hangfire.io/)
+
+#### Immediate Trigger
+
+**Need it to run right now?** Inject the trigger and ask:
+
+```csharp
+public class InvoicesController(IRecurringTaskTrigger<CleanupTask> trigger) : ControllerBase
+{
+    [HttpPost("cleanup")]
+    public IActionResult Cleanup()
+    {
+        trigger.Trigger(); // returns immediately, the loop wakes up and does the work
+        return Accepted();
+    }
+}
+```
+
+Triggers are **coalesced** — hammer it a thousand times during one iteration and you get **one** extra run, not a thousand.
+
+It never blocks and never throws, so it's safe to call from anywhere.
+
+#### Testing
+
+Every delay runs on the injected `TimeProvider`, so tests drive the whole thing with a `FakeTimeProvider` and no real waiting. And when you'd rather nothing ticked underneath your assertions:
+
+```csharp
+builder.Services.RemoveRecurringTasks(); // loops gone, tasks still resolvable
+```
+
 ## Demo App
 
 Check out the [demo project](../MartinDrozdik.DDD.Demo) for examples.
