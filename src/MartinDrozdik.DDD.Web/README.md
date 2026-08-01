@@ -125,10 +125,15 @@ Automatic conversion of DDD exceptions to HTTP responses:
 - `BusinessRuleValidationException` → 400 Bad Request
 - `ValidationException` (FluentValidation) → 400 Bad Request
 - `BusinessNotFoundException` → 404 Not Found
-- `BusinessRuleException` → 500 Internal Server Error (with business details)
+- `BusinessRuleException` → 500 Internal Server Error, via the catch-all handler rather than a dedicated one
 - Anything else → 500 Internal Server Error
 
-In **development, you get detailed info**. In **production, you get clean and safe** error messages. The middleware handles it:
+In **development, you get detailed info** — stack traces and exception details.
+
+Note that the catch-all handler puts the raw `exception.Message` in the response in every environment, so keep anything sensitive out of the
+messages of exceptions you expect to escape a handler.
+
+The middleware handles it:
 
 ```csharp
 builder.Services.AddAppErrorHandling();
@@ -182,8 +187,10 @@ await app.EnsureCreatedDatabaseAsync<YourDbContext>();
 Or for you migration folks:
 
 ```csharp
-await app.MigrateDatabaseAsync<YourDbContext>();
+await app.EnsureMigratedDatabaseAsync<YourDbContext>();
 ```
+
+And `EnsureDeletedDatabaseAsync<YourDbContext>()` when you want it gone.
 
 ### Health Checks
 
@@ -243,8 +250,9 @@ Health check requests are filtered out of traces because who cares about those.
 
 Expanded `DbContext` child called `DddDbContext` with some extra features tailored for DDD apps, such as:
 
-- **OnAggregatesSave**
-- **OnDomainEntitiesSave**
+- **OnAggregatesSave** – changed entries whose type is an `IAggregateRoot<T>`
+- **OnDomainEntitiesSave** – changed entries whose type is an `IDomainEntity<T>`
+- **OnObjectsSave** – every changed entry, whatever it is
 
 Coming with useful mapping extensions. Example:
 

@@ -10,7 +10,7 @@
     {
       "name": "martin-drozdik-ddd",
       "source": "./claude",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "description": "Skills for DDD building blocks, web API infrastructure, and testing helpers based on the MartinDrozdik.DDD.{Library} libraries."
     }
   ]

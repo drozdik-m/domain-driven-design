@@ -161,7 +161,9 @@ var state = InvoiceState.Draft;
 if (state.CanBeModified()) { /* ... */ }
 ```
 
-Serializes to strings/properties in your DB/JSON. Compares by value. Extends like a class. It's beautiful 😍.
+Serializes to strings/properties in your DB/JSON. Extends like a class. It's beautiful 😍.
+
+**`Enumeration` is a `ValueObject`**, so equality comes for free – only the name is compared **case-sensitively**.
 
 ### Specifications
 

@@ -17,8 +17,9 @@ If the domain model is ambiguous (unclear whether something is an Entity or Valu
 - **Use** naked `Guid`, `int`, or `string` for entity/aggregate IDs or typed identity wrappers depending on current project practices.
 - **Never** use base classes where interfaces suffice — `IDomainEntity`, `IAggregateRoot` are marker interfaces, not base classes.
 - **Never** use `Guid.NewGuid()` — use `Guid.CreateVersion7()`.
-- **Prefer** `Result<T>` for expected domain failures; throw exceptions at API boundaries where middleware translates them to HTTP responses.
+- **Prefer** a result type for expected domain failures; throw exceptions at API boundaries where middleware translates them to HTTP responses.
 - **Use** FluentValidation at system boundaries (input DTOs); use Specifications for named, reusable domain rules on domain objects.
+- **Never** hand-write equality on a `ValueObject` subclass — the base already provides all of it. See [Value Object equality](#value-object-equality-is-already-implemented).
 
 Install: `dotnet add package MartinDrozdik.DDD`
 
@@ -69,9 +70,16 @@ Use `Enumeration` when any of the following apply:
 
 Never use Specifications for null checks or format validation — that is FluentValidation's job. Keep specifications focused on complex, reusable domain rules.
 
-### Result\<T\> vs Exceptions
+### Results vs Exceptions
 
-**`Result<T>`** — when failure is an expected, valid business outcome; forces callers to handle both paths explicitly.
+> **This library does not define its own `Result<T>`.** Results come from
+> [CSharpFunctionalExtensions](https://www.nuget.org/packages/CSharpFunctionalExtensions) — `Result<T, E>`,
+> `UnitResult<E>`, `IResult<T, E>` — which `MartinDrozdik.DDD` takes as a package dependency and pairs with
+> its own `Error` type, so the shape you will almost always want is `Result<T, Error>` / `UnitResult<Error>`.
+> The library's only bridge into it is `ErrorBuilder.BuildUnitResult()`. Do not go looking for a
+> `MartinDrozdik.DDD.Errors.Result<T>` — there isn't one.
+
+**`Result<T, Error>`** — when failure is an expected, valid business outcome; forces callers to handle both paths explicitly.
 
 **Exceptions** — when the failure is truly unexpected, or at an API handler boundary where exceptions bubble to error middleware anyway.
 
@@ -121,6 +129,31 @@ public class InvoiceNumber : ValueObject
 }
 ```
 
+#### Value Object equality is already implemented
+
+**Overriding `GetEqualityComponents()` is the entire contract.** `ValueObject` derives everything else from
+it, so a subclass gets working value equality for free and must not add any of it by hand:
+
+| Member | Where it comes from | Do you write it? |
+|---|---|---|
+| `operator ==` / `operator !=` | declared on `ValueObject`, null-safe | **No** — redeclaring on a subclass hides the base operators |
+| `Equals(object?)` | overridden on `ValueObject` | **No** |
+| `GetHashCode()` | overridden on `ValueObject`, folds each component with `HashCode.Combine` | **No** |
+| `Equals(ValueObject?, ValueObject?)`, `GetHashCode(ValueObject)` | `ValueObject : IEqualityComparer<ValueObject>` | **No** |
+
+Behaviour worth knowing, so you never have to go read the base class:
+
+- Components are compared with `SequenceEqual`, so **order matters** — always `yield return` in a stable order.
+- A `null` component is legal and hashes as `0`.
+- `ValueObject` implements `IEqualityComparer<ValueObject>` and `IEqualityOperators<ValueObject, ValueObject, bool>`.
+  It does **not** implement `IEquatable<T>`, and a subclass does not get `IEqualityOperators<TSelf, TSelf, bool>`.
+  This matters when picking an `EqualityAssert` overload in tests — see the `ddd-testing` skill.
+- There is **no runtime type check**: two different `ValueObject` subclasses whose components happen to match
+  compare equal. Add a discriminator component if that is a real risk for your type.
+
+Everything that derives from `ValueObject` inherits this: `Identity<TSelf, TKey>` (and so every strongly-typed
+ID), `Enumeration`, `Error`, and `ErrorCode`.
+
 ### Entity
 
 ```csharp
@@ -148,6 +181,14 @@ Same shape as Entity — only the interface changes:
 public class Invoice : IAggregateRoot<InvoiceId> { ... }
 ```
 
+Both markers are detectable at runtime, which is how infrastructure code applies conventions per role
+(`MartinDrozdik.DDD.Templates.TypeExtensions`):
+
+```csharp
+typeof(Invoice).IsAggregateRoot();  // true
+typeof(Person).IsDomainEntity();    // true
+```
+
 ### Strongly-Typed Identities
 
 ```csharp
@@ -156,14 +197,32 @@ public class OrderId(int key)     : IntIdentity<OrderId>(key);
 public class SkuId(string key)    : StringIdentity<SkuId>(key);
 ```
 
-EF Core mapping:
+EF Core mapping. The library ships `IdentityConverter<TIdentity, TKey>` plus the
+`IdentityConverter.CreateGuid<T>(fromKey)` factory:
 
 ```csharp
 builder.Property(e => e.Id)
-    .HasIdentityConvertor(new IdentityConverter<InvoiceId, Guid>());
+    .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
+```
+
+> `HasIdentityConvertor` is **not** library API — it is a small `PropertyBuilder<T>` extension each app writes
+> once. Copy it from the demo (`src/MartinDrozdik.DDD.Demo/Context/EntityFrameworkExtensions.cs`) before use.
+
+For `int`/`string` keys there is no factory; construct the converter with both expressions:
+
+```csharp
+new IdentityConverter<OrderId, int>(id => id.Key, key => new OrderId(key));
 ```
 
 ### Enumeration
+
+Pick the base by what the type needs to do:
+
+| Base | Gives you | Use when |
+|---|---|---|
+| `Enumeration` | `Name`, value equality, implicit `string` conversion | A closed set you only reference by static member |
+| `StaticEnumeration<TSelf>` | `+ FromName`, `FromNameOptional`, `GetAll()` | You deserialize from a string or enumerate all members |
+| `InitializableEnumeration<TSelf>` | same lookups, but the member set is supplied at startup via `Initialize(values)` | Members come from config or the database |
 
 ```csharp
 public class InvoiceState(EnumerationName name) : Enumeration(name)
@@ -174,6 +233,54 @@ public class InvoiceState(EnumerationName name) : Enumeration(name)
 
     public bool CanBeModified() => this == Draft;
 }
+```
+
+#### Enumeration equality is already implemented
+
+`Enumeration : ValueObject`, so **every enumeration gets value equality for free** and must never declare its own
+`==`, `Equals`, or `GetHashCode`. See [Value Object equality](#value-object-equality-is-already-implemented) for
+the full contract; the enumeration-specific part is what goes into it:
+
+**`GetEqualityComponents()` yields `Name` and nothing else.** Three consequences, all verified:
+
+- **Reference identity is irrelevant.** `this == Draft` in `CanBeModified` works even though the property returns a
+  fresh instance on every call. Members do not need to be singletons.
+- **Only the name is compared.** Two instances with the same `Name` are equal even when their other properties
+  differ, so a display label or metadata property is invisible to equality. That is usually what you want — but do
+  not use equality to detect that two members carry different payloads.
+- **There is no type check, and comparing two unrelated enumeration types is not a compile error.**
+  `InvoiceState.Draft == OrderState.Draft` compiles and returns `true`, because the base `==` takes
+  `(ValueObject?, ValueObject?)` and both sides yield the name `"Draft"`. Nothing warns you. Keep member names
+  distinct across enumerations that meet in the same code, or compare a strongly-typed property instead.
+
+`EnumerationName` is a `readonly struct` with its own `IEquatable<EnumerationName>` and `==`, and it compares
+**case-sensitively** on `Key` — `"Draft"` and `"draft"` are different members. (It also exposes `KeyLowercase`,
+but equality does not use it.)
+
+Because an enumeration is a `ValueObject`, it does **not** implement `IEquatable<TSelf>`, which decides the
+`EqualityAssert` overload you can use in tests — see the `ddd-testing` skill.
+
+`StaticEnumeration<TSelf>` discovers its members by reflecting over the **public static fields** declared on
+`TSelf`, so declare them as fields, not properties:
+
+```csharp
+public class InvoiceState(EnumerationName name) : StaticEnumeration<InvoiceState>(name)
+{
+    public static readonly InvoiceState Draft = new("Draft");
+    public static readonly InvoiceState Issued = new("Issued");
+    public static readonly InvoiceState Paid = new("Paid");
+}
+
+// IResult<InvoiceState, Error> — fails with EnumerationErrors.EnumerationNameNotFound
+var state = InvoiceState.FromName("Draft");
+var all = InvoiceState.GetAll();
+```
+
+EF Core mapping for an enumeration is a plain `HasConversion` over `Name.Key`:
+
+```csharp
+builder.Property(i => i.State)
+    .HasConversion(e => e.Name.Key, e => new InvoiceState(e));
 ```
 
 ### Specifications
@@ -248,6 +355,26 @@ var error = new ErrorBuilder()
 throw error.ToBusinessRuleException();
 ```
 
+`ErrorBuilder` also collapses child errors into details, and can terminate straight into a failed result
+instead of an exception:
+
+```csharp
+var error = new ErrorBuilder()
+    .WithCode("InvoiceInvalid")
+    .WithMessage("Invoice could not be issued.")
+    .WithSubErrors(lineErrors)   // flattens each sub-error's code, message and details
+    .WithCause(innerException)
+    .Build();
+
+// UnitResult<Error> failure, no exception thrown
+return new ErrorBuilder()
+    .WithCode("InvoiceInvalid")
+    .WithMessage("Invoice could not be issued.")
+    .BuildUnitResult();
+```
+
+`Build()` throws if either the code or the message is missing — both are required.
+
 `BusinessNotFoundException` is a subclass of `BusinessRuleException`; throw it when a lookup yields nothing — the web middleware maps it to **404**:
 
 ```csharp
@@ -282,11 +409,13 @@ public class CreateInvoiceCommandHandler : ICommandHandler<CreateInvoiceCommand,
 }
 ```
 
+Registration. Note `LoggingPipelineIntegrator` ships in **MartinDrozdik.DDD.Web**, not core —
+`ValidationPipelineIntegrator` is the only integrator in this package:
+
 ```csharp
-// Registration
 builder.Services.AddMediator(config =>
 {
-    var pipeline = new LoggingPipelineIntegrator()
+    var pipeline = new LoggingPipelineIntegrator()   // MartinDrozdik.DDD.Web
         .Merge<ValidationPipelineIntegrator>();
 
     config.WithCommand<CreateInvoiceCommand, InvoiceId, CreateInvoiceCommandHandler>(pipeline);

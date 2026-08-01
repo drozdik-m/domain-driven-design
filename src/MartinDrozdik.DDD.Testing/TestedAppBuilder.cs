@@ -36,10 +36,11 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     /// </summary>
     /// <remarks>
     /// It is recommended to set some non-default environment (e.g. "Testing") to avoid confusion with development environment and to allow environment-specific configurations.
+    /// <para>Defaults to <see cref="AppEnvironments.Testing"/>.</para>
     /// </remarks>
     /// <param name="newEnvironment">New environment.</param>
     /// <returns>This.</returns>
-    public TestedAppBuilder<TProgram> WithOutput(string newEnvironment)
+    public TestedAppBuilder<TProgram> WithEnvironment(string newEnvironment)
     {
         _environment = newEnvironment;
         return this;
