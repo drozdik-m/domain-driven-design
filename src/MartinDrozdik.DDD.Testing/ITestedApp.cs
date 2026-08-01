@@ -18,6 +18,15 @@ public interface ITestedApp
     ITestOutputHelper TestOutputHelper { get; }
 
     /// <summary>
+    /// Gets the root <see cref="IServiceProvider"/> of the running application.
+    /// </summary>
+    /// <remarks>
+    /// This is the root provider, so resolving a scoped service directly from it is an error.
+    /// Use <see cref="TestedApp{TProgram}.GetScopedService{TService}"/> or open a scope explicitly.
+    /// </remarks>
+    IServiceProvider Services { get; }
+
+    /// <summary>
     /// Creates and configures a new <see cref="HttpClient"/> for sending requests to the application. The client is configured with the base address of the application.
     /// </summary>
     /// <remarks>

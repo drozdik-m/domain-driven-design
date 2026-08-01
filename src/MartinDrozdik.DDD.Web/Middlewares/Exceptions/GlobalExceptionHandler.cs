@@ -1,5 +1,4 @@
-﻿using MartinDrozdik.DDD.Web.Tests.Middlewares;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 

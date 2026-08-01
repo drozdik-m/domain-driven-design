@@ -71,6 +71,7 @@ Built on top of [xUnit](https://github.com/xunit/xunit) and `MartinDrozdik.DDD.W
 - **`TestedApp` & `TestedAppBuilder`** – fluently configure your integration testing
 - **Smoke tests** – free base classes for health checks, openapi, error handling and more
 - **EF Core integration tests** – entity mapping, migrations, connectivity, and model compilation checks, all for free
+- **Recurring tasks** – background loops off by default, run one iteration on demand, free per-task smoke tests
 - **Assertions** – simplification of test assertions
 
 *You still have to write your own tests. But at least you don't have to write the boring parts.*

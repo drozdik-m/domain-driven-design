@@ -13,7 +13,9 @@ public class TestRecurringTaskApplicationTests(ITestOutputHelper testOutputHelpe
     public async Task Triggering_a_registered_task_runs_it_inside_the_running_application()
     {
         // Arrange
-        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithRecurringTasks()
+            .Build();
         var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<TestRecurringTask>>();
         var runs = app.Services.GetRequiredService<TestRecurringTaskRuns>();
 

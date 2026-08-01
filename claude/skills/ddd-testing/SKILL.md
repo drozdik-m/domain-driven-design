@@ -86,7 +86,29 @@ new MyAppBuilder(output)
     .WithEnvironment("Development")                   // override environment
     .WithUserAndRoles("testuser", ["Admin", "User"])  // fake authenticated user
     .WithClaimsPrincipal(myClaimsPrincipal)           // full claims control
+    .WithRecurringTasks()                             // keep background loops (removed by default)
+    .WithoutHostedService<MyWorker>()                 // drop one of your own hosted services
     .Build();
+```
+
+## Recurring Tasks
+
+`Build()` **removes every recurring task loop by default**, so background work never fires mid-test. The tasks stay registered — only the loops are gone.
+
+```csharp
+// Run one iteration on demand, in a fresh scope, exactly as the loop would.
+// Rethrows what the task throws; ignores Enabled and Timeout.
+await app.RunRecurringTaskAsync<CleanupTask>(TestContext.Current.CancellationToken);
+
+app.GetRecurringTaskSchedule<CleanupTask>();   // the schedule in effect
+app.TriggerRecurringTask<CleanupTask>();       // no-op unless .WithRecurringTasks() was used
+```
+
+Free per-task wiring smoke tests — registration, resolution of all dependencies from a scope, and a schedule that passes the application's own options validation. Never executes the task:
+
+```csharp
+public class CleanupTaskSmokeTests(ITestOutputHelper output)
+    : RecurringTaskSmokeTests<Program, CleanupTask>(new MyAppBuilder(output)) { }
 ```
 
 ## Smoke Tests

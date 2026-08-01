@@ -383,14 +383,6 @@ Triggers are **coalesced** — hammer it a thousand times during one iteration a
 
 It never blocks and never throws, so it's safe to call from anywhere.
 
-#### Testing
-
-Every delay runs on the injected `TimeProvider`, so tests drive the whole thing with a `FakeTimeProvider` and no real waiting. And when you'd rather nothing ticked underneath your assertions:
-
-```csharp
-builder.Services.RemoveRecurringTasks(); // loops gone, tasks still resolvable
-```
-
 ## Demo App
 
 Check out the [demo project](../MartinDrozdik.DDD.Demo) for examples.

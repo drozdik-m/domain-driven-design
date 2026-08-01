@@ -4,10 +4,12 @@ using MartinDrozdik.DDD.Disposing;
 using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Options;
+using MartinDrozdik.DDD.Web.RecurringTasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -27,6 +29,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     private readonly List<IDisposable> _disposables = [];
     private string _environment = AppEnvironments.Testing;
     private ClaimsPrincipal? _claimsPrincipal;
+    private bool _recurringTasks;
 
     /// <summary>
     /// Sets the applications environment.
@@ -191,6 +194,49 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
     }
 
     /// <summary>
+    /// Lets the recurring task loops of the application run, instead of removing them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Build"/> removes every <see cref="IRecurringTask"/> loop by default, so a background job never fires in the middle of an unrelated test.
+    /// Call this when the test is about the recurring task itself.
+    /// <para>
+    /// This is all or nothing.
+    /// </para>
+    /// </remarks>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithRecurringTasks()
+    {
+        _recurringTasks = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Removes a hosted service the application registered with <c>AddHostedService&lt;THostedService&gt;()</c>.
+    /// </summary>
+    /// <remarks>
+    /// Only matches registrations made by implementation type. A hosted service registered through a factory delegate or an instance is left alone.
+    /// <para>Recurring tasks do not need this, they are already removed by default. See <see cref="WithRecurringTasks"/>.</para>
+    /// </remarks>
+    /// <typeparam name="THostedService">The hosted service to remove.</typeparam>
+    /// <returns>This.</returns>
+    public TestedAppBuilder<TProgram> WithoutHostedService<THostedService>()
+        where THostedService : class, IHostedService
+    {
+        return WithServices(services =>
+        {
+            var descriptors = services
+                .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(THostedService))
+                .ToList();
+
+            foreach (var descriptor in descriptors)
+            {
+                services.Remove(descriptor);
+            }
+        });
+    }
+
+    /// <summary>
     /// Sets a determined <see cref="ClaimsPrincipal"/> for the application.
     /// </summary>
     /// <param name="claimsPrincipal">The new claims principal.</param>
@@ -226,6 +272,7 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
 
     /// <summary>
     /// Builds the resulting <see cref="TestedApp{TProgram}"/> with the provided configurations.
+    /// Implicitly removes recurring tasks unless <see cref="WithRecurringTasks"/> was called.
     /// </summary>
     /// <remarks>
     /// Don't forget to dispose it.
@@ -240,6 +287,12 @@ public abstract class TestedAppBuilder<TProgram>(ITestOutputHelper testOutputHel
 
         var configsCopy = new List<Action<IWebHostBuilder>>(_configs);
         var endpointsCopy = new List<Action<IEndpointRouteBuilder>>(_endpointConfigs);
+
+        if (!_recurringTasks)
+        {
+            configsCopy.Add(builder => builder.ConfigureServices(services => services.RemoveRecurringTasks()));
+        }
+
         var options = new TestedAppOptions
         {
             Environment = _environment,

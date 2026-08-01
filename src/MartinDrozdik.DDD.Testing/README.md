@@ -172,6 +172,31 @@ public class MyDbContextTests(ITestOutputHelper testOutputHelper) : SqlDbContext
 }
 ```
 
+## Recurring Tasks
+
+**Background loops are off by default.** Every `IRecurringTask` registered with `AddRecurringTask` is removed from the app that `Build()` produces, so a cleanup job cannot wander into the middle of an unrelated test.
+
+The tasks themselves stay registered, only their loops are gone. Which means **you can run one on demand**.
+
+```csharp
+using var app = new MyAppBuilder(output).Build();
+
+await app.RunRecurringTaskAsync<CleanupTask>(TestContext.Current.CancellationToken);
+```
+
+Got your own `BackgroundService` that isn't a recurring task? `WithoutHostedService<MyWorker>()` drops it the same way.
+
+### Smoke testing a scheduled job
+
+Test that the job is registered, has a valid schedule, and resolves with all its dependencies:
+
+```csharp
+public class CleanupTaskSmokeTests(ITestOutputHelper output)
+    : RecurringTaskSmokeTests<Program, CleanupTask>(new MyAppBuilder(output))
+{
+}
+```
+
 ## Asserting on logs
 
 `WithTestingLogger` registers a `TestLogger` that keeps everything the app logs in memory, so you can assert on it. The `out` overload hands it to you mid-chain – no lookup, no field:
