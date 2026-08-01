@@ -4,7 +4,6 @@ using MartinDrozdik.DDD.Testing;
 
 namespace MartinDrozdik.DDD.Tests.Identities.Primitive;
 
-
 public class PrimitiveIdentityTests
 {
     [Fact]

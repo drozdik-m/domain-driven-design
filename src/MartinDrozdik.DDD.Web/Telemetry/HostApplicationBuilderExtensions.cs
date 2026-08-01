@@ -63,7 +63,7 @@ public static class HostApplicationBuilderExtensions
                     .AddHttpClientInstrumentation();
             });
 
-        builder.AddOpenTelemetryExporters();
+        builder = builder.AddOpenTelemetryExporters();
         return builder;
     }
 
