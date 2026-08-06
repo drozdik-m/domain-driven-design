@@ -7,13 +7,39 @@ namespace MartinDrozdik.DDD.Tests.Enumerations;
 
 public class InitializableEnumerationTests
 {
+    private enum TestState
+    {
+        Value1,
+        Value2,
+        Missing,
+    }
+
     [Fact]
     public void Uninitialized_enum_can_not_operate()
     {
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => UninitializedEnum.FromName(nameof(UninitializedEnum.Value1)));
         Assert.Throws<InvalidOperationException>(() => UninitializedEnum.FromNameOptional(nameof(UninitializedEnum.Value1)));
+        Assert.Throws<InvalidOperationException>(() => UninitializedEnum.FromStructEnum(TestState.Value1));
+        Assert.Throws<InvalidOperationException>(() => UninitializedEnum.FromStructEnumOptional<TestState>(TestState.Value1));
         Assert.Throws<InvalidOperationException>(UninitializedEnum.GetAll);
+    }
+
+    [Fact]
+    public void Should_implement_IStructEnumDeserializer_correctly()
+    {
+        TestEnum.Initialize(TestEnum.Values);
+
+        // Arrange
+        var validValue = TestState.Value1;
+        var invalidValue = TestState.Missing;
+        var expectedValue = TestEnum.Value1;
+
+        // Act & Assert
+        StructEnumDeserializerAssertions.AssertStructEnumDeserializer(
+            validValue,
+            invalidValue,
+            expectedValue);
     }
 
     [Fact]

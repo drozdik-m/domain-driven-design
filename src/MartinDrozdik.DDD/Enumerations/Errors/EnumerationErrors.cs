@@ -24,4 +24,26 @@ public static class EnumerationErrors
             .WithDetail("Name", name.Key)
             .Build();
     }
+
+    /// <summary>
+    /// Gets the error that represents an enumeration member with no counterpart in a plain .NET <see cref="Enum"/>.
+    /// </summary>
+    /// <typeparam name="TEnum">Type of the .NET enum.</typeparam>
+    /// <param name="enumeration">The enumeration member that could not be mapped.</param>
+    /// <returns>The <see cref="Error"/> object.</returns>
+    public static Error StructEnumMemberNotFound<TEnum>(Enumeration enumeration)
+        where TEnum : struct, Enum
+    {
+        ArgumentNullException.ThrowIfNull(enumeration);
+
+        var enumerationName = enumeration.GetType().Name;
+        var structEnumName = typeof(TEnum).Name;
+        return new ErrorBuilder()
+            .WithCode(EnumerationErrorCodes.StructEnumMemberNotFound)
+            .WithMessage($"Enumeration value {enumeration.Name} of {enumerationName} has no counterpart in {structEnumName}.")
+            .WithDetail("Enumeration", enumerationName)
+            .WithDetail("StructEnum", structEnumName)
+            .WithDetail("Name", enumeration.Name.Key)
+            .Build();
+    }
 }

@@ -59,6 +59,8 @@ Use `Enumeration` when any of the following apply:
 - Has extra display or metadata properties
 - Needs to be extended without touching switch statements
 
+It is not either/or at the boundary: keep the `Enumeration` in the domain and declare a plain `enum` for the public API contract, then map between them with `ToStructEnum` / `FromStructEnum` — see [Exposing an enumeration through an API](#exposing-an-enumeration-through-an-api).
+
 ### Specifications vs FluentValidation
 
 **FluentValidation** — input validation at system boundaries (API request DTOs): format, type, nullability, range.
@@ -221,8 +223,12 @@ Pick the base by what the type needs to do:
 | Base | Gives you | Use when |
 |---|---|---|
 | `Enumeration` | `Name`, value equality, implicit `string` conversion | A closed set you only reference by static member |
-| `StaticEnumeration<TSelf>` | `+ FromName`, `FromNameOptional`, `GetAll()` | You deserialize from a string or enumerate all members |
+| `StaticEnumeration<TSelf>` | `+ FromName`, `FromNameOptional`, `GetAll()`, `FromStructEnum`, `FromStructEnumOptional` | You deserialize from a string or a .NET enum, or enumerate all members |
 | `InitializableEnumeration<TSelf>` | same lookups, but the member set is supplied at startup via `Initialize(values)` | Members come from config or the database |
+
+Each capability is declared by its own interface, so generic code can require exactly what it needs:
+`IEnumerationDeserializer<TSelf>` (`FromName` / `FromNameOptional`), `IEnumerationEnumerator<TSelf>` (`GetAll`)
+and `IStructEnumDeserializer<TSelf>` (`FromStructEnum` / `FromStructEnumOptional`). Both bases implement all three.
 
 ```csharp
 public class InvoiceState(EnumerationName name) : Enumeration(name)
@@ -282,6 +288,58 @@ EF Core mapping for an enumeration is a plain `HasConversion` over `Name.Key`:
 builder.Property(i => i.State)
     .HasConversion(e => e.Name.Key, e => new InvoiceState(e));
 ```
+
+#### Exposing an enumeration through an API
+
+An `Enumeration` is a domain type and should not appear on the public API surface. Declare a plain `enum` for
+the contract and map between the two — do **not** hand-write a mapping method:
+
+```csharp
+using MartinDrozdik.DDD.Enumerations.Attributes;   // only for [EnumerationName]
+
+public enum InvoiceStateDto
+{
+    Draft,
+    Issued,
+
+    // only when the names must differ
+    [EnumerationName("Paid")]
+    Settled,
+}
+
+// domain -> API
+State = invoice.State.ToStructEnum<InvoiceStateDto>(),
+
+// API -> domain (mirrors FromName)
+var state = InvoiceState.FromStructEnum(dto.State);
+```
+
+Rules that matter:
+
+- Matching is **by name, case-sensitively** — `EnumerationName.Key` against the .NET enum member name, unless
+  `[EnumerationName]` overrides it. The attribute lives in `MartinDrozdik.DDD.Enumerations.Attributes`, so it needs
+  its own `using` — the shorthand shares a name with the `EnumerationName` struct and will not resolve without it.
+- `ToStructEnumOptional` and `FromStructEnumOptional` are the `null`-in/`null`-out siblings of each direction.
+- A member with no counterpart **throws `BusinessRuleException`**, unlike `FromName` which returns a failed
+  `IResult`. A broken mapping contract is a bug, not a business failure. Rule it out up front with
+  `EnumerationStructMapping.ThrowIfIncomplete<InvoiceState, InvoiceStateDto>()` — it fails when either side has a
+  member the other lacks, and belongs at startup or in a test. An `InitializableEnumeration<TSelf>` must be
+  initialized before the call, because the check lists its members.
+- `FromStructEnum` goes through `FromName`, so the domain side must be a
+  `StaticEnumeration<TSelf>` or an `InitializableEnumeration<TSelf>` — a plain `Enumeration` has no lookup. Generic
+  code can require the capability with `where T : Enumeration, IStructEnumDeserializer<T>`.
+- `[Flags]` enums and value aliases (`A = 1, B = 1`) are rejected with `ArgumentException`: a flag combination has
+  no single name, and an alias makes the mapping ambiguous.
+
+For values arriving off the wire, model binding produces undefined members (`?state=99` → `(InvoiceStateDto)99`).
+Those map to nothing, so turn them into a validation failure rather than a 500:
+
+```csharp
+RuleFor(x => x.State).MustMapToEnumeration(EnumerationMap.To<InvoiceState>());
+```
+
+`EnumerationMap.To<T>()` exists only so every generic argument can be inferred — C# infers all or nothing, and
+without it the call site would have to spell out the validated type, the .NET enum and the enumeration.
 
 ### Specifications
 

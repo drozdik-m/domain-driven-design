@@ -59,7 +59,7 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 | `Specifications` | `ISpecification<TContext>` returning `SpecificationResult`; composable via `And`/`Or`/`Not`/`Tautology`/`Contradiction` |
 | `Errors` | `Error`, `ErrorBuilder` (fluent), `Result<T>` |
 | `Exceptions` | `BusinessRuleException`, `ValidationException` |
-| `Enumerations` | `Enumeration` base class — object-oriented enums with behavior and properties |
+| `Enumerations` | `Enumeration` base class — object-oriented enums with behavior and properties; `ToStructEnum`/`FromStructEnum` map to and from a plain .NET `enum` for API contracts |
 | `Mediator` | `ICommand<TResponse>` + `ICommandHandler`, `IQuery<TResponse>` + `IQueryHandler`; pipeline integrators: `LoggingPipelineIntegrator`, `ValidationPipelineIntegrator` |
 
 ### Web library (`MartinDrozdik.DDD.Web`)

@@ -165,6 +165,52 @@ Serializes to strings/properties in your DB/JSON. Extends like a class. It's bea
 
 **`Enumeration` is a `ValueObject`**, so equality comes for free – only the name is compared **case-sensitively**.
 
+#### Exposing enumerations through an API
+
+Your enumeration is a domain type. You don't want it on the public API surface, so you declare a plain `enum` for the contract – and then you're stuck writing a mapping method and keeping it in sync by hand. *Don't.*
+
+```csharp
+public enum InvoiceStateDto
+{
+    Draft,
+    Issued,
+    Paid,
+}
+
+// domain -> API
+State = invoice.State.ToStructEnum<InvoiceStateDto>(),
+
+// API -> domain
+var state = InvoiceState.FromStructEnum(dto.State);
+```
+
+Members are matched **by name, case-sensitively**. Both directions have `...Optional` sibling that maps `null` to `null`: `ToStructEnumOptional` and `FromStructEnumOptional`.
+
+When the names must differ, tell it directly:
+
+```csharp
+public enum InvoiceStateDto
+{
+    Draft,
+    Issued,
+
+    [EnumerationName("Paid")]
+    Settled,
+}
+```
+
+Check the whole mapping up front, at startup or from a test:
+
+```csharp
+EnumerationStructMapping.ThrowIfIncomplete<InvoiceState, InvoiceStateDto>();
+```
+
+Also works with `FluentValidation`:
+
+```csharp
+RuleFor(x => x.State).MustMapToEnumeration(EnumerationMap.To<InvoiceState>());
+```
+
 ### Specifications
 
 Because `bool` is fine until someone asks *"but why did it fail?"* Or even worse, your `if` condition is 10 lines of copy-pasta.

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Enumerations.Errors;
 using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
 
 namespace MartinDrozdik.DDD.Enumerations;
@@ -13,7 +14,8 @@ namespace MartinDrozdik.DDD.Enumerations;
 /// <typeparam name="TSelf">Type of the final enumeration class.</typeparam>
 public abstract class InitializableEnumeration<TSelf> : Enumeration,
     IEnumerationDeserializer<TSelf>,
-    IEnumerationEnumerator<TSelf>
+    IEnumerationEnumerator<TSelf>,
+    IStructEnumDeserializer<TSelf>
     where TSelf : InitializableEnumeration<TSelf>
 {
     /// <summary>
@@ -109,6 +111,20 @@ public abstract class InitializableEnumeration<TSelf> : Enumeration,
         ThrowIfNotInitialized();
         return EnumerationMembers.FromNameOptional<TSelf>(name);
     }
+
+    /// <inheritdoc cref="IStructEnumDeserializer{TEnumeration}.FromStructEnum{TEnum}(TEnum)" />
+    /// <exception cref="InvalidOperationException">When the enumeration has not been initialized.</exception>
+    /// <exception cref="ArgumentException">When the .NET enum type cannot be mapped.</exception>
+    public static TSelf FromStructEnum<TEnum>(TEnum value)
+        where TEnum : struct, Enum
+        => EnumerationMembers.FromStructEnum<TSelf>(value);
+
+    /// <inheritdoc cref="IStructEnumDeserializer{TEnumeration}.FromStructEnumOptional{TEnum}(TEnum?)" />
+    /// <exception cref="InvalidOperationException">When the enumeration has not been initialized.</exception>
+    /// <exception cref="ArgumentException">When the .NET enum type cannot be mapped.</exception>
+    public static TSelf? FromStructEnumOptional<TEnum>(TEnum? value)
+        where TEnum : struct, Enum
+        => value is null ? null : EnumerationMembers.FromStructEnum<TSelf>(value.Value);
 
     /// <inheritdoc cref="IEnumerationEnumerator{TSelf}.GetAll()" />
     /// <exception cref="InvalidOperationException">When the enumeration has not been initialized.</exception>
