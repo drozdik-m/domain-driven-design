@@ -52,7 +52,7 @@ public class InvoicesTests
             () => Assert.Null(responseItem.IssuerName),
             () => Assert.Equal(invoice.Recipient.FullName, responseItem.RecipientName),
             () => Assert.Equal(invoice.Number.ToString(), responseItem.InvoiceNumber),
-            () => Assert.Equal(invoice.State, responseItem.State));
+            () => Assert.Equal(invoice.State.Name.Key, responseItem.State?.ToString()));
     }
 
     [Fact]

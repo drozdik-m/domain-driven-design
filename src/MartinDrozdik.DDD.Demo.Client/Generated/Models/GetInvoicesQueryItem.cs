@@ -41,13 +41,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.Models
         public string RecipientName { get; set; }
 #endif
         /// <summary>The state property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? State { get; set; }
-#nullable restore
-#else
-        public string State { get; set; }
-#endif
+        public global::MartinDrozdik.DDD.Demo.Client.Generated.Models.InvoiceStateApi? State { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::MartinDrozdik.DDD.Demo.Client.Generated.Models.GetInvoicesQueryItem"/> and sets the default values.
         /// </summary>
@@ -77,7 +71,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.Models
                 { "invoiceNumber", n => { InvoiceNumber = n.GetStringValue(); } },
                 { "issuerName", n => { IssuerName = n.GetStringValue(); } },
                 { "recipientName", n => { RecipientName = n.GetStringValue(); } },
-                { "state", n => { State = n.GetStringValue(); } },
+                { "state", n => { State = n.GetEnumValue<global::MartinDrozdik.DDD.Demo.Client.Generated.Models.InvoiceStateApi>(); } },
             };
         }
         /// <summary>
@@ -91,7 +85,7 @@ namespace MartinDrozdik.DDD.Demo.Client.Generated.Models
             writer.WriteStringValue("invoiceNumber", InvoiceNumber);
             writer.WriteStringValue("issuerName", IssuerName);
             writer.WriteStringValue("recipientName", RecipientName);
-            writer.WriteStringValue("state", State);
+            writer.WriteEnumValue<global::MartinDrozdik.DDD.Demo.Client.Generated.Models.InvoiceStateApi>("state", State);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

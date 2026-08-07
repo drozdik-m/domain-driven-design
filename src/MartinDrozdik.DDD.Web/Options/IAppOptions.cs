@@ -6,7 +6,7 @@
 public interface IAppOptions
 {
     /// <summary>
-    /// Gets the identifier of the section where options are located.
+    /// Gets the full identifier of the section where options are located.
     /// </summary>
     /// <example>Application:Database.</example>
     static abstract string Section { get; }

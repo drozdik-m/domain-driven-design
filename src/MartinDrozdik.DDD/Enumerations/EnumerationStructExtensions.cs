@@ -22,7 +22,7 @@ namespace MartinDrozdik.DDD.Enumerations;
 /// </para>
 /// <para>
 /// A member with no counterpart on the other side is a broken mapping contract, that is a bug rather than a business failure, so it throws instead of returning a <c>Result</c>.
-/// Guard against it with a test asserting the two member sets match, or, for values arriving from the outside, with the <c>MustMapToEnumeration</c> validation rule.
+/// Guard against it with <see cref="EnumerationStructMapping.ThrowIfIncomplete{TEnumeration, TEnum}"/> (or, in an xUnit project, the <c>EnumerationStructMappingTests</c> base class from <c>MartinDrozdik.DDD.Testing</c>), and, for values arriving from the outside, with the <c>MustMapToEnumeration</c> validation rule.
 /// </para>
 /// </remarks>
 public static class EnumerationStructExtensions

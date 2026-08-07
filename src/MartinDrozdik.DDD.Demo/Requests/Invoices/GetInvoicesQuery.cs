@@ -15,6 +15,6 @@ public record GetInvoicesQuery : IQuery<GetInvoicesQuery.Response>
         public required string? IssuerName { get; init; }
         public required string RecipientName { get; init; }
         public required string InvoiceNumber { get; init; }
-        public required string State { get; init; }
+        public required InvoiceStateApi State { get; init; }
     }
 }

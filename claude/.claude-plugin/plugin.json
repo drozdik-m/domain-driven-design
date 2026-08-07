@@ -1,6 +1,6 @@
 {
   "name": "martin-drozdik-ddd",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Claude Code skills for the MartinDrozdik.DDD library family — core DDD primitives, ASP.NET Core infrastructure, and integration test helpers.",
   "author": {
     "name": "Martin Drozdík",

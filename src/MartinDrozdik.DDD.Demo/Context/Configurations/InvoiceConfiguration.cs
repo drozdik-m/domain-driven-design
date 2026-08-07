@@ -55,7 +55,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.State)
             .HasConversion(
                 e => e.Name.Key,
-                e => new Models.Enumerations.InvoiceState(e))
+                e => Models.Enumerations.InvoiceState.FromName(e).Value)
             .HasColumnName("State")
             .IsRequired();
     }

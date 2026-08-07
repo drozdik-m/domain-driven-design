@@ -324,7 +324,9 @@ Rules that matter:
   `IResult`. A broken mapping contract is a bug, not a business failure. Rule it out up front with
   `EnumerationStructMapping.ThrowIfIncomplete<InvoiceState, InvoiceStateDto>()` — it fails when either side has a
   member the other lacks, and belongs at startup or in a test. An `InitializableEnumeration<TSelf>` must be
-  initialized before the call, because the check lists its members.
+  initialized before the call, because the check lists its members. In an xUnit project, derive from
+  `EnumerationStructMappingTests<InvoiceState, InvoiceStateDto>` (`MartinDrozdik.DDD.Testing`) instead — a one-line
+  class declaration with an empty body covers the bijection *and* both round trips.
 - `FromStructEnum` goes through `FromName`, so the domain side must be a
   `StaticEnumeration<TSelf>` or an `InitializableEnumeration<TSelf>` — a plain `Enumeration` has no lookup. Generic
   code can require the capability with `where T : Enumeration, IStructEnumDeserializer<T>`.

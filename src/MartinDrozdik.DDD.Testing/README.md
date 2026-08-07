@@ -267,6 +267,16 @@ public void CreateInvoice_returns_success()
 }
 ```
 
+## Enumeration <-> .NET enum mappings
+
+An `Enumeration` is a domain type, so an API contract carries a plain .NET enum instead.
+
+Test the two-way mapping via prepared suite:
+
+```csharp
+public class InvoiceStateMappingTests : EnumerationStructMappingTests<InvoiceState, InvoiceStateDto>;
+```
+
 ## Demo Tests
 
 The [demo test project](../MartinDrozdik.DDD.Demo.Tests) shows all of this wired together with a real app. Check:
@@ -275,3 +285,4 @@ The [demo test project](../MartinDrozdik.DDD.Demo.Tests) shows all of this wired
 - [Smoke/*](../MartinDrozdik.DDD.Demo.Tests/Smoke) – smoke tests in practice
 - [Errors/TestProgramErrorHandlingTests.cs](../MartinDrozdik.DDD.Demo.Tests/Errors/TestProgramErrorHandlingTests.cs) – error handling tests in practice
 - [Contexts/InvoiceDbContextTests.cs](../MartinDrozdik.DDD.Demo.Tests/Contexts/InvoiceDbContextTests.cs) – EF Core integration tests in practice
+- [Invoices/InvoiceStateMappingTests.cs](../MartinDrozdik.DDD.Demo.Tests/Invoices/InvoiceStateMappingTests.cs) – enumeration mapping tests in practice

@@ -1,5 +1,5 @@
 ---
-description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests, RecurringTaskSmokeTests, EndpointSmokeTester), EF Core integration tests with SqlDbContextIntegrationTests, TestLogger for asserting on log output, EqualityAssert for value objects, or ResultAssert for results.
+description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests, RecurringTaskSmokeTests, EndpointSmokeTester), EF Core integration tests with SqlDbContextIntegrationTests, EnumerationStructMappingTests for enumeration ↔ .NET enum API mappings, TestLogger for asserting on log output, EqualityAssert for value objects, or ResultAssert for results.
 ---
 
 You are an expert in the **MartinDrozdik.DDD.Testing** library. Generate correct integration test infrastructure and test code using its specific APIs.
@@ -217,6 +217,66 @@ public class MyDbContextTests(ITestOutputHelper output)
 `GetContext()` is the only required override. The base class is not `IDisposable`, so the deriving class owns
 disposing the app — as above.
 
+## Enumeration mapping tests
+
+`EnumerationStructMappingTests<TEnumeration, TEnum>` verifies that a domain `Enumeration` and the plain .NET enum
+it is exposed as on an API contract stay in sync. The two are matched **by name**, and a member with no counterpart
+throws only once production reaches it — adding a member to one side and forgetting the other is the entire failure
+mode this guards.
+
+### Go looking for these — every hit needs a test
+
+Whenever writing or reviewing tests for a project, scan for these and add a mapping test for each pair found:
+
+- a call to `.ToStructEnum<X>()` or `.ToStructEnumOptional<X>()` — the enumeration maps to `X`
+- a call to `SomeEnumeration.FromStructEnum(...)` / `FromStructEnumOptional(...)`
+- a plain `enum` whose members mirror an `Enumeration` — usually named `<Name>Api`, `<Name>Dto`, or just `<Name>`
+  next to a `<Name>` enumeration in the domain
+- an `[EnumerationName("...")]` attribute — it exists purely to bridge a name that differs between the two sides,
+  so a mapping is definitely in play
+- a `StaticEnumeration<T>` / `InitializableEnumeration<T>` referenced from a request, response, or DTO type
+
+One derived class per pair. A project with three mapped enumerations gets three declarations.
+
+### Writing one
+
+The whole test is the class declaration — an empty body, no members:
+
+```csharp
+public class InvoiceStateMappingTests : EnumerationStructMappingTests<InvoiceState, InvoiceStateApi>
+{
+}
+```
+
+Do **not** use the C# 12 semicolon body (`...InvoiceStateApi>;`) — StyleCop 1.1.118 reports it as SA1106
+"Code should not contain empty statements".
+
+You inherit five tests:
+
+| Test | What it proves |
+|---|---|
+| `Enumeration_and_struct_enum_map_one_to_one` | neither side has a member the other lacks |
+| `Every_enumeration_member_converts_to_a_struct_enum_member` | `ToStructEnum` never throws in production |
+| `Every_struct_enum_member_converts_to_an_enumeration_member` | `FromStructEnum` never throws for a defined member |
+| `Enumeration_members_survive_a_round_trip` | domain → API → domain is the identity |
+| `Struct_enum_members_survive_a_round_trip` | API → domain → API is the identity |
+
+Each reports **every** offending member, not just the first.
+
+### Requirements and traps
+
+- **`TEnumeration` must be a `StaticEnumeration<TSelf>` or `InitializableEnumeration<TSelf>`.** A plain
+  `Enumeration` has no `GetAll()` or `FromStructEnum`, so the constraints reject it at compile time. If the domain
+  type is a plain `Enumeration`, converting it is part of the job.
+- **Members must be `public static readonly` fields, not properties.** `GetAll()` reflects over *fields* only, so
+  static properties leave it empty and the 1:1 test fails reporting every .NET enum member as unmapped. This is the
+  most common cause of a red mapping test on first run.
+- An `InitializableEnumeration<TSelf>` must be **initialized before the tests run**, because they list its members.
+- `[Flags]` enums and value aliases (`A = 1, B = 1`) are rejected outright — a flag combination has no single name
+  and an alias makes the mapping ambiguous.
+- Outside xUnit, the same 1:1 check is `EnumerationStructMapping.ThrowIfIncomplete<TEnumeration, TEnum>()` from the
+  core package — use it at startup rather than in a test.
+
 ## Calling the app
 
 `CreateClient()` gives the raw `HttpClient`. For JSON round-trips, the `ITestedApp` extensions return a
@@ -352,3 +412,4 @@ public async Task GetInvoice_returns_correct_invoice()
 - `Smoke/` — smoke tests in practice
 - `Errors/` — error handling tests
 - `Contexts/InvoiceDbContextTests.cs` — EF Core integration tests
+- `Invoices/InvoiceStateMappingTests.cs` — enumeration ↔ .NET enum mapping tests

@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Demo.Context;
+using MartinDrozdik.DDD.Demo.Context;
+using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Mediator.Queries;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,20 +9,21 @@ public class GetInvoicesQueryHandler(InvoiceDbContext context) : IQueryHandler<G
 {
     public async Task<GetInvoicesQuery.Response> HandleAsync(GetInvoicesQuery query, CancellationToken cancellationToken)
     {
-        var invoices = await context.Invoices
-            .Select(i => new GetInvoicesQuery.Item
+        var rows = await context.Invoices.ToListAsync(cancellationToken);
+        var invoices = rows
+            .Select(r => new GetInvoicesQuery.Item
             {
-                Id = i.Id.Key,
-                IssuerName = i.Issuer != null ? i.Issuer.FullName : null,
-                RecipientName = i.Recipient.FullName,
-                InvoiceNumber = i.Number.ToString(),
-                State = i.State.ToString()
+                Id = r.Id.Key,
+                IssuerName = r.Issuer?.FullName,
+                RecipientName = r.Recipient.FullName,
+                InvoiceNumber = r.Number.ToString(),
+                State = r.State.ToStructEnum<InvoiceStateApi>()
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return new GetInvoicesQuery.Response
         {
-            Items = invoices
+            Items = invoices,
         };
     }
 }

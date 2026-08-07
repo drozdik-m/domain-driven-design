@@ -530,7 +530,7 @@
             "type": "string"
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/InvoiceStateApi"
           }
         }
       },
@@ -609,6 +609,13 @@
             "format": "uuid"
           }
         }
+      },
+      "InvoiceStateApi": {
+        "enum": [
+          "Draft",
+          "Issued",
+          "Paid"
+        ]
       },
       "ProblemDetails": {
         "title": "ProblemDetails",
