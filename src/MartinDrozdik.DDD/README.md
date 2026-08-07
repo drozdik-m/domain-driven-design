@@ -396,4 +396,3 @@ builder.Services.AddMediator(config =>
     // ...
 });
 ```
-
