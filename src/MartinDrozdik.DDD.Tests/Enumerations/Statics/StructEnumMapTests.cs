@@ -34,7 +34,9 @@ public class StructEnumMapTests
     private enum AliasedState
     {
         First = 1,
+#pragma warning disable CA1069 // Enums values should not be duplicated
         Alias = 1,
+#pragma warning restore CA1069 // Enums values should not be duplicated
     }
 
     private enum EmptyState

@@ -22,10 +22,10 @@ internal static class StructEnumNames
     /// <param name="value">The .NET enum value.</param>
     /// <returns>The mapped <see cref="EnumerationName"/>.</returns>
     /// <exception cref="ArgumentException">When the enum type cannot be mapped.</exception>
-    internal static EnumerationName Resolve(Enum value)
+    internal static EnumerationName ToEnumerationName(Enum value)
     {
         var type = value.GetType();
-        var names = For(type);
+        var names = MapFor(type);
         var memberName = Enum.GetName(type, value);
 
         if (memberName is null || !names.TryGetValue(memberName, out var name))
@@ -42,8 +42,8 @@ internal static class StructEnumNames
     /// <param name="enumType">Type of the .NET enum.</param>
     /// <returns>Map of member names to <see cref="EnumerationName"/>s.</returns>
     /// <exception cref="ArgumentException">When the enum type cannot be mapped.</exception>
-    internal static FrozenDictionary<string, EnumerationName> For(Type enumType)
-        => s_cache.GetOrAdd(enumType, Build);
+    internal static FrozenDictionary<string, EnumerationName> MapFor(Type enumType)
+        => s_cache.GetOrAdd(enumType, BuildDictionary);
 
     /// <summary>
     /// Reflects over the .NET enum members and builds the name map.
@@ -51,7 +51,7 @@ internal static class StructEnumNames
     /// <param name="enumType">Type of the .NET enum.</param>
     /// <returns>Map of member names to <see cref="EnumerationName"/>s.</returns>
     /// <exception cref="ArgumentException">When the enum type cannot be mapped.</exception>
-    private static FrozenDictionary<string, EnumerationName> Build(Type enumType)
+    private static FrozenDictionary<string, EnumerationName> BuildDictionary(Type enumType)
     {
         // A combination of flags has no single name, so it can never identify one enumeration member
         if (enumType.IsDefined(typeof(FlagsAttribute), inherit: false))

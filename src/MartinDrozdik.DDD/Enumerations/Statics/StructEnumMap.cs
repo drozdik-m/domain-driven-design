@@ -27,6 +27,6 @@ internal static class StructEnumMap<TEnum>
     /// <exception cref="ArgumentException">When the enum type cannot be mapped.</exception>
     private static FrozenDictionary<EnumerationName, TEnum> Build()
         => StructEnumNames
-            .For(typeof(TEnum))
+            .MapFor(typeof(TEnum))
             .ToFrozenDictionary(pair => pair.Value, pair => Enum.Parse<TEnum>(pair.Key));
 }

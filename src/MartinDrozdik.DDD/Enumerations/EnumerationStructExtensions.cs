@@ -76,6 +76,6 @@ public static class EnumerationStructExtensions
     public static EnumerationName ToEnumerationName(this Enum value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return StructEnumNames.Resolve(value);
+        return StructEnumNames.ToEnumerationName(value);
     }
 }
