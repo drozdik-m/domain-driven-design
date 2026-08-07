@@ -8,6 +8,10 @@
     <Project Path="MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj" />
     <Project Path="MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj" />
   </Folder>
+  <Folder Name="/Options/">
+    <Project Path="MartinDrozdik.DDD.Options.Tests/MartinDrozdik.DDD.Options.Tests.csproj" Id="91f79cbf-e134-42f4-88b0-7368ad9fbb53" />
+    <Project Path="MartinDrozdik.DDD.Options/MartinDrozdik.DDD.Options.csproj" Id="b6de8fa1-56aa-484d-b60c-9964b7530a46" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
   </Folder>

@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1">
+      <TreatAsUsed>true</TreatAsUsed>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.31.0.145097">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="S:\_Projekty\domain-driven-design\src\MartinDrozdik.DDD.Tests\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="S:\_Projekty\domain-driven-design\src\MartinDrozdik.DDD.Tests\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MartinDrozdik.DDD.Testing\MartinDrozdik.DDD.Testing.csproj" />
+  </ItemGroup>
+
+</Project>
