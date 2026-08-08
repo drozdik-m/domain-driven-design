@@ -1,10 +1,6 @@
 # DDD Options - Configuration That Fails Fast
 
-[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Options)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
-[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
-[![License](https://img.shields.io/github/license/drozdik-m/domain-driven-design?style=flat-square)](https://github.com/drozdik-m/domain-driven-design/blob/main/LICENSE)
+
 
 `IOptions<T>` with a section convention and FluentValidation, based on [MartinDrozdik.DDD](../MartinDrozdik.DDD). No ASP.NET Core dependency, so your business layer can define and register its own options. Check the [demo](../MartinDrozdik.DDD.Demo).
 
