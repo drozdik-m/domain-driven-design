@@ -5,5 +5,5 @@
 	  <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-  
+
 </Project>
