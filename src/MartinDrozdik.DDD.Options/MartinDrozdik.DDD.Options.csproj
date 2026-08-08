@@ -12,7 +12,7 @@
     <PackageIcon>ddd-options-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;domain;domain-driven-design;options</PackageTags>
-    <Version>0.9.0</Version>
+    <Version>0.9.0.1</Version>
     <PackageId>MartinDrozdik.DDD.Options</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

@@ -1,4 +1,4 @@
-name: Build, test and publish nuget package
+﻿name: Build, test and publish nuget package
 on:
   push:
     branches: [ main ]
@@ -64,7 +64,7 @@ jobs:
         retention-days: 1
 
   test:
-    name: Tests � ${{ matrix.project_name }}
+    name: Tests – ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: build
     permissions: # for test results
@@ -123,10 +123,13 @@ jobs:
         check_name: Test results � ${{ matrix.project_name }}
 
   publish-nuget:
-    name: Publish NuGet � ${{ matrix.project_name }}
+    name: Publish NuGet – ${{ matrix.project_name }}
     runs-on: ubuntu-latest
     needs: [build, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write # enable GitHub OIDC token issuance for this job
+      #contents: read
     strategy:
       # Sequential
       max-parallel: 1
@@ -159,5 +162,12 @@ jobs:
     - name: Pack NuGet package
       run: dotnet pack ${{ matrix.path }} --configuration Release --no-build --output ./packages
       
+    # Get the temporary API key (valid for 1 hour)
+    - name: NuGet login (OIDC)
+      id: nuget-login
+      uses: NuGet/login@v1
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
     - name: Publish to NuGet
-      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
