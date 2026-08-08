@@ -1,5 +1,5 @@
 ---
-description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, validated options, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, reverse proxy, or HTTP client resilience.
+description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, reverse proxy, or HTTP client resilience.
 ---
 
 You are an expert in the **MartinDrozdik.DDD.Web** library. Generate correct ASP.NET Core infrastructure setup using its specific APIs.
@@ -43,48 +43,10 @@ builder.AddAppServices(WebApplicationOptions.Default with
 
 ### Validated Options
 
-Use `IValidatedAppOptions<T>` when options must be validated on startup (fail-fast). Use `IAppOptions` for options with no validation requirement.
+At `MartinDrozdik.DDD.Options` — use the `ddd-options` skill. This package adds only:
 
 ```csharp
-public class InvoiceOptions : IValidatedAppOptions<InvoiceOptions>
-{
-    public static string Section => "App:Invoice";
-    public static AbstractValidator<InvoiceOptions> Validator { get; } = new OptionsValidator();
-
-    public required int StartingId { get; init; }
-    public required string DefaultName { get; init; }
-
-    private class OptionsValidator : AbstractValidator<InvoiceOptions>
-    {
-        public OptionsValidator()
-        {
-            RuleFor(e => e.StartingId).GreaterThanOrEqualTo(0);
-            RuleFor(e => e.DefaultName).NotNull().NotEmpty();
-        }
-    }
-}
-
-builder.Services.AddValidatedAppOptions<InvoiceOptions>();
-```
-
-```csharp
-public class SimpleOptions : IAppOptions
-{
-    public static string Section => "App:Simple";
-    public required string Value { get; init; }
-}
-
-builder.Services.AddAppOptions<SimpleOptions>();
-```
-
-Both bind strictly (`ErrorOnUnknownConfiguration = true`) and validate on start, so a typo in a config key is a
-startup failure rather than a silent default.
-
-To read options *during* startup, before the container exists, go through the configuration manager:
-
-```csharp
-var db = builder.Configuration.GetRequiredValidatedOptions<DatabaseOptions>();
-// also: GetOptions<T>(), GetRequiredOptions<T>(), GetValidatedOptions<T>()
+builder.WebHost.SetOption<InvoiceOptions>(e => e.DefaultName, "Invoice"); // strongly-typed UseSetting
 ```
 
 ### Error Handling

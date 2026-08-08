@@ -1,6 +1,6 @@
-﻿using FluentValidation;
+using FluentValidation;
 
-namespace MartinDrozdik.DDD.Web.Options;
+namespace MartinDrozdik.DDD.Options;
 
 /// <summary>
 /// Represents validated application options.

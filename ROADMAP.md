@@ -90,6 +90,33 @@ CQRS mediator (`Mediator/`): marker interfaces (`IMessage`/`IRequest`/`ICommand`
 
 ---
 
+## MartinDrozdik.DDD.Options
+
+Validated configuration options, extracted from `MartinDrozdik.DDD.Web` in `0.9.0` so business and infrastructure layers can use `IOptions<T>` without an ASP.NET Core reference. Contains `IAppOptions`, `IValidatedAppOptions<T>`, `FluentValidateOptions<T>`, `ServiceCollectionExtensions` and `ConfigurationManagerExtensions`; `IWebHostBuilder.SetOption<T>()` stayed in `.Web`.
+
+### Bugs
+
+### Design
+
+- [ ] **Validated-options `Validator` typed as concrete `AbstractValidator<T>`** — `IValidatedAppOptions.cs:15` exposes `AbstractValidator<T>` rather than `IValidator<T>`, preventing composed/decorated validators. Moved here with the package; same finding as the Mediator `IValidatedMessage` one — worth fixing consistently.
+
+### Dependency issues
+
+### NuGet split
+
+- [x] **Options module could not be used outside a web app** — `IAppOptions`/`IValidatedAppOptions<T>` lived in `MartinDrozdik.DDD.Web.Options`, so a business layer wanting `IOptions<T>` had to reference the whole ASP.NET Core + EF Core + OpenTelemetry stack. **Fixed:** extracted to `MartinDrozdik.DDD.Options`, which depends only on core, FluentValidation and the `Microsoft.Extensions.{Options,Configuration}` packages. Guarded by `MartinDrozdik.DDD.Options.Tests`, which deliberately references no web or hosting package.
+
+### Minor
+
+### Tests
+
+### Notes (keep doing)
+
+- `MartinDrozdik.DDD.Options.Tests` runs entirely host-free (plain `ServiceCollection` + `ConfigurationBuilder`, `IStartupValidator` invoked by hand), so the "no ASP.NET required" promise is a compile-time and run-time guarantee rather than a claim in a README.
+- Strict binding (`ErrorOnUnknownConfiguration = true`) plus `ValidateOnStart` means a typo'd config key is a startup failure, not a silent default.
+
+---
+
 ## MartinDrozdik.DDD.Web
 
 ASP.NET Core infrastructure. Reviewed folder-by-folder (`Options`, `Middlewares` + `Middlewares/Exceptions`, `Databases`, `Health`, `Telemetry`, `Resilience`, `OpenApi`, `Logging`, `FilePathProviders`, `Proxy`, `Environments`, `Mediator/Pipelines/Logging`) against the README and the Demo `Program.cs`.
@@ -105,7 +132,7 @@ ASP.NET Core infrastructure. Reviewed folder-by-folder (`Options`, `Middlewares`
 - [ ] **`GlobalExceptionHandler` leaks `exception.Message` to clients in every environment** — `Middlewares/Exceptions/GlobalExceptionHandler.cs:25` sets `detail: GetExceptionDetail(exception)` (= raw `exception.Message`) on the catch-all 500 ProblemDetails regardless of environment, while `GetExtensionDataWithDetails` is careful to gate the full `exception.ToString()` to Development only. The README promises "clean and safe error messages" in production; a raw catch-all message can disclose internals (DB/driver text, file paths). Return a generic detail in production, detailed only in Development.
 - [x] **4xx client errors logged at `Error` level** — every handler (`BusinessRuleValidationException`/`ValidationException` → 400, `BusinessNotFoundException` → 404) calls `RequestLogging.LogError`, which is `[LoggerMessage(Level = LogLevel.Error)]`. Client faults will spam error logs and trip alerting. Log 4xx at `Warning`/`Information`. Also inconsistent with `RequestResponseLoggingMiddleware`, which treats a bare 404 as *success*. **Fixed:** the level is now derived from the status class in one place — `RequestLogging.LogResponseInformation` (1xx/2xx/3xx → `Information`, 4xx → `Warning` via the new `LogClientErrorResponseInformation`, 5xx → `Error`). `RequestResponseLoggingMiddleware` lost its `404 == success` special case, and all four exception handlers now go through `ExceptionHandler.WriteResponseAndLogAsync`, which writes the `IResult` *first* and then logs — so the logged `{StatusCode}` is the one the client actually receives instead of the uninitialised `200`. Guarded by `Middlewares/Logging/RequestResponseLoggingMiddlewareTests.cs` and `Middlewares/Exceptions/ExceptionHandlerLoggingTests.cs`.
 - [x] **Exceptions are error-logged twice** — in `UseAppMiddlewares`, `RequestResponseLoggingMiddleware` is registered *after* `UseExceptionHandler`, so it sits downstream of the exception handler. A thrown exception is logged once by the middleware's `catch` (then rethrown) and again by the matched `IExceptionHandler`. Pick a single place to log. **Fixed as far as accuracy goes:** `RequestResponseLoggingMiddleware` is now registered *before* `UseExceptionHandler` (`WebApplicationExtensions.cs:42`), so it wraps the handler. A handled exception no longer propagates into its `catch` — the handler writes the response and returns normally, so the middleware's success path sees the final status code and logs it at a matching level. A `BusinessNotFoundException` is therefore logged as a `Warning` twice (middleware + handler) rather than `Error` + `Warning`. The remaining duplication is **deliberate** — twice is preferable to zero, and the middleware's `catch` is still the only thing that logs an exception no handler claims. Guarded end-to-end by `Middlewares/Logging/ExceptionLoggingPipelineTests.cs`.
-- [ ] **Validated-options `Validator` typed as concrete `AbstractValidator<T>`** — `Options/IValidatedAppOptions.cs:15` (and the `DatabaseOptions`/`StaticFileVersioningOptions` implementations) expose `AbstractValidator<T>` rather than `IValidator<T>`, preventing composed/decorated validators. Same finding as the Mediator `IValidatedMessage` one — worth fixing consistently.
+- [ ] **`DatabaseOptions`/`StaticFileVersioningOptions` expose a concrete `AbstractValidator<T>`** — follows from the `IValidatedAppOptions<T>` contract, now tracked in the `MartinDrozdik.DDD.Options` chapter. Fix both together.
 - [ ] **`IsBehindProxy()` enables `ForwardedHeaders.All` with no trusted-proxy config** — `Proxy/WebApplicationExtensions.cs:21` forwards *all* headers (including `X-Forwarded-Host`) without setting `KnownProxies`/`KnownNetworks`. Same-host loopback proxies are saved by the framework defaults, but the one-liner invites host-header/IP spoofing with an off-box proxy. Default to `XForwardedFor | XForwardedProto` and document trusted-proxy setup.
 - [ ] **Recurring tasks have no health-check or telemetry surface** — `RecurringTasks/RecurringTaskHost.cs` logs each iteration but exposes nothing queryable: an operator cannot ask "when did `CleanupTask` last succeed?" and a failing task is invisible to `/health`. Record last-run/last-success/last-failure per task in a singleton and add an opt-in health check. Related: the loop starts no `Activity`, so an iteration's work is untraced and unlinked in OpenTelemetry despite the package configuring it — add an `ActivitySource` around `RunIterationAsync`.
 - [ ] **Recurring tasks run on every instance, with no distributed coordination** — `RecurringTasks/HostApplicationBuilderExtensions.cs` registers a plain `BackgroundService`, so scaling to N replicas runs the job N times concurrently. Fine for reports, wrong for anything that mutates. Needs either documented "single instance only" guidance or opt-in leader election / advisory locking.
@@ -162,7 +189,7 @@ xUnit v3 test helpers. Reviewed folder-by-folder (`TestedApp*`/`ITestedApp`/`Tes
 ### Dependency issues
 
 - [ ] **Test-helper package forces heavy/opinionated deps on every consumer** — `MartinDrozdik.DDD.Testing.csproj` pulls `YamlDotNet` (only for optional YAML OpenAPI validation), `FluentValidation`, `CSharpFunctionalExtensions` (transitively, surfaced through `ResultAssert`), and hard-locks to **xUnit v3** (`xunit.v3.*`, `MartinCostello.Logging.XUnit.v3`, `Mvc.Testing`). Anyone referencing the package inherits all of it. Consider gating YAML validation behind a separate package/extension and documenting the xUnit-v3-only constraint.
-- [ ] **Version skew: Testing `0.7.1.1` pins `MartinDrozdik.DDD.Web` `0.7.0`** — the helper ships newer than the Web package it builds on, so consumers may not pick up the latest Web fixes through this dependency. Keep the referenced version in lockstep.
+- [x] **Version skew: Testing `0.7.1.1` pins `MartinDrozdik.DDD.Web` `0.7.0`** — the helper ships newer than the Web package it builds on, so consumers may not pick up the latest Web fixes through this dependency. Keep the referenced version in lockstep. **Fixed:** `MartinDrozdik.DDD.Testing.csproj` now uses a `ProjectReference` to `MartinDrozdik.DDD.Web`, so `dotnet pack` derives the dependency version from the Web project and skew is impossible. Same change removes the "blocked until Web X is published" class of problem below.
 - [x] **`TestedAppBuilder.WithoutRecurringTasks()` blocked until Web `0.8.0` is published** — `MartinDrozdik.DDD.Testing.csproj:29` consumes `MartinDrozdik.DDD.Web` as a **package** (`0.7.1.1`), not a `ProjectReference`, so the new `IServiceCollection.RemoveRecurringTasks()` is not visible to this project until the Web package ships. The helper was written and reverted for exactly this reason. Until then consumers must call `.WithServices(s => s.RemoveRecurringTasks())` themselves.
   **Fixed:** Web `0.8.0` is published and referenced, which unblocked this. It shipped inverted — `Build()` calls `RemoveRecurringTasks()` unless `WithRecurringTasks()` was called, so the safe behaviour is the default and there is nothing for a consumer to remember. Together with `WithoutHostedService<T>`, the `RunRecurringTaskAsync`/`GetRecurringTaskSchedule`/`TriggerRecurringTask` extensions and the `RecurringTaskSmokeTests<TProgram, TTask>` base class, in `MartinDrozdik.DDD.Testing` `0.8.0`. A schedule override helper was considered and dropped — `WithServices(s => s.PostConfigure<RecurringTaskOptions<TTask>>(...))` already does it without new surface.
   ⚠️ Behaviour change for consumers upgrading to `0.8.0`: a test that relied on a loop running must now opt in with `.WithRecurringTasks()`.

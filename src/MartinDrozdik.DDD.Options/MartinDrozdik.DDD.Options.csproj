@@ -12,7 +12,7 @@
     <PackageIcon>ddd-options-icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/drozdik-m/domain-driven-design</RepositoryUrl>
     <PackageTags>ddd;domain;domain-driven-design;options</PackageTags>
-    <Version>0.8.1</Version>
+    <Version>0.9.0</Version>
     <PackageId>MartinDrozdik.DDD.Options</PackageId>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -28,9 +28,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CSharpFunctionalExtensions" Version="3.7.0" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MartinDrozdik.DDD\MartinDrozdik.DDD.csproj" />
   </ItemGroup>
 
   <ItemGroup>

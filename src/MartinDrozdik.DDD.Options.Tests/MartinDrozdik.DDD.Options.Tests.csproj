@@ -12,6 +12,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1">
       <TreatAsUsed>true</TreatAsUsed>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1">
@@ -45,7 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MartinDrozdik.DDD.Testing\MartinDrozdik.DDD.Testing.csproj" />
+    <ProjectReference Include="..\MartinDrozdik.DDD.Options\MartinDrozdik.DDD.Options.csproj" />
   </ItemGroup>
 
 </Project>

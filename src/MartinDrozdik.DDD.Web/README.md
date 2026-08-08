@@ -6,7 +6,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
 [![License](https://img.shields.io/github/license/drozdik-m/domain-driven-design?style=flat-square)](https://github.com/drozdik-m/domain-driven-design/blob/main/LICENSE)
 
-Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](../MartinDrozdik.DDD). Includes error handling, logging, telemetry, health checks, and other setup you'll need anyway. Check the [demo](../MartinDrozdik.DDD.Demo).
+Opinionated web infrastructure for .NET based on [MartinDrozdik.DDD](../MartinDrozdik.DDD) and [MartinDrozdik.DDD.Options](../MartinDrozdik.DDD.Options). Includes error handling, logging, telemetry, health checks, and other setup you'll need anyway. Check the [demo](../MartinDrozdik.DDD.Demo).
 
 ## Installation
 
@@ -76,47 +76,7 @@ What goodies do you want to use? Just call the appropriate extension method:
 
 ### Options
 
-Leverages `IOptions<T>` with FluentValidation for configuration validation and automatic binding.
-
-Configured to **fail fast** if your configuration is invalid. No more *"wOrKs On My MaChInE"*.
-
-```csharp
-public class InvoiceOptions : IValidatedAppOptions<InvoiceOptions>
-{
-    public static string Section => "App:Invoice"; // Simple binding from config (appsettings etc.)
-
-    // FluentValidation validator, because attributes are for suckers
-    public static AbstractValidator<InvoiceOptions> Validator { get; } = new OptionsValidator();
-
-    // Your actual options properties:
-    public required int StartingId { get; init; }
-    public required string DefaultName { get; init; }
-    
-    private class OptionsValidator : AbstractValidator<InvoiceOptions>
-    {
-        public OptionsValidator()
-        {
-            RuleFor(e => e.StartingId).GreaterThanOrEqualTo(0);
-            RuleFor(e => e.DefaultName).NotNull().NotEmpty();
-        }
-    }
-}
-
-// Register it:
-builder.Services.AddValidatedAppOptions<InvoiceOptions>();
-```
-
-For simpler options without validation:
-
-```csharp
-public class SimpleOptions : IAppOptions
-{
-    public static string Section => "App:Simple";
-    public required string Value { get; init; }
-}
-
-builder.Services.AddAppOptions<SimpleOptions>();
-```
+In its own package - see [MartinDrozdik.DDD.Options](../MartinDrozdik.DDD.Options). This package adds `IWebHostBuilder.SetOption<TOptions>()` on top of it.
 
 ### EEE (Ezy Error Ehndling)
 

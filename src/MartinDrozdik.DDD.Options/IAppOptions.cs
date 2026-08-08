@@ -1,4 +1,4 @@
-﻿namespace MartinDrozdik.DDD.Web.Options;
+namespace MartinDrozdik.DDD.Options;
 
 /// <summary>
 /// Represents application options with a predetermined <see cref="Section"/>.

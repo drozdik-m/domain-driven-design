@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using MartinDrozdik.DDD.Web.Options;
+using MartinDrozdik.DDD.Options;
 
 namespace MartinDrozdik.DDD.Web.Databases;
 

@@ -1,4 +1,4 @@
-﻿using MartinDrozdik.DDD.Web.Options;
+﻿using MartinDrozdik.DDD.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 

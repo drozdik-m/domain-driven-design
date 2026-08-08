@@ -1,7 +1,6 @@
-﻿using FluentValidation;
-using MartinDrozdik.DDD.Web.Options;
+using FluentValidation;
 
-namespace MartinDrozdik.DDD.Web.Tests.Options;
+namespace MartinDrozdik.DDD.Options.Tests;
 
 public class FluentValidateOptionsTests
 {

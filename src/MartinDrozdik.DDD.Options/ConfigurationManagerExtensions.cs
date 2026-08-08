@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Extensions;
+using MartinDrozdik.DDD.Extensions;
 using Microsoft.Extensions.Configuration;
 
-namespace MartinDrozdik.DDD.Web.Options;
+namespace MartinDrozdik.DDD.Options;
 
 /// <summary>
 /// Extensions for <see cref="IConfigurationManager"/>.

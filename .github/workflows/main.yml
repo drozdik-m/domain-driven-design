@@ -12,6 +12,8 @@ env:
   DEMO_PROJECT_PATH: './src/MartinDrozdik.DDD.Demo/MartinDrozdik.DDD.Demo.csproj'
   DEMO_PROJECT_CLIENT_PATH: './src/MartinDrozdik.DDD.Demo.Client/MartinDrozdik.DDD.Demo.Client.csproj'
   DEMO_PROJECT_TESTS: './src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj'
+  OPTIONS_PROJECT: './src/MartinDrozdik.DDD.Options/MartinDrozdik.DDD.Options.csproj'
+  OPTIONS_PROJECT_TESTS: './src/MartinDrozdik.DDD.Options.Tests/MartinDrozdik.DDD.Options.Tests.csproj'
   WEB_PROJECT: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
   WEB_PROJECT_TESTS: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
   TESTING_PROJECT: './src/MartinDrozdik.DDD.Testing/MartinDrozdik.DDD.Testing.csproj'
@@ -76,6 +78,9 @@ jobs:
           - project_name: "Models"
             path: './src/MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj'
             executable: 'src/MartinDrozdik.DDD.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Tests'
+          - project_name: "Options"
+            path: './src/MartinDrozdik.DDD.Options.Tests/MartinDrozdik.DDD.Options.Tests.csproj'
+            executable: 'src/MartinDrozdik.DDD.Options.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Options.Tests'
           - project_name: "Web"
             path: './src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj'
             executable: 'src/MartinDrozdik.DDD.Web.Tests/bin/Release/net10.0/MartinDrozdik.DDD.Web.Tests'
@@ -123,10 +128,14 @@ jobs:
     needs: [build, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     strategy:
+      # Sequential
+      max-parallel: 1
       matrix:
         include:
           - project_name: "Models"
             path: './src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj'
+          - project_name: "Options"
+            path: './src/MartinDrozdik.DDD.Options/MartinDrozdik.DDD.Options.csproj'
           - project_name: "Web"
             path: './src/MartinDrozdik.DDD.Web/MartinDrozdik.DDD.Web.csproj'
           - project_name: "Testing"

@@ -1,5 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.FilePathProviders.Static;
-using MartinDrozdik.DDD.Web.Options;
+﻿using MartinDrozdik.DDD.Options;
+using MartinDrozdik.DDD.Web.FilePathProviders.Static;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

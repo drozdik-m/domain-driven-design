@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using MartinDrozdik.DDD.Options;
 using Microsoft.AspNetCore.Hosting;
 
 namespace MartinDrozdik.DDD.Web.Options;

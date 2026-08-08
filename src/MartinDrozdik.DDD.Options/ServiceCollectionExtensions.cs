@@ -1,17 +1,22 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace MartinDrozdik.DDD.Web.Options;
+namespace MartinDrozdik.DDD.Options;
 
 /// <summary>
 /// Extensions for adding new <see cref="IAppOptions"/>s.
 /// </summary>
-public static class OptionsExtensions
+public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Adds <see cref="IAppOptions"/>.
     /// Binds properly to provided <typeparamref name="TOptions"/> and ensures validation.
     /// </summary>
+    /// <remarks>
+    /// Validation is registered with <c>ValidateOnStart</c>, which the generic host runs for you.
+    /// Code that builds a bare <see cref="IServiceProvider"/> without a host must resolve
+    /// <see cref="IStartupValidator"/> and call <see cref="IStartupValidator.Validate"/> itself.
+    /// </remarks>
     /// <typeparam name="TOptions">The type of registered options.</typeparam>
     /// <param name="services">Where the options are registered.</param>
     /// <returns>Updated <see cref="IServiceCollection"/>.</returns>
@@ -31,6 +36,11 @@ public static class OptionsExtensions
     /// Adds <see cref="IAppOptions"/>.
     /// Binds properly to provided <typeparamref name="TOptions"/> and ensures validation via Fluent Validation.
     /// </summary>
+    /// <remarks>
+    /// Validation is registered with <c>ValidateOnStart</c>, which the generic host runs for you.
+    /// Code that builds a bare <see cref="IServiceProvider"/> without a host must resolve
+    /// <see cref="IStartupValidator"/> and call <see cref="IStartupValidator.Validate"/> itself.
+    /// </remarks>
     /// <typeparam name="TOptions">The type of registered options.</typeparam>
     /// <param name="services">Where the options are registered.</param>
     /// <returns>Updated <see cref="IServiceCollection"/>.</returns>

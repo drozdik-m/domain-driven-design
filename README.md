@@ -32,6 +32,27 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD/README.md) for this libr
 
 [![DDD Logo](./src/MartinDrozdik.DDD/ddd-icon.png)](./src/MartinDrozdik.DDD/README.md)
 
+## MartinDrozdik.DDD.Options
+
+[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Options)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
+[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
+
+**`IOptions<T>` with a section convention and `FluentValidation`, without dragging ASP.NET Core into your business layer.**
+
+Built on top of `MartinDrozdik.DDD`, this package provides configuration that fails fast:
+
+- **`IAppOptions`** – options that know their own configuration section
+- **`IValidatedAppOptions<T>`** – ...and their own `FluentValidation` validator
+- **`AddAppOptions<T>()` / `AddValidatedAppOptions<T>()`** – strict binding, validated on start
+- **Configuration manager extensions** – comfortably read options during startup, before the container exists
+
+*No web host required.* Ideal for business layer.
+
+Check out [very nice README.md](./src/MartinDrozdik.DDD.Options/README.md) for full details and examples that actually compile.
+
+[![DDD Options Logo](./src/MartinDrozdik.DDD.Options/ddd-options-icon.png)](./src/MartinDrozdik.DDD.Options)
+
 ## MartinDrozdik.DDD.Web
 
 [![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Web?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Web)](https://www.nuget.org/packages/MartinDrozdik.DDD.Web)
@@ -84,7 +105,7 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD.Testing/README.md) for f
 
 **Claude Code skills so your AI assistant actually knows how to use these libraries.**
 
-Provides skills that give Claude deep knowledge of `MartinDrozdik.DDD`, `MartinDrozdik.DDD.Web`, and `MartinDrozdik.DDD.Testing`.
+Provides skills that give Claude deep knowledge of `MartinDrozdik.DDD`, `MartinDrozdik.DDD.Options`, `MartinDrozdik.DDD.Web`, and `MartinDrozdik.DDD.Testing`.
 
 Install inside Claude Code:
 
@@ -101,7 +122,7 @@ Check out [very nice Claude README.md](./claude/README.md) for further reading.
 
 [![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
 
-A demo application that shows recommended patterns for using the `MartinDrozdik.DDD` and `MartinDrozdik.DDD.Web` library. It's not gospel, but it works (which is more than you can say for most blog post code).
+A demo application that shows recommended patterns for using the `MartinDrozdik.DDD`, `MartinDrozdik.DDD.Options` and `MartinDrozdik.DDD.Web` library. It's not gospel, but it works (which is more than you can say for most blog post code).
 
 Check out:
 

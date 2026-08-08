@@ -1,5 +1,5 @@
-﻿using MartinDrozdik.DDD.Web.Environments;
-using MartinDrozdik.DDD.Web.Options;
+﻿using MartinDrozdik.DDD.Options;
+using MartinDrozdik.DDD.Web.Environments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

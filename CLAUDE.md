@@ -6,7 +6,7 @@ Planned improvements, known bugs, and open questions are tracked per package in 
 
 ## Code reviews & ROADMAP
 
-[ROADMAP.md](./ROADMAP.md) is the single source of truth for review findings. It has one chapter per NuGet package (`MartinDrozdik.DDD`, `MartinDrozdik.DDD.Web`, `MartinDrozdik.DDD.Testing`), each split into categories: **Bugs**, **Design**, **Dependency issues**, **NuGet split**, **Minor**, **Tests**, and a **Notes (keep doing)** list.
+[ROADMAP.md](./ROADMAP.md) is the single source of truth for review findings. It has one chapter per NuGet package (`MartinDrozdik.DDD`, `MartinDrozdik.DDD.Options`, `MartinDrozdik.DDD.Web`, `MartinDrozdik.DDD.Testing`), each split into categories: **Bugs**, **Design**, **Dependency issues**, **NuGet split**, **Minor**, **Tests**, and a **Notes (keep doing)** list.
 
 When **doing a code review** of a package:
 
@@ -31,6 +31,7 @@ dotnet test src/MartinDrozdik.DDD.slnx
 
 # Run tests for a single project
 dotnet test src/MartinDrozdik.DDD.Tests/MartinDrozdik.DDD.Tests.csproj
+dotnet test src/MartinDrozdik.DDD.Options.Tests/MartinDrozdik.DDD.Options.Tests.csproj
 dotnet test src/MartinDrozdik.DDD.Web.Tests/MartinDrozdik.DDD.Web.Tests.csproj
 dotnet test src/MartinDrozdik.DDD.Demo.Tests/MartinDrozdik.DDD.Demo.Tests.csproj
 
@@ -40,11 +41,12 @@ dotnet pack src/MartinDrozdik.DDD/MartinDrozdik.DDD.csproj --configuration Relea
 
 ## Architecture
 
-This repo publishes three NuGet packages built on top of each other:
+This repo publishes four NuGet packages built on top of each other:
 
 ```
 MartinDrozdik.DDD          ← core DDD primitives
-MartinDrozdik.DDD.Web      ← ASP.NET Core infrastructure (depends on core)
+MartinDrozdik.DDD.Options  ← validated configuration options (depends on core, no ASP.NET)
+MartinDrozdik.DDD.Web      ← ASP.NET Core infrastructure (depends on Options)
 MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 ```
 
@@ -61,6 +63,10 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 | `Exceptions` | `BusinessRuleException`, `ValidationException` |
 | `Enumerations` | `Enumeration` base class — object-oriented enums with behavior and properties; `ToStructEnum`/`FromStructEnum` map to and from a plain .NET `enum` for API contracts |
 | `Mediator` | `ICommand<TResponse>` + `ICommandHandler`, `IQuery<TResponse>` + `IQueryHandler`; pipeline integrators: `LoggingPipelineIntegrator`, `ValidationPipelineIntegrator` |
+
+### Options library (`MartinDrozdik.DDD.Options`)
+
+`IAppOptions` (a `static abstract string Section`) and `IValidatedAppOptions<T>` (plus a `static abstract AbstractValidator<T> Validator`), registered with `AddAppOptions<T>()` / `AddValidatedAppOptions<T>()` — strict binding (`ErrorOnUnknownConfiguration = true`) validated on start. `ConfigurationManagerExtensions` reads options during startup, before the container exists. **Deliberately has no ASP.NET Core dependency** so business and infrastructure layers can own their own options; `MartinDrozdik.DDD.Web` adds only `IWebHostBuilder.SetOption<T>()` on top.
 
 ### Web library (`MartinDrozdik.DDD.Web`)
 

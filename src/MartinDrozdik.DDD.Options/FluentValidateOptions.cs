@@ -1,7 +1,7 @@
-﻿using MartinDrozdik.DDD.Extensions;
+using MartinDrozdik.DDD.Extensions;
 using Microsoft.Extensions.Options;
 
-namespace MartinDrozdik.DDD.Web.Options;
+namespace MartinDrozdik.DDD.Options;
 
 /// <summary>
 /// Verifies <see cref="IValidatedAppOptions{TOptions}"/> with their own <see cref="IValidatedAppOptions{TOptions}.Validator"/>.

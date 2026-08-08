@@ -10,7 +10,7 @@ using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
-using MartinDrozdik.DDD.Web.Options;
+using MartinDrozdik.DDD.Options;
 using MartinDrozdik.DDD.Web.Proxy;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using Microsoft.EntityFrameworkCore;

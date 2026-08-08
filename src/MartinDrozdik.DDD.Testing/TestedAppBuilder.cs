@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Security.Claims;
 using MartinDrozdik.DDD.Disposing;
+using MartinDrozdik.DDD.Options;
 using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Options;
