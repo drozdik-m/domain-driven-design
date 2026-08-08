@@ -34,9 +34,7 @@ Check out [very nice README.md](./src/MartinDrozdik.DDD/README.md) for this libr
 
 ## MartinDrozdik.DDD.Options
 
-[![NuGet](https://img.shields.io/nuget/v/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=MartinDrozdik.DDD.Options)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/MartinDrozdik.DDD.Options?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/MartinDrozdik.DDD.Options)
-[![Build & Test](https://img.shields.io/github/actions/workflow/status/drozdik-m/domain-driven-design/main.yml?branch=main&style=flat-square&logo=github&label=actions)](https://github.com/drozdik-m/domain-driven-design/actions)
+
 
 **`IOptions<T>` with a section convention and `FluentValidation`, without dragging ASP.NET Core into your business layer.**
 
