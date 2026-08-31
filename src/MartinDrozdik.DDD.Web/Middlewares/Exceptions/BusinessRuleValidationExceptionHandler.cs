@@ -27,7 +27,7 @@ public class BusinessRuleValidationExceptionHandler(
             logger,
             httpContext,
             validationException,
-            Results.ValidationProblem(
+            TypedResults.ValidationProblem(
                 errors: validationException.DetailsDictionary,
                 detail: GetExceptionDetail(exception),
                 title: ExceptionMessages.ValidationExceptionTitle,

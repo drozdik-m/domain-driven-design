@@ -1,4 +1,4 @@
-﻿using CSharpFunctionalExtensions;
+﻿using MartinDrozdik.DDD.Results;
 
 namespace MartinDrozdik.DDD.Errors;
 

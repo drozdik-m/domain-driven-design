@@ -30,7 +30,7 @@ public class ValidationExceptionHandler(
             logger,
             httpContext,
             exception,
-            Results.ValidationProblem(
+            TypedResults.ValidationProblem(
                 errors: businessException.DetailsDictionary,
                 detail: GetExceptionDetail(exception),
                 title: ExceptionMessages.ValidationExceptionTitle,

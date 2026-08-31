@@ -1,5 +1,5 @@
-using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Results;
 
 namespace MartinDrozdik.DDD.Enumerations;
 

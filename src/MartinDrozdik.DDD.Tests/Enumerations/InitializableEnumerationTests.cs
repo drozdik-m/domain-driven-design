@@ -1,4 +1,3 @@
-using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Tests.Enumerations.Assertions;

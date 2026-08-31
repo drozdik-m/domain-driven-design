@@ -297,15 +297,15 @@ var permissive = TautologySpecification<OrderContext>.Instance;
 var disabled = new ContradictionSpecification<OrderContext>(someError);
 ```
 
-## Exceptions and Errors
+## Exceptions, Errors, Results
 
 *Stuff happens. Sometimes it's your fault. Sometimes it's the network. Sometimes it's both.*
 
-This library supports both **`Result<T>`** and **exceptions** for error handling in Domain-Driven Design (DDD). Pick the approach that best fits your project, your architecture, and your tolerance for boilerplate.
+This library supports both **`Result<T, Error>`** and **exceptions** for error handling in Domain-Driven Design (DDD). Pick the approach that best fits your project, your architecture, and your tolerance for boilerplate.
 
-In general, prefer **`Result<T>`** for business operations that can fail in expected ways. This keeps failures explicit, avoids control flow via exceptions, and makes error handling visible instead of *somewhere up the call stack*.
+In general, prefer **`Result<T, Error>`** for business operations that can fail in expected ways. This keeps failures explicit, avoids control flow via exceptions, and makes error handling visible instead of *somewhere up the call stack*.
 
-Exceptions still have their place. APIs, for example, often bubble errors straight to the top anyway, where they're translated into HTTP responses. In those cases, throwing an exception can be the simpler and more honest approach without passing `Result<T>` throught twelve layers of services.
+Exceptions still have their place. APIs, for example, often bubble errors straight to the top anyway, where they're translated into HTTP responses. In those cases, throwing an exception can be the simpler and more honest approach without passing `Result<T, Error>` throught twelve layers of services.
 
 ``` csharp
 // Build errors fluently
@@ -333,9 +333,36 @@ if (new YourFluentValidator().Validate(someObject).TryGetError(out var error))
 new YourFluentValidator().ValidateAndThrowBusiness(result);
 ```
 
-Plenty of extension methods are provided for converting between errors, exceptions, and `Result<T>` types, so you can stay consistent without reinventing error plumbing every sprint.
+`Result<T, E>` and `UnitResult<E>` live in [`MartinDrozdik.DDD.Results`](./Results). Both are `readonly struct`s, so carrying an outcome around costs nothing on the heap:
+
+``` csharp
+public static Result<InvoiceNumber, Error> Create(int year, int order)
+{
+    if (year < 2000)
+    {
+        return new ErrorBuilder()
+            .WithCode("InvalidInvoiceNumber")
+            .WithMessage("Invoice number must be after year 2000")
+            .Build(); // an Error implicitly converts to a failure
+    }
+
+    return new InvoiceNumber(year, order);   // ...and a value converts to a success
+}
+
+// Compose without touching Value/Error by hand
+var label = InvoiceNumber
+    .Create(year, order)
+    .Map(number => $"{number}")
+    .Match(text => text, error => error.Message);
+```
+
+`Map`, `MapError`, `Bind`, `Ensure`, `Tap`, `TapError` and `Match` all short-circuit on the first failure, and each has an `Async` counterpart.
+
+Plenty of extension methods are provided for converting between errors, exceptions, and result types, so you can stay consistent without reinventing error plumbing every sprint.
 
 Comes with [`WellKnownErrors`](./Errors/WellKnown/ErrorCodes.cs) for common cases. Feel free to ignore them and make your own (I won't tell).
+
+*Results come from [CSharpFunctionalExtensions](https://github.com/vkhorikov/CSharpFunctionalExtensions)*
 
 ## Mediator - CQRS Without the Ceremony
 

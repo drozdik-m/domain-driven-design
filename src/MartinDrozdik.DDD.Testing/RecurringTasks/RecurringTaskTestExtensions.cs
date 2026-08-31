@@ -1,7 +1,5 @@
 using MartinDrozdik.DDD.Web.RecurringTasks;
-using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Testing.RecurringTasks;
 

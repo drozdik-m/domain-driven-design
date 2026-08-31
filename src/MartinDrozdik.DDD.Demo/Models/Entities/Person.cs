@@ -1,6 +1,5 @@
 ﻿using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Extensions;
-using MartinDrozdik.DDD.Templates;
 
 namespace MartinDrozdik.DDD.Demo.Models.Entities;
 

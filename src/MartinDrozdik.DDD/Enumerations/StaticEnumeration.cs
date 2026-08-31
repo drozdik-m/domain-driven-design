@@ -1,9 +1,8 @@
 using System.Collections.Immutable;
-using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Enumerations.Errors;
 using MartinDrozdik.DDD.Errors;
-using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
+using MartinDrozdik.DDD.Results;
 
 namespace MartinDrozdik.DDD.Enumerations;
 

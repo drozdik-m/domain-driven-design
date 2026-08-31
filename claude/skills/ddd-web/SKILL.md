@@ -1,4 +1,4 @@
----
+﻿---
 description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, reverse proxy, or HTTP client resilience.
 ---
 
@@ -13,6 +13,32 @@ $ARGUMENTS
 **Every module is optional.** `AddAppServices()` / `UseAppMiddlewares()` register all of them as a bundle; call individual extension methods to include only what you need.
 
 Install: `dotnet add package MartinDrozdik.DDD.Web`
+
+---
+
+## Endpoint results: `TypedResults`, never `Results`
+
+Always write `TypedResults.Ok(...)`, `TypedResults.NotFound()`, `TypedResults.Problem(...)`,
+`TypedResults.ValidationProblem(...)` — in minimal API endpoints, in `IExceptionHandler`
+implementations, and anywhere else an `IResult` is produced.
+
+**Never use the static `Results` class.** It clashes with the `MartinDrozdik.DDD.Results` namespace.
+`TypedResults` is the right call regardless: it returns concrete types.
+
+```csharp
+// Do
+return TypedResults.Ok(invoice);
+return TypedResults.NotFound();
+return TypedResults.Problem(
+    detail: message,
+    statusCode: StatusCodes.Status500InternalServerError);
+
+// Don't — does not compile under a MartinDrozdik.DDD.* namespace
+return Results.Ok(invoice);
+```
+
+MVC controllers are unaffected: `ControllerBase.Ok()`, `NotFound()`, `Problem()` and `ActionResult<T>` are
+instance members, not the static `Results` class, so they keep working as written.
 
 ---
 

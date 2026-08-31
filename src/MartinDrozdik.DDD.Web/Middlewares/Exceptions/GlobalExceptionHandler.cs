@@ -22,7 +22,7 @@ public class GlobalExceptionHandler(
             logger,
             httpContext,
             exception,
-            Results.Problem(
+            TypedResults.Problem(
                 detail: GetExceptionDetail(exception),
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: ExceptionMessages.ExceptionTitle,

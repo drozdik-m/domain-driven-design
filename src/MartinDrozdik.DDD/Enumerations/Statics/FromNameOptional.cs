@@ -1,6 +1,6 @@
-using CSharpFunctionalExtensions;
 using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Results;
 
 namespace MartinDrozdik.DDD.Models.Enumerations.Statics;
 

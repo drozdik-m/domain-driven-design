@@ -36,7 +36,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapGet(url, () => Results.StatusCode(500));
+                config.MapGet(url, () => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -56,7 +56,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapGet(url, () => Results.NotFound());
+                config.MapGet(url, () => TypedResults.NotFound());
             })
             .Build();
 
@@ -95,7 +95,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapDelete(url, () => Results.StatusCode(500));
+                config.MapDelete(url, () => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -136,7 +136,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapDelete(url, () => Results.StatusCode(500));
+                config.MapDelete(url, () => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -178,7 +178,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapPost(url, (FooPayload _) => Results.StatusCode(500));
+                config.MapPost(url, (FooPayload _) => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -225,7 +225,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapPost(url, (FooPayload _) => Results.StatusCode(500));
+                config.MapPost(url, (FooPayload _) => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -267,7 +267,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapPut(url, (FooPayload _) => Results.StatusCode(500));
+                config.MapPut(url, (FooPayload _) => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -314,7 +314,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapPut(url, (FooPayload _) => Results.StatusCode(500));
+                config.MapPut(url, (FooPayload _) => TypedResults.StatusCode(500));
             })
             .Build();
 
@@ -334,7 +334,7 @@ public class TestedAppExtensionsTests(ITestOutputHelper testOutputHelper)
         using var factory = new TestedWebAppBuilder(testOutputHelper)
             .WithEndpoints(config =>
             {
-                config.MapGet(url, () => Results.StatusCode(500));
+                config.MapGet(url, () => TypedResults.StatusCode(500));
             })
             .Build();
 

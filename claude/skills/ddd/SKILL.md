@@ -1,4 +1,4 @@
----
+﻿---
 description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, or the CQRS Mediator with Commands, Queries, and Pipelines.
 ---
 
@@ -19,6 +19,7 @@ If the domain model is ambiguous (unclear whether something is an Entity or Valu
 - **Never** use `Guid.NewGuid()` — use `Guid.CreateVersion7()`.
 - **Prefer** a result type for expected domain failures; throw exceptions at API boundaries where middleware translates them to HTTP responses.
 - **Use** FluentValidation at system boundaries (input DTOs); use Specifications for named, reusable domain rules on domain objects.
+- **Never** send a command from inside another command handler — extract the shared work into a service both handlers call. See [Handlers never call handlers](#handlers-never-call-handlers).
 - **Never** hand-write equality on a `ValueObject` subclass — the base already provides all of it. See [Value Object equality](#value-object-equality-is-already-implemented).
 
 Install: `dotnet add package MartinDrozdik.DDD`
@@ -74,12 +75,23 @@ Never use Specifications for null checks or format validation — that is Fluent
 
 ### Results vs Exceptions
 
-> **This library does not define its own `Result<T>`.** Results come from
-> [CSharpFunctionalExtensions](https://www.nuget.org/packages/CSharpFunctionalExtensions) — `Result<T, E>`,
-> `UnitResult<E>`, `IResult<T, E>` — which `MartinDrozdik.DDD` takes as a package dependency and pairs with
-> its own `Error` type, so the shape you will almost always want is `Result<T, Error>` / `UnitResult<Error>`.
-> The library's only bridge into it is `ErrorBuilder.BuildUnitResult()`. Do not go looking for a
-> `MartinDrozdik.DDD.Errors.Result<T>` — there isn't one.
+Results live in `MartinDrozdik.DDD.Results` `Result<T, E>`, `UnitResult<E>` and `IResult<T, E>` 
+are owned by `MartinDrozdik.DDD` and pair with its own `Error` type, so the shape you will
+almost always want is `Result<T, Error>` / `UnitResult<Error>`.
+
+That namespace shadows ASP.NET Core's static `Results` helper for any code nested under
+`MartinDrozdik.DDD`, so ASP.NET code must call `TypedResults.Ok(...)` / `TypedResults.Problem(...)`
+rather than `Results.*` — see the `ddd-web` skill.
+
+Create them with `Result.Success<T, E>(value)`, `Result.Failure<T, E>(error)`, `UnitResult.Success<E>()`
+and `UnitResult.Failure(error)`, or lean on the implicit conversions — returning a value gives a success,
+returning an error gives a failure, and a `Result<T, E>` converts to a `UnitResult<E>`.
+`ErrorBuilder.BuildUnitResult()` is the shortcut from a built `Error` to a failed `UnitResult<Error>`.
+
+Both are `readonly struct`s. `Value` throws on a failure and `Error` throws on a success, so branch with
+`TryGetValue` / `TryGetError`, or compose with `Map`, `MapError`, `Bind`, `Ensure`, `Tap`, `TapError` and
+`Match` (each with an `Async` counterpart for `Task`-returning continuations), which short-circuit on the
+first failure.
 
 **`Result<T, Error>`** — when failure is an expected, valid business outcome; forces callers to handle both paths explicitly.
 
@@ -101,6 +113,75 @@ Use the **Mediator** when commands/queries cross module boundaries or when you n
 Use direct service calls within a single, self-contained module where mediator overhead adds no value.
 
 **Commands** mutate state. **Queries** only read. Never mix them in one handler.
+
+### Handlers never call handlers
+
+A command handler must **never** dispatch another command (and a query handler must never dispatch
+another query). Chained dispatch turns the mediator into an invisible call graph: the pipeline runs
+twice, logging and validation nest, transaction boundaries blur, and the real dependency between the
+two handlers is hidden behind a message type that no compiler or IDE can trace. That is the spaghetti
+layer — every handler becomes a potential caller of every other handler.
+
+When two handlers need the same work, that work is a **domain or application service**. Extract it,
+inject it into both handlers, and let each handler stay a thin adapter: translate the request, call
+the service, translate the outcome.
+
+```csharp
+// ❌ Command handler dispatching another command
+public class RegisterCustomerCommandHandler(IMediator mediator)
+    : ICommandHandler<RegisterCustomerCommand, CustomerId>
+{
+    public async Task<CustomerId> HandleAsync(
+        RegisterCustomerCommand command, CancellationToken cancellationToken)
+    {
+        var customerId = await CreateCustomerAsync(command, cancellationToken);
+
+        // Hidden coupling: pipeline runs again, transaction scope is unclear,
+        // and "who creates invoices?" is no longer answerable by reading this file.
+        await mediator.SendCommand<CreateInvoiceCommand, InvoiceId>(
+            new CreateInvoiceCommand(customerId, command.SignUpFee), cancellationToken);
+
+        return customerId;
+    }
+}
+```
+
+```csharp
+// ✅ Shared logic lives in a service both handlers depend on
+public interface IInvoiceIssuer
+{
+    Task<InvoiceId> IssueAsync(CustomerId customerId, decimal total, CancellationToken cancellationToken);
+}
+
+public class RegisterCustomerCommandHandler(IInvoiceIssuer invoiceIssuer)
+    : ICommandHandler<RegisterCustomerCommand, CustomerId>
+{
+    public async Task<CustomerId> HandleAsync(
+        RegisterCustomerCommand command, CancellationToken cancellationToken)
+    {
+        var customerId = await CreateCustomerAsync(command, cancellationToken);
+        await invoiceIssuer.IssueAsync(customerId, command.SignUpFee, cancellationToken);
+        return customerId;
+    }
+}
+
+public class CreateInvoiceCommandHandler(IInvoiceIssuer invoiceIssuer)
+    : ICommandHandler<CreateInvoiceCommand, InvoiceId>
+{
+    public Task<InvoiceId> HandleAsync(
+        CreateInvoiceCommand command, CancellationToken cancellationToken)
+        => invoiceIssuer.IssueAsync(command.CustomerId, command.Total, cancellationToken);
+}
+```
+
+Rules of thumb:
+
+- One request in → one handler → services and aggregates. The mediator is the entry point of a call,
+  never a step inside one.
+- If a handler needs data another query already returns, call the underlying repository or service
+  directly rather than dispatching the query.
+- If the second action is a genuine reaction to the first rather than shared logic, model it as a
+  domain event handled after the fact — not as a nested command.
 
 ---
 
@@ -452,6 +533,9 @@ new YourValidator().ValidateAndThrowBusiness(obj);
 ```
 
 ### Mediator (CQRS)
+
+A handler is a thin adapter over services and aggregates — it never dispatches another command or
+query through the mediator. See [Handlers never call handlers](#handlers-never-call-handlers).
 
 ```csharp
 public record CreateInvoiceCommand(string CustomerName, decimal Total) : ICommand<InvoiceId>;

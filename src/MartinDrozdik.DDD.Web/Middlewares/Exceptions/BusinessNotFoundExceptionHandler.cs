@@ -27,6 +27,6 @@ public class BusinessNotFoundExceptionHandler(
             logger,
             httpContext,
             notFoundException,
-            Results.NotFound());
+            TypedResults.NotFound());
     }
 }

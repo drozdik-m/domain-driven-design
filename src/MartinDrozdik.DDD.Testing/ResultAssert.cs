@@ -1,4 +1,4 @@
-﻿using CSharpFunctionalExtensions;
+﻿using MartinDrozdik.DDD.Results;
 using Xunit;
 
 namespace MartinDrozdik.DDD.Testing;

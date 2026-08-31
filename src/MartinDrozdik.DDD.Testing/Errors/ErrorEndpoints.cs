@@ -106,7 +106,7 @@ public static class ErrorEndpoints
         var validator = new ErrorValidator();
         var errorClass = new ErrorClass();
         validator.ValidateAndThrow(errorClass);
-        return Results.Ok();
+        return TypedResults.Ok();
     }
 
     /// <summary>

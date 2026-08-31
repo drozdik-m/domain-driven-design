@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using CSharpFunctionalExtensions;
 using FluentValidation;
 using FluentValidation.Results;
 using MartinDrozdik.DDD.Errors;

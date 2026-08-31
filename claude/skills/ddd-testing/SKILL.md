@@ -1,4 +1,4 @@
----
+﻿---
 description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests, RecurringTaskSmokeTests, EndpointSmokeTester), EF Core integration tests with SqlDbContextIntegrationTests, EnumerationStructMappingTests for enumeration ↔ .NET enum API mappings, TestLogger for asserting on log output, EqualityAssert for value objects, or ResultAssert for results.
 ---
 
@@ -360,7 +360,7 @@ EqualityAssert.TestAllEqualityBehaviors(name1, name2, differentName);
 
 ### ResultAssert
 
-Readable assertions for `Result<T, E>` and `UnitResult<E>` from CSharpFunctionalExtensions. It has **only**
+Readable assertions for `Result<T, E>` and `UnitResult<E>` from `MartinDrozdik.DDD.Results`. It has **only**
 `IsSuccess` — there is no `IsFailure`:
 
 ```csharp

@@ -256,7 +256,7 @@ Covers symmetry, null/default comparisons, and hash code consistency. Basically 
 
 ### ResultAssert
 
-If you're using `Result<T, E>` or `UnitResult<E>` from [CSharpFunctionalExtensions](https://github.com/vkhorikov/CSharpFunctionalExtensions), these extension methods give you readable assertions:
+If you're using `Result<T, E>` or `UnitResult<E>` from [`MartinDrozdik.DDD.Results`](../MartinDrozdik.DDD/Results), these extension methods give you readable assertions:
 
 ```csharp
 [Fact]
