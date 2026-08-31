@@ -12,7 +12,7 @@ Core DDD primitives. Reviewed (including `Mediator`).
 
 - [x] **`IntIdentity` / `StringIdentity` are unusable as documented** — both declared `where TSelf : ..., new()` (`Identities/Primitive/IntIdentity.cs:5`, `StringIdentity.cs:5`), unlike `GuidIdentity`. A derived type with a primary constructor (e.g. `OrderId(int key) : IntIdentity<OrderId>(key)`, as shown in the skill docs) has no parameterless constructor and **failed the `new()` constraint → CS0310, won't compile**. Only `GuidIdentity` was exercised, so it went unnoticed. **Fixed:** dropped `, new()` from both; added `Identities/Primitive/PrimitiveIdentityTests.cs` whose derived types act as a compile-time regression guard.
 - [x] **Broken interpolation in duplicate-detection message** — `Enumerations/Statics/ThrowIfDuplicates.cs:32-33` interpolates an unmaterialized `IEnumerable<(T,int)>`, so the exception prints the iterator type name instead of the duplicates. Fix: report `duplicates.Count` and the offending names.
-- [ ] **Wrong variable in `UrlBuilder` port error** — `Integrations/UrlBuilder.cs:120` interpolates `port` (still `null` after a failed parse) instead of `portPart`; message reads "Port  could not be parsed".
+- [x] **Wrong variable in `UrlBuilder` port error** — `Integrations/UrlBuilder.cs:120` interpolates `port` (still `null` after a failed parse) instead of `portPart`; message reads "Port  could not be parsed". **Fixed:** the message now quotes `portPart`; guarded by `FromUrl_unparsable_port_names_the_offending_value`.
 
 ### Design
 

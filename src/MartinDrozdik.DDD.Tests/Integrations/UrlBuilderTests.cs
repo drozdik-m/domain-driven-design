@@ -504,4 +504,16 @@ public class UrlBuilderTests
     {
         Assert.Throws<ArgumentException>(() => UrlBuilder.FromUrl(input));
     }
+
+    [Theory]
+    [InlineData("http://example.com:abc", "abc")]
+    [InlineData("http://example.com:80a", "80a")]
+    public void FromUrl_unparsable_port_names_the_offending_value(string input, string expectedPortPart)
+    {
+        // Arrange & Act
+        var exception = Assert.Throws<ArgumentException>(() => UrlBuilder.FromUrl(input));
+
+        // Assert
+        Assert.Contains(expectedPortPart, exception.Message, StringComparison.Ordinal);
+    }
 }

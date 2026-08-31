@@ -117,7 +117,7 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
                 }
                 else
                 {
-                    throw new ArgumentException($"Port {port} could not be parsed as an integer.", nameof(url));
+                    throw new ArgumentException($"Port '{portPart}' could not be parsed as an integer.", nameof(url));
                 }
             }
             else
