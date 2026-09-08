@@ -9,7 +9,7 @@
 public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOutput>> behaviors) : IPipelineBehavior<TInput, TOutput>
 {
     /// <inheritdoc />
-    public async Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
+    public Task<TOutput> HandleAsync(TInput input, PipelineNextDelegate<TOutput> next, CancellationToken cancellationToken)
     {
         // Compose the pipeline by wrapping each behavior around the next delegate
         var composed = next;
@@ -31,6 +31,6 @@ public class Pipeline<TInput, TOutput>(IEnumerable<IPipelineBehavior<TInput, TOu
             };
         }
 
-        return await composed(cancellationToken);
+        return composed(cancellationToken);
     }
 }

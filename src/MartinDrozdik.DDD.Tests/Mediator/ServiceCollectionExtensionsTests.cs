@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Tests.Mediator;
 public class ServiceCollectionExtensionsTests
 {
     [Fact]
-    public async Task Manual_query_registrations_work_correctly()
+    public Task Manual_query_registrations_work_correctly()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -19,11 +19,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestQueryRequests(services);
+        return RunTestQueryRequests(services);
     }
 
     [Fact]
-    public async Task Manual_query_registrations_with_pipeline_work_correctly()
+    public Task Manual_query_registrations_with_pipeline_work_correctly()
     {
         // Arrange
         const string pipelineId = "id1";
@@ -38,11 +38,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestQueryRequests(services, pipelineId);
+        return RunTestQueryRequests(services, pipelineId);
     }
 
     [Fact]
-    public async Task Manual_command_registrations_work_correctly()
+    public Task Manual_command_registrations_work_correctly()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -52,11 +52,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestCommandRequests(services);
+        return RunTestCommandRequests(services);
     }
 
     [Fact]
-    public async Task Manual_command_registrations_with_pipeline_work_correctly()
+    public Task Manual_command_registrations_with_pipeline_work_correctly()
     {
         // Arrange
         const string pipelineId = "id1";
@@ -71,11 +71,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestCommandRequests(services, pipelineId);
+        return RunTestCommandRequests(services, pipelineId);
     }
 
     [Fact]
-    public async Task Manual_unit_command_registrations_work_correctly()
+    public Task Manual_unit_command_registrations_work_correctly()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -85,11 +85,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestUnitCommandRequests(services);
+        return RunTestUnitCommandRequests(services);
     }
 
     [Fact]
-    public async Task Manual_unit_command_registrations_with_pipeline_work_correctly()
+    public Task Manual_unit_command_registrations_with_pipeline_work_correctly()
     {
         // Arrange
         const string pipelineId = "id1";
@@ -104,11 +104,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestUnitCommandRequests(services, pipelineId);
+        return RunTestUnitCommandRequests(services, pipelineId);
     }
 
     [Fact]
-    public async Task Manual_registrations_work_correctly_together()
+    public Task Manual_registrations_work_correctly_together()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -120,11 +120,11 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestRequests(services);
+        return RunTestRequests(services);
     }
 
     [Fact]
-    public async Task Manual_registrations_with_pipelines_work_correctly_together()
+    public Task Manual_registrations_with_pipelines_work_correctly_together()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -148,7 +148,7 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        await RunTestRequests(services, "id1");
+        return RunTestRequests(services, "id1");
     }
 
     private static async Task RunTestQueryRequests(ServiceCollection services, string pipelineId = "")

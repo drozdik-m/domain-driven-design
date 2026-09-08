@@ -6,7 +6,7 @@ Tracked improvements, fixes, and open questions per package. Findings are groupe
 
 ## MartinDrozdik.DDD
 
-Core DDD primitives. Reviewed (including `Mediator`).
+Core DDD primitives.
 
 ### Bugs
 
