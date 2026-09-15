@@ -26,6 +26,7 @@ Contains basic interfaces and building blocks for DDD and quality code, such as:
 - **Specifications** – composable business rules that return rich results, not just `bool` (And, Or, Not, Tautology, Contradiction)
 - **Mediator** for commands and queries (with handlers) – integrated via DI
   - And **pipelines**!
+- **Outbox contracts** – enqueue a side effect inside your transaction
 - Other goodies that **make DDD easier without forcing** you into a specific architecture or framework
 
 Check out [very nice README.md](./src/MartinDrozdik.DDD/README.md) for this library and possibly the [demo](./src/MartinDrozdik.DDD.Demo) for examples.
@@ -72,6 +73,7 @@ Built on top of `MartinDrozdik.DDD`, this package provides all the web plumbing 
 - **HTTP resilience**
 - **OpenAPI**
 - **Recurring background tasks** – on a schedule, or right now when you say so
+- **Transactional outbox** – DDD operations and messages commit together, or not at all – with retries, dead-lettering and a health check
 
 *Everything is optional and composable.* Use what helps, ignore the rest. I won't tell.
 
@@ -93,6 +95,7 @@ Built on top of [xUnit](https://github.com/xunit/xunit) and `MartinDrozdik.DDD.W
 - **Smoke tests** – free base classes for health checks, openapi, error handling and more
 - **EF Core integration tests** – entity mapping, migrations, connectivity, and model compilation checks, all for free
 - **Recurring tasks** – background loops off by default, run one iteration on demand, free per-task smoke tests
+- **Outbox** – deliver a batch on demand, free wiring smoke tests
 - **Assertions** – simplification of test assertions
 
 *You still have to write your own tests. But at least you don't have to write the boring parts.*

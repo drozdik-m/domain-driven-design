@@ -1,5 +1,5 @@
 ﻿---
-description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, or the CQRS Mediator with Commands, Queries, and Pipelines.
+description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, the CQRS Mediator with Commands, Queries, and Pipelines, or outbox message contracts (IOutbox, IOutboxMessage, IOutboxMessageHandler, OutboxMessageType).
 ---
 
 You are an expert in the **MartinDrozdik.DDD** library. Generate correct, idiomatic code using its specific APIs and patterns.
@@ -113,6 +113,14 @@ Use the **Mediator** when commands/queries cross module boundaries or when you n
 Use direct service calls within a single, self-contained module where mediator overhead adds no value.
 
 **Commands** mutate state. **Queries** only read. Never mix them in one handler.
+
+### Outbox vs doing it inline
+
+A handler that changes state **and** calls the outside world (email, webhook, another service) does two writes
+with no transaction across them: crash in between and the state and the side effect disagree, forever. Enqueue an
+outbox message instead — it commits with the aggregate and is delivered afterwards, with retries.
+
+Do it inline when the work is purely inside the same transaction, or when the caller must see the result.
 
 ### Handlers never call handlers
 
@@ -573,6 +581,73 @@ var invoiceId = await mediator.SendCommand<CreateInvoiceCommand, InvoiceId>(
 var invoice = await mediator.SendQuery<GetInvoiceQuery, Invoice>(
     new GetInvoiceQuery(id), cancellationToken);
 ```
+
+### Outbox Messages
+
+Contracts only — `IOutbox`, `IOutboxMessage`, `IOutboxMessageHandler<T>`, `OutboxMessageType` and
+`OutboxException` live in core (`MartinDrozdik.DDD.Outbox`) so a command handler can enqueue a side effect
+without referencing ASP.NET Core. The storage, engine, retries and schedule are in **MartinDrozdik.DDD.Web** —
+see the `ddd-web` skill for wiring.
+
+Use it when a handler both changes state and causes something outside the database: the message commits in the
+same transaction as the aggregate, and is delivered afterwards, at least once.
+
+```csharp
+// A plain serializable record — every member must round-trip through System.Text.Json
+public sealed record InvoiceDraftedMessage(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v1";
+}
+
+// Throwing means "retry" — no try/catch, no bookkeeping
+public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageHandler<InvoiceDraftedMessage>
+{
+    public Task HandleAsync(InvoiceDraftedMessage message, CancellationToken cancellationToken)
+        => sender.SendAsync(message.Recipient, $"Invoice {message.InvoiceNumber} is ready.", cancellationToken);
+}
+```
+
+```csharp
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+    : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+{
+    public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
+    {
+        var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
+        await context.Invoices.AddAsync(invoice, cancellationToken);
+
+        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+
+        await context.SaveChangesAsync(cancellationToken);   // aggregate + message, both or neither
+        return invoice.Id;
+    }
+}
+```
+
+`Add()` only tracks the row — **it never saves**. Never add a `SaveChangesAsync` just to flush a message.
+
+**The message is not the aggregate.** It is serialized now and handled minutes later, possibly on another machine,
+long after the aggregate has moved on. Carry what the handler needs, not an entity graph, and make the handler
+idempotent — delivery is at-least-once.
+
+#### Versioning: end the key with `.v1`
+
+`MessageType` is the storage key written to every row and the key the dispatcher is resolved by. **Renaming it
+strands every stored row**, so never derive it from a type name and never rename it — bump it.
+
+```csharp
+public static OutboxMessageType MessageType => "invoice.drafted.v1";   // shipped
+
+// Breaking change (Recipient is now required) → new type under the next key,
+// registered alongside v1 until the old rows have drained
+public sealed record InvoiceDraftedV2Message(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v2";
+}
+```
+
+An added optional member keeps the key. Anything a stored v1 payload cannot satisfy bumps it. **Write `.v1` on the
+first version** — a key with no version segment has nowhere to go.
 
 ## Reference
 

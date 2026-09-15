@@ -1,5 +1,5 @@
 ﻿---
-description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, reverse proxy, or HTTP client resilience.
+description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, the transactional outbox with AddOutbox/IOutbox/IOutboxMessage, reverse proxy, or HTTP client resilience.
 ---
 
 You are an expert in the **MartinDrozdik.DDD.Web** library. Generate correct ASP.NET Core infrastructure setup using its specific APIs.
@@ -123,6 +123,13 @@ builder.AddAppDbContext<YourDbContext>((options, dbBuilder) =>
 builder.AddAppDbContext<YourDbContext>(dbBuilder =>
 {
     dbBuilder.UseSqlServer(connectionString);
+});
+
+// With DatabaseOptions *and* the scope's IServiceProvider — for interceptors resolved from DI
+builder.AddAppDbContext<YourDbContext>((options, provider, dbBuilder) =>
+{
+    dbBuilder.UseSqlite(options.ConnectionString);
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
 });
 ```
 
@@ -248,6 +255,142 @@ into the one pending request, and a request raised mid-iteration is honoured aft
 
 `services.RemoveRecurringTasks()` strips every recurring-task loop while leaving other hosted services and the
 tasks themselves registered. Integration tests get this for free — see the `ddd-testing` skill.
+
+### Outbox
+
+A transactional outbox over the same `DbContext` as your aggregates: the message row and the aggregate change
+are written by **one** `SaveChangesAsync`, so a side effect can never be half-done. A background loop delivers
+afterwards, at least once.
+
+Use it whenever a handler both changes state and causes something outside the database (email, webhook, another
+service). Not for work that is purely inside the same transaction.
+
+**Contracts live in the core package** (`MartinDrozdik.DDD.Outbox`): `IOutbox`, `IOutboxMessage`,
+`IOutboxMessageHandler<T>`, `OutboxMessageType`, `OutboxException`. Everything else — storage, engine, options,
+health check — is `MartinDrozdik.DDD.Web.Outbox`. A business-layer handler therefore only needs `MartinDrozdik.DDD`.
+
+```csharp
+// The message: a plain serializable record. Everything must round-trip through System.Text.Json.
+public sealed record InvoiceDraftedMessage(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v1";
+}
+
+// The handler: resolved from a fresh DI scope per message. No try/catch, no bookkeeping — throwing means "retry".
+public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageHandler<InvoiceDraftedMessage>
+{
+    public Task HandleAsync(InvoiceDraftedMessage message, CancellationToken cancellationToken)
+        => sender.SendAsync(message.Recipient, $"Invoice {message.InvoiceNumber} is ready.", cancellationToken);
+}
+```
+
+Four pieces of wiring, all required except where noted:
+
+```csharp
+// 1. Map the table into the context that owns the aggregates — same DB, same transaction
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
+    modelBuilder.AddOutbox();                       // table "OutboxMessage"; AddOutbox("Messages", "outbox") to move it
+}
+
+// 2. The engine + every message type. configureOptions is positional and NOT optional — pass null for defaults.
+builder.AddOutbox<InvoiceDbContext>(
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
+    config => config
+        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+        .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
+
+// 3. The schedule. Skip it only when driving IOutboxProcessor from Quartz.NET/Hangfire/cron yourself.
+builder.AddOutboxDispatchRecurringTask(schedule =>
+{
+    schedule.InitialDelay = TimeSpan.FromSeconds(10);
+    schedule.Period = TimeSpan.FromSeconds(30);
+});
+
+// 4. Optional: dispatch right after the commit instead of at the next poll
+builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
+{
+    dbBuilder.UseSqlite(options.ConnectionString);
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+});
+```
+
+Enqueue from the command handler (or anywhere else inside the transaction) and let the existing save commit it:
+
+```csharp
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+    : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+{
+    public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
+    {
+        var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
+        await context.Invoices.AddAsync(invoice, cancellationToken);
+
+        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+
+        await context.SaveChangesAsync(cancellationToken);   // aggregate + message, both or neither
+        return invoice.Id;
+    }
+}
+```
+
+`Add()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type has no registered
+handler or the payload exceeds `MaxPayloadLength`. Never call `SaveChangesAsync` just to flush a message.
+
+#### Versioning the message type — always end the key with `.v1`
+
+The key maps a stored row back to a CLR type, so **renaming it strands every existing row**. Never derive it from a
+type name and never rename it; bump it instead.
+
+```csharp
+public static OutboxMessageType MessageType => "invoice.drafted.v1";   // shipped
+
+// Breaking change (Recipient is now required) → new type, next key, both registered until the v1 rows drain
+public sealed record InvoiceDraftedV2Message(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v2";
+}
+
+config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()       // drains old rows, remove later
+      .WithMessage<InvoiceDraftedV2Message, InvoiceDraftedV2MessageHandler>();
+```
+
+Adding an optional member keeps the key (an old payload still deserializes). Anything a stored v1 payload cannot
+satisfy bumps it. **Write `.v1` on the very first version** — a key with no version segment has nowhere to go.
+
+Keys are `[A-Za-z0-9._-]`, at most 100 characters, and compared case-insensitively; a duplicate key throws
+`OutboxException` while the container is being built.
+
+`OutboxOptions` — configured in code, validated on start:
+
+| Property | Default | Meaning |
+|---|---|---|
+| `BatchSize` | `100` | Messages delivered per `ProcessPendingAsync` call. |
+| `LeaseDuration` | `5 min` | How long a claim is honoured. Must exceed the slowest handler, or another processor takes the message mid-delivery. |
+| `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
+| `MaxPayloadLength` | `null` | Cap on serialized payload characters. `Add()` throws over it, before anything is saved. |
+| `Retention` | `null` | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
+| `SerializerOptions` | `JsonSerializerOptions.Web` | Changing it after rows exist can make payloads unreadable. |
+
+Delivery semantics, worth stating in code review:
+
+- **At-least-once — handlers must be idempotent.** A crash after the handler ran but before the row was marked
+  redelivers the message.
+- Claims use a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are safe.
+- Handler throws → retried on the backoff; retries exhausted → dead-lettered (`FailedAt` set), kept for inspection,
+  never delivered again.
+- An unregistered message type is retried, not dead-lettered on sight (rolling deploys see each other's messages).
+- `OperationCanceledException` on shutdown is not a failure: the lease simply expires.
+
+Health check, reporting `pending` / `overdue` / `deadLettered`, unhealthy on any dead-letter, degraded above the
+backlog threshold:
+
+```csharp
+builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>(degradedBacklogThreshold: 1000));
+```
+
+Testing an outbox is in the `ddd-testing` skill — every app with an outbox gets an `OutboxSmokeTests<Program>`.
 
 ### OpenTelemetry
 

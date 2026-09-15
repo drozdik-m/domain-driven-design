@@ -351,6 +351,151 @@ Triggers are **coalesced** — hammer it a thousand times during one iteration a
 
 It never blocks and never throws, so it's safe to call from anywhere.
 
+### Transactional Outbox
+
+**An outbox message is enqueued atomically with the rest of the DDD updates.**  It is a **reliable, transactional queue** that writes or reverts together with the domain updates.
+
+The outbox makes the side effect part of the same transaction: the message is written to a table in *your* database by *your* `SaveChangesAsync`. Both, or neither. A background loop delivers it afterwards and keeps retrying until it sticks or finally dies.
+
+A message is a plain serializable record with a stable storage key:
+
+```csharp
+public sealed record InvoiceDraftedMessage(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v1";
+}
+```
+
+Its handler does the actual work. No try/catch, no bookkeeping -> throw and it gets retried as much as you want:
+
+```csharp
+public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageHandler<InvoiceDraftedMessage>
+{
+    // Resolved from a fresh DI scope per message, so scoped services just work
+    public Task HandleAsync(InvoiceDraftedMessage message, CancellationToken cancellationToken)
+        => sender.SendAsync(message.Recipient, $"Invoice {message.InvoiceNumber} is ready.", cancellationToken);
+}
+```
+
+Map the table into the context that owns your aggregates — same database, same transaction, that's the whole point:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
+
+    modelBuilder.AddOutbox(); // table "OutboxMessage";
+    // modelBuilder.AddOutbox("Messages", "outbox") to move it
+}
+```
+
+Register the engine, the message types, and the schedule that drives it:
+
+```csharp
+builder.AddOutbox<InvoiceDbContext>(
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7), // or null for the defaults
+    config => config
+        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+        .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
+
+// The message consumer invoking the dispatch loop
+builder.AddOutboxDispatchRecurringTask(schedule =>
+{
+    schedule.InitialDelay = TimeSpan.FromSeconds(10);
+    schedule.Period = TimeSpan.FromSeconds(30);
+});
+```
+
+Enqueue wherever the **business** demands it:
+
+```csharp
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+    : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+{
+    public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
+    {
+        var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
+        await context.Invoices.AddAsync(invoice, cancellationToken);
+
+        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+
+        await context.SaveChangesAsync(cancellationToken); // both, or neither
+        return invoice.Id;
+    }
+}
+```
+
+`Add()` only tracks the row. **It never saves.** You save it all along with your aggregate.
+
+`IOutbox`, `IOutboxMessage`, `IOutboxMessageHandler<T>` and `OutboxMessageType` contracts live in the core [MartinDrozdik.DDD](../MartinDrozdik.DDD) package, so a business layer can be implemented without further dependencies.
+
+
+Set you preferred options for the outbox, like batch size, retry delays, retention, and so on:
+
+```csharp
+builder.AddOutbox<InvoiceDbContext>(options => { /* ... */ }, config => { /* ... */ });
+```
+
+Use health check to monitor large backlogs or dead-lettered messages:
+
+```csharp
+builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>());
+```
+
+#### Versioning – end the key with `.v1`
+
+The key is what maps a stored row back to a type. **Rename it and every row carrying the old key becomes undeliverable.** So don't rename it: bump it.
+
+```csharp
+// v1 — shipped, rows in the table
+public sealed record InvoiceDraftedMessage(Guid InvoiceId, string InvoiceNumber) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v1";
+}
+
+// Breaking change (Recipient is now required) -> a new type under a new key
+public sealed record InvoiceDraftedV2Message(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v2";
+}
+
+// Both registered until the v1 rows have drained, then drop v1
+config.WithMessage<InvoiceDraftedV1Message, InvoiceDraftedV1MessageHandler>()
+      .WithMessage<InvoiceDraftedV2Message, InvoiceDraftedV2MessageHandler>();
+```
+
+Adding an optional member? Keep the key — an old payload still deserializes. Anything a stored v1 payload can't satisfy? Bump it.
+
+Start at `.v1` on day one, even when you're sure it'll never change. It will.
+
+#### Deliver it now, not in 30 seconds (optional)
+
+Attach `OutboxTaskTriggerInterceptor` to your context and wake up the dispatch loop immidiately to avoid waiting for the next poll.
+
+```csharp
+builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
+{
+    dbBuilder.UseSqlite(options.ConnectionString);
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+});
+```
+
+You can also inject `IOutboxTaskTrigger` and call `Trigger()` from anywhere. It's **coalesced**.
+
+*Purely about responsiveness. Leave it out and the message simply waits for the next poll.*
+
+#### Bring your own scheduler
+
+`AddOutboxDispatchRecurringTask` is just a thin shell. Skip it and drive `IOutboxProcessor` from Quartz.NET, Hangfire, or a cron hitting an endpoint:
+
+```csharp
+public sealed class OutboxJob(IOutboxProcessor processor) : IJob
+{
+    public Task Execute(IJobExecutionContext context)
+        => processor.ProcessPendingAsync(context.CancellationToken);
+}
+```
+
 ## Demo App
 
 Check out the [demo project](../MartinDrozdik.DDD.Demo) for examples.

@@ -3,13 +3,15 @@ using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
 using MartinDrozdik.DDD.Demo.Options;
+using MartinDrozdik.DDD.Demo.Outbox;
 using MartinDrozdik.DDD.Mediator.Commands;
+using MartinDrozdik.DDD.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions<InvoiceOptions> options) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions<InvoiceOptions> options, IOutbox outbox) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
@@ -35,6 +37,9 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions
         // Get invoice
         var invoiceId = new InvoiceId(Guid.CreateVersion7());
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
+
+        // Announce the draft via outbox pattern
+        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         // Save invoice
         await context.Invoices.AddAsync(invoice, cancellationToken);

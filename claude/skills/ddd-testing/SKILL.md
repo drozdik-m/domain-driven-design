@@ -1,5 +1,5 @@
 ﻿---
-description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests, RecurringTaskSmokeTests, EndpointSmokeTester), EF Core integration tests with SqlDbContextIntegrationTests, EnumerationStructMappingTests for enumeration ↔ .NET enum API mappings, TestLogger for asserting on log output, EqualityAssert for value objects, or ResultAssert for results.
+description: Use when writing tests with MartinDrozdik.DDD.Testing — TestedApp, TestedAppBuilder, smoke tests (WebApplicationSmokeTests, OpenApiSmokeTests, ErrorHandlingTests, RecurringTaskSmokeTests, OutboxSmokeTests, EndpointSmokeTester), outbox tests with ProcessOutboxAsync/DrainOutboxAsync, EF Core integration tests with SqlDbContextIntegrationTests, EnumerationStructMappingTests for enumeration ↔ .NET enum API mappings, TestLogger for asserting on log output, EqualityAssert for value objects, or ResultAssert for results.
 ---
 
 You are an expert in the **MartinDrozdik.DDD.Testing** library. Generate correct integration test infrastructure and test code using its specific APIs.
@@ -17,6 +17,7 @@ $ARGUMENTS
     - Prefer direct build inside test cases: `using var app = new MyAppBuilder(output).Build();` to ensure proper disposal even if exceptions occur.
 - Tests run in the **"Testing" environment** by default. Keep test config in `appsettings.Testing.json`, separate from development config.
 - Test method names are `snake_case` sentences; test classes end in `Tests`.
+- **Take every free smoke test the app qualifies for** — `WebApplicationSmokeTests`, `OpenApiSmokeTests`, `ErrorHandlingTests`, one `RecurringTaskSmokeTests` per task, and `OutboxSmokeTests` whenever `AddOutbox` is called. They are a one-line class each and catch the wiring failures that only show up in production.
 
 Install:
 ```bash
@@ -160,6 +161,10 @@ public class MyOpenApiSmokeTests(ITestOutputHelper output)
 // Verifies error handling middleware is wired correctly
 public class MyAppErrorHandlingTests(ITestOutputHelper output)
     : ErrorHandlingTests<Program>(new MyAppBuilder(output)) { }
+
+// Verifies the outbox is wired and every message type has a resolvable handler (see Outbox below)
+public class MyAppOutboxSmokeTests(ITestOutputHelper output)
+    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
 ```
 
 `GetOpenApiEndpoints` is the only member any of these *requires* you to override.
@@ -189,6 +194,57 @@ public class EndpointTests(ITestOutputHelper output) : IDisposable
 
 `EndpointTest` also carries `Content` and `ContentType` for request bodies. Set them with an object initializer —
 `WithAcceptableCodes` returns a new instance and does **not** carry them over.
+
+## Outbox
+
+**The dispatch loop is a recurring task, so `Build()` removes it like every other one.** Nothing is delivered
+until the test asks. Two helpers in `OutboxTestExtensions` (`MartinDrozdik.DDD.Testing.Outbox`), both on
+`ITestedApp`, with `ProcessOutboxAsync` also taking a bare `IServiceProvider`:
+
+```csharp
+// One batch, fresh scope, exactly what the dispatch task does. Returns the number delivered successfully.
+var delivered = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+
+// Repeat until nothing is left: handlers that enqueue further messages, or more messages than one batch
+var total = await app.DrainOutboxAsync(TestContext.Current.CancellationToken);
+```
+
+Both call `IOutboxProcessor` directly, not the loop, so a failing handler still becomes a retry or a dead-letter
+instead of a thrown exception. **Assert on the stored row, not on the return value alone.** Messages are ordinary
+rows reached through `Set<OutboxMessage>()` (there is no `DbSet`):
+
+```csharp
+var message = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(cancellationToken);
+
+Assert.Equal(InvoiceDraftedMessage.MessageType, message.MessageType);
+Assert.Contains(recipientName, message.Payload.Value, StringComparison.Ordinal);
+Assert.Null(message.ProcessedAt);                  // enqueued, not yet delivered
+Assert.Equal(0, message.Attempts);
+```
+
+Message state worth asserting on: `ProcessedAt` (delivered), `FailedAt` (dead-lettered), `Attempts`, `LastError`,
+`AvailableAt` (pushed forward by a retry delay). A test that needs a retry delay to elapse builds the app with
+`.WithFakeTime(new FakeTimeProvider(start))` and advances the clock — the whole engine reads that `TimeProvider`.
+Never `Task.Delay`.
+
+Two tests earn their place in most apps: **the message is enqueued by the same transaction** as the change that
+caused it (call the endpoint, then read the row without processing), and **processing delivers it** (call the
+endpoint, `ProcessOutboxAsync`, assert `ProcessedAt` is set and the side effect happened).
+
+### Outbox smoke tests — write one for every app with an outbox
+
+```csharp
+public class MyAppOutboxSmokeTests(ITestOutputHelper output)
+    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
+```
+
+Four free tests, no body: `IOutbox` resolves, `IOutboxProcessor` resolves, `OutboxOptions` passes the app's own
+validation, and **every registered message type has a handler that can be constructed**. That last one is the
+reason to bother — a handler missing a constructor dependency otherwise surfaces in production, inside the
+processor, where the failure is swallowed into a retry and then a dead-letter.
+
+It **never dispatches anything** on purpose (delivering a real app's messages could send real mail), and it fails
+when no message type is registered at all. For delivery, write your own test with `ProcessOutboxAsync`.
 
 ## EF Core Integration Tests
 

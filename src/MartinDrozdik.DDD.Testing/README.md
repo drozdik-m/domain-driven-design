@@ -197,6 +197,45 @@ public class CleanupTaskSmokeTests(ITestOutputHelper output)
 }
 ```
 
+## Outbox
+
+Tools and smoke tests for the transactional outbox. See the [web outbox README](../MartinDrozdik.DDD.Web/README.md#transactional-outbox) for the full engine, retries, dead-lettering, etc.
+
+Extensions:
+
+```csharp
+// One batch, in a fresh scope, exactly as the dispatch task would.
+var delivered = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+
+// Same but keep going until nothing is left...
+var total = await app.DrainOutboxAsync(TestContext.Current.CancellationToken);
+```
+
+Both are direct invocations of `IOutboxProcessor`, not the job – no dead-lettering, no retry delays, no scheduling.
+
+The messages themselves are ordinary rows in your context, which is how you check that enqueueing happened.
+
+```csharp
+var message = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(cancellationToken);
+
+Assert.Equal(InvoiceDraftedMessage.MessageType, message.MessageType);
+// ...
+Assert.Null(message.ProcessedAt);   // enqueued, not yet delivered
+```
+
+### Smoke testing the outbox
+
+Free tests that verify the outbox is wired up correctly and can process messages. *"it compiles" does not mean "it works".*
+
+```csharp
+public class MyAppOutboxSmokeTests(ITestOutputHelper output)
+    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
+```
+
+A handler missing a constructor dependency doesn't fail at startup. It fails at 3 AM, inside the processor, where the failure is swallowed into a retry and then a dead-letter.
+
+It **never dispatches anything** to avoid oppsy moments (like sending a real email).
+
 ## Asserting on logs
 
 `WithTestingLogger` registers a `TestLogger` that keeps everything the app logs in memory, so you can assert on it. The `out` overload hands it to you mid-chain – no lookup, no field:

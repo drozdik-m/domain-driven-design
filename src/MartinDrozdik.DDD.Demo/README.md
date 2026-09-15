@@ -25,6 +25,7 @@ MartinDrozdik.DDD.Demo/
 ├── Models/       # Domain layer (the good stuff)
 ├── Requests/     # CQRS stuff
 ├── Context/      # EF Core persistence
+├── Outbox/       # Transactional outbox messages and their handlers
 ├── Controllers/  # HTTP endpoints
 ├── Options/      # App configuration
 ├── OpenApi/      # Auto-generated on build
@@ -46,6 +47,15 @@ Commands mutate state. Queries read state. They never mix.
 
 - [GetInvoicesQuery.cs](./Requests/Invoices/GetInvoicesQuery.cs) + [GetInvoicesQueryHandler.cs](./Requests/Invoices/GetInvoicesQueryHandler.cs)
 - [CreateInvoiceDraftCommand.cs](./Requests/Invoices/CreateInvoiceDraftCommand.cs) + [CreateInvoiceDraftCommandHandler.cs](./Requests/Invoices/CreateInvoiceDraftCommandHandler.cs)
+
+## Transactional Outbox
+
+Creating an invoice draft also announces it via the outbox:
+
+- [InvoiceDraftedMessage.cs](./Outbox/InvoiceDraftedMessage.cs) the message, keyed `invoice.drafted.v1`
+- [InvoiceDraftedMessageHandler.cs](./Outbox/InvoiceDraftedMessageHandler.cs) the handler that delivers it
+- [CreateInvoiceDraftCommandHandler.cs](./Requests/Invoices/CreateInvoiceDraftCommandHandler.cs) enqueues it next to the aggregate, one `SaveChangesAsync` commits (or not) both atomically
+- [Program.cs](./Program.cs) wires the engine, the dispatch schedule and the commit-time trigger
 
 ## Configuration
 

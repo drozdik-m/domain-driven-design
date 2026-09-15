@@ -1,6 +1,7 @@
 using MartinDrozdik.DDD.Demo.Context;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
+using MartinDrozdik.DDD.Demo.Outbox;
 using MartinDrozdik.DDD.Demo.RecurringTasks;
 using MartinDrozdik.DDD.Demo.Requests.Invoices;
 using MartinDrozdik.DDD.Mediator;
@@ -8,6 +9,8 @@ using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Web;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Outbox;
+using MartinDrozdik.DDD.Web.Outbox.Interceptors;
 using MartinDrozdik.DDD.Web.Environments;
 using MartinDrozdik.DDD.Web.Mediator.Pipelines.Logging;
 using MartinDrozdik.DDD.Options;
@@ -29,9 +32,12 @@ builder.AddAppServices(options);
 builder.Services.AddValidatedAppOptions<InvoiceOptions>();
 
 // Add DbContext with SQLite
-builder.AddAppDbContext<InvoiceDbContext>((options, dbBuilder) =>
+builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
+
+    // Optional: without it an enqueued message simply waits for the next poll
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
 });
 
 // A background job on a schedule, also triggerable on demand from a controller
@@ -39,6 +45,19 @@ builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
 {
     taskOptions.InitialDelay = TimeSpan.FromSeconds(30);
     taskOptions.Period = TimeSpan.FromMinutes(1);
+});
+
+// A transactional outbox over the same context
+// - AddOutbox is the engine
+// - AddOutboxDispatchTask is the schedule that drives it - drop to drive IOutboxProcessor from Quartz.NET or anything else instead.
+builder.AddOutbox<InvoiceDbContext>(
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
+    config => config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>());
+
+builder.AddOutboxDispatchRecurringTask(taskOptions =>
+{
+    taskOptions.InitialDelay = TimeSpan.FromSeconds(10);
+    taskOptions.Period = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddControllers();

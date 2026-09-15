@@ -423,3 +423,45 @@ builder.Services.AddMediator(config =>
     // ...
 });
 ```
+
+## Message Outbox
+
+**A message that is enqueued atomically with the rest of the DDD updates.** Such as a notification email, a webhook, or a message to another bounded context. It is a **reliable, transactional queue** that writes or reverts together with the domain updates.
+
+Here is just contracts for the [web transactional outbox](../MartinDrozdik.DDD.Web/README.md#transactional-outbox) (or other potential implementations).
+
+An outbox message is a plain serializable record with a **stable storage key**:
+
+``` csharp
+public sealed record InvoiceDraftedMessage(Guid InvoiceId, string InvoiceNumber, string Recipient) : IOutboxMessage
+{
+    public static OutboxMessageType MessageType => "invoice.drafted.v1";
+}
+```
+
+A handler resolves it. Throw and it gets retried:
+
+``` csharp
+public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageHandler<InvoiceDraftedMessage>
+{
+    public Task HandleAsync(InvoiceDraftedMessage message, CancellationToken cancellationToken)
+        => sender.SendAsync(message.Recipient, $"Invoice {message.InvoiceNumber} is ready.", cancellationToken);
+}
+```
+
+`IOutbox.Add()` enqueues it into the current transaction.
+
+``` csharp
+// DDD aggregate changes...
+
+// Enqueue a message to be sent ONLY IF the changes commit
+var message = new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName);
+outbox.Add(message);
+
+// Save changes to the database
+await context.SaveChangesAsync(cancellationToken); // the aggregate and the message, both or neither
+```
+
+Versioning should be done via the `MessageType` name. Append `.v1`, `.v2`, etc. to the name and register a new handler for the new version. The old messages will still be handled by the old handler. Outbox messages should not be long lived, so you can delete old handlers and messages after a while (or even immediately if you empty the outbox).
+
+See the [MartinDrozdik.DDD.Web README](../MartinDrozdik.DDD.Web/README.md#transactional-outbox) for the wiring, retries, dead-lettering and the rest of the engine.

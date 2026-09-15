@@ -6,10 +6,10 @@ Claude Code skills for the [MartinDrozdik.DDD](https://github.com/drozdik-m/doma
 
 | Skill | Slash command | Covers |
 | --- | --- | --- |
-| **ddd** | `/martin-drozdik-ddd:ddd` | ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling, CQRS Mediator |
+| **ddd** | `/martin-drozdik-ddd:ddd` | ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling, CQRS Mediator, outbox message contracts |
 | **ddd-options** | `/martin-drozdik-ddd:ddd-options` | `IAppOptions`, `IValidatedAppOptions`, `AddAppOptions`, `AddValidatedAppOptions`, reading options during startup |
-| **ddd-web** | `/martin-drozdik-ddd:ddd-web` | `AddAppServices`, `UseAppMiddlewares`, EF Core setup, health checks, OpenTelemetry, `DddDbContext` |
-| **ddd-testing** | `/martin-drozdik-ddd:ddd-testing` | `TestedApp`, `TestedAppBuilder`, smoke tests, EF Core integration tests, `EqualityAssert`, `ResultAssert` |
+| **ddd-web** | `/martin-drozdik-ddd:ddd-web` | `AddAppServices`, `UseAppMiddlewares`, EF Core setup, health checks, OpenTelemetry, `DddDbContext`, recurring tasks, transactional outbox |
+| **ddd-testing** | `/martin-drozdik-ddd:ddd-testing` | `TestedApp`, `TestedAppBuilder`, smoke tests, EF Core integration tests, outbox tests, `EqualityAssert`, `ResultAssert` |
 
 Skills also trigger automatically when Claude detects you are working with these libraries.
 
