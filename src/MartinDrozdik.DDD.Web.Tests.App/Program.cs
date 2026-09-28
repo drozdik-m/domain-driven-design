@@ -1,5 +1,7 @@
 using MartinDrozdik.DDD.Exceptions;
 using MartinDrozdik.DDD.Web;
+using MartinDrozdik.DDD.Web.Blobs;
+using MartinDrozdik.DDD.Web.Blobs.Outbox;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
@@ -32,7 +34,24 @@ builder.AddOutbox<TestDbContext>(
     configureOptions: null,
     config => config
         .WithMessage<TestOutboxMessage, TestOutboxMessageHandler>()
-        .WithMessage<OtherTestOutboxMessage, OtherTestOutboxMessageHandler>());
+        .WithMessage<OtherTestOutboxMessage, OtherTestOutboxMessageHandler>()
+        .WithBlobs());
+
+// Blob storage, in folders of this instance's own so parallel test apps cannot see each other
+var blobRoot = Path.Combine(Path.GetTempPath(), $"{Guid.CreateVersion7():N}_test_blobs");
+builder.AddBlobs<TestDbContext>(blobs => blobs
+    .WithContainer(TestBlobContainers.Invoices)
+    .WithContainer(TestBlobContainers.Avatars, options => options.MaxSize = TestBlobContainers.AvatarMaxSize));
+builder.AddFileBlobStore(files => files
+    .WithContainer(TestBlobContainers.Invoices, Path.Combine(blobRoot, TestBlobContainers.Invoices))
+    .WithContainer(TestBlobContainers.Avatars, Path.Combine(blobRoot, TestBlobContainers.Avatars)));
+
+// Scheduled far enough away that it only runs when a test asks for it
+builder.AddBlobSweepRecurringTask(options =>
+{
+    options.InitialDelay = TimeSpan.FromHours(1);
+    options.Period = TimeSpan.FromHours(1);
+});
 
 builder.AddOutboxDispatchRecurringTask(options =>
 {

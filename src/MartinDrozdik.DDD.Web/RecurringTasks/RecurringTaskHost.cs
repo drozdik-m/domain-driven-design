@@ -42,12 +42,12 @@ internal sealed class RecurringTaskHost<TTask>(
         // Run the loop until the application is shutting down
         try
         {
-            var triggered = await WaitAsync(options.InitialDelay, stoppingToken).ConfigureAwait(false);
+            var triggered = await WaitAsync(options.InitialDelay, stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                await RunIterationAsync(options.Timeout, triggered, stoppingToken).ConfigureAwait(false);
-                triggered = await WaitAsync(options.Period, stoppingToken).ConfigureAwait(false);
+                await RunIterationAsync(options.Timeout, triggered, stoppingToken);
+                triggered = await WaitAsync(options.Period, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -80,7 +80,7 @@ internal sealed class RecurringTaskHost<TTask>(
 
         try
         {
-            await trigger.WaitAsync(waitCts.Token).ConfigureAwait(false);
+            await trigger.WaitAsync(waitCts.Token);
             return true;
         }
         catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
@@ -114,7 +114,7 @@ internal sealed class RecurringTaskHost<TTask>(
             // Execute the task in scoped DI
             await using var scope = scopeFactory.CreateAsyncScope();
             var task = scope.ServiceProvider.GetRequiredService<TTask>();
-            await task.RunAsync(iterationCts.Token).ConfigureAwait(false);
+            await task.RunAsync(iterationCts.Token);
 
             RecurringTaskLogging.LogIterationCompleted(logger, s_taskName, Elapsed(startedAt));
         }

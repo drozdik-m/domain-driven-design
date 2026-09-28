@@ -34,6 +34,6 @@ internal sealed class RecurringTaskTrigger<TTask> : IRecurringTaskTrigger<TTask>
     /// <returns>A <see cref="ValueTask"/> that completes when a request has been consumed.</returns>
     internal async ValueTask WaitAsync(CancellationToken cancellationToken)
     {
-        await _requests.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        await _requests.Reader.ReadAsync(cancellationToken);
     }
 }

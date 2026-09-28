@@ -409,7 +409,7 @@ builder.AddOutboxDispatchRecurringTask(schedule =>
 Enqueue wherever the **business** demands it:
 
 ```csharp
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<InvoiceDbContext> outbox)
     : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
@@ -417,7 +417,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
         await context.Invoices.AddAsync(invoice, cancellationToken);
 
-        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         await context.SaveChangesAsync(cancellationToken); // both, or neither
         return invoice.Id;
@@ -425,10 +425,29 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
 }
 ```
 
-`Add()` only tracks the row. **It never saves.** You save it all along with your aggregate.
+`AddOnSave()` only tracks the row. **It never saves.** You save it all along with your aggregate.
 
-`IOutbox`, `IOutboxMessage`, `IOutboxMessageHandler<T>` and `OutboxMessageType` contracts live in the core [MartinDrozdik.DDD](../MartinDrozdik.DDD) package, so a business layer can be implemented without further dependencies.
+`IOutbox<TContext>` names the context it tracks in, so an outbox can't be paired with another context's save by mistake.
 
+`IOutbox<TContext>`, `IOutboxMessage`, `IOutboxMessageHandler<T>` and `OutboxMessageType` contracts live in the core [MartinDrozdik.DDD](../MartinDrozdik.DDD) package, so a business layer can be implemented without further dependencies.
+
+#### Scheduled messages - undo what a rollback leaves behind
+
+`AddOnSave()` covers "do this once my transaction commits". `AddNowAsync()` with a later `AvailableAt` covers the "undo this unless my transaction commits":
+
+```csharp
+var settings = new OutboxMessageSettings {
+    AvailableAt = now + TimeSpan.FromHours(1) // schedule for later with grace period 1h
+}; 
+var removal = await outbox.AddNowAsync(new DeleteFileMessage(path), settings, ct); // committed at once
+await WriteFileAsync(path, ct); // a side effect
+await outbox.RemoveOnSaveAsync(removal, ct); // tracked
+await context.SaveChangesAsync(ct); // removes it with your changes
+```
+
+The `*NowAsync` messages are committed at once through a fresh instance of your context from a scope. Your transactions, explicit or ambient, are left exactly as they were. `*OnSaveAsync()` work in your commit.
+
+Committing on its own connection may work differently on some databases. F.e. SQLite starts transactions as immediate , and an `AddNowAsync()` inside it then waits for its own transaction until it times out. Best to call `*NowAsync()` before beginning your transaction, or begin a deferred one (`connection.BeginTransaction(deferred: true)` with `Database.UseTransaction`) and call it before its first save.
 
 Set you preferred options for the outbox, like batch size, retry delays, retention, and so on:
 
@@ -495,6 +514,119 @@ public sealed class OutboxJob(IOutboxProcessor processor) : IJob
         => processor.ProcessPendingAsync(context.CancellationToken);
 }
 ```
+
+### Blob Storage
+
+**Solved saving files for you. And they commit together!** An invoice scan, a profile picture, a generated export - content too big for a column, referred by an aggregate.
+
+Solid, testable abstraction around local file storage that most applications actually need.
+
+Three components:
+
+| Layer | Type | Knows about |
+|---|---|---|
+| Store | `IBlobStore` | Files, in-memory testing, the byte stuff |
+| Catalogue | the `Blob` table | the row, the metadata, the transaction |
+| Facade | `IBlobStorage` | coordinates both, applies policies, main interface for you |
+
+**Blob storage requires the outbox.** Every removal of content is an outbox message: after a delete commits, after a blob expires, and after an upload that never committed its row.
+
+Map the catalogue in your `OnModelCreating`, next to the outbox:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
+    modelBuilder.AddOutbox();
+    modelBuilder.AddBlobs();
+}
+```
+
+Register the engine with its containers, pick a store, and register its messages into the outbox:
+
+```csharp
+builder.AddBlobs<InvoiceDbContext>(blobs => blobs
+    .WithContainer("invoice-scans", containerOptions =>
+    {
+        containerOptions.MaxSize = 20 * 1024 * 1024;
+        containerOptions.AllowedExtensions = new HashSet<string>(StringComparer.Ordinal) { "pdf", "png", "jpg" };
+    })
+    .WithContainer("avatars", containerOptions => containerOptions.MaxSize = 512 * 1024)
+    .WithSweep(sweepOptions => sweepOptions.BatchSize = 500));   // optional
+
+// Where content is kept is a separate decision - each container gets a folder of its own
+builder.AddFileBlobStore(files => files
+    .WithContainer("invoice-scans", Path.Combine(builder.Environment.ContentRootPath, "blobs", "invoice-scans"))
+    .WithContainer("avatars", "/mnt/shared/avatars"));
+
+builder.AddOutbox<InvoiceDbContext>(
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
+    config => config
+        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+        .WithBlobs());   // required - every removal of content rides on the outbox
+
+builder.AddBlobSweepRecurringTask(taskOptions =>
+{
+    taskOptions.InitialDelay = TimeSpan.FromMinutes(1);
+    taskOptions.Period = TimeSpan.FromHours(1);
+});
+```
+
+**Containers are separate, isolated entities.** Each one is registered on its own with `WithContainer`, with its own `BlobContainerOptions` (`MaxSize`, `AllowedContentTypes`, `AllowedExtensions`, `ComputeChecksum`, `OrphanGracePeriod`) and its own folder.
+
+Storing a file is a step in a transaction, not a transaction of its own:
+
+```csharp
+var result = await blobStorage.AddOnSaveAsync(
+    new BlobUploadRequest
+    {
+        Container = "invoice-scans",
+        Content = file.OpenReadStream(),
+        OriginalFileName = file.FileName,
+        ContentType = file.ContentType,
+    },
+    cancellationToken);
+
+invoice.AttachScan(result.Value.Id);
+await context.SaveChangesAsync(cancellationToken); // the row and the aggregate, both or neither
+```
+
+`AddOnSaveAsync()` only tracks the row. **It never saves.** If the save rolls back, the file is later cleaned up (after the grace period ends). Keep the grace period comfortably longer than the slowest transaction that could be holding a blob.
+
+Deleting works the same way:
+
+```csharp
+context.Invoices.Remove(invoice);
+await blobStorage.DeleteOnSaveAsync(scan, cancellationToken);
+await context.SaveChangesAsync(cancellationToken); // both, or neither
+```
+
+The files are stored in the container folder, named after their `BlobId`:
+
+```
+{containerFolder}/{blobId}
+
+blobs/invoice-scans/0198b7c4-…
+```
+
+#### Immutability
+
+A blob cannot be rewritten. There is no `LastModifiedAt` to keep honest and its checksum is a strong HTTP `ETag` for as long as it exists:
+
+```csharp
+Response.Headers.ETag = scan.Blob.Checksum?.ToETag();
+return File(scan.Content, scan.Blob.ContentType.Value, scan.Blob.OriginalFileName);
+```
+
+Replacing a file means storing a new blob and enqueueing the deletion of the old one.
+
+`Metadata` is the one mutable part - a small JSON column for facts the library cannot know, such as `width`/`height`. Anything you query on deserves a real column on an entity of your own.
+
+#### The sweep
+
+`IBlobSweeper` removes blobs whose `ExpiresAt` has passed, across every container.
+
+Skip `AddBlobSweepRecurringTask` to drive `IBlobSweeper` from Quartz.NET or anything else. Skip it entirely and expired blobs simply stay.
 
 ## Demo App
 

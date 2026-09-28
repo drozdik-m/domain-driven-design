@@ -106,11 +106,11 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
     /// Decides whether the save is writing new messages.
     /// </summary>
     /// <param name="context">The context being saved.</param>
-    /// <returns>True when the context has messages waiting to be inserted, else false.</returns>
+    /// <returns>True when the context has deliverable messages waiting to be inserted, else false.</returns>
     private static bool HasNewOutboxMessages(DbContext? context)
         => context?.ChangeTracker
             .Entries<OutboxMessage>()
-            .Any(entry => entry.State == EntityState.Added) == true;
+            .Any(entry => entry.State == EntityState.Added && entry.Entity.AvailableAt <= entry.Entity.OccurredAt) == true; // entry.Entity.OccurredAt is basically the current time
 
     /// <summary>
     /// Wakes the dispatch task when the completed save wrote new messages.

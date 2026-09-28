@@ -1,6 +1,7 @@
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Options;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -16,11 +17,13 @@ namespace MartinDrozdik.DDD.Testing.Outbox;
 /// To assert on delivery, write a test calling <see cref="OutboxTestExtensions.ProcessOutboxAsync(ITestedApp, CancellationToken)"/>.
 /// </remarks>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class OutboxSmokeTests<TProgram> : IDisposable
+/// <typeparam name="TDbContext">The context the outbox is added over.</typeparam>
+public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
     where TProgram : class
+    where TDbContext : DbContext
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="OutboxSmokeTests{TProgram}"/> class.
+    /// Initializes a new instance of the <see cref="OutboxSmokeTests{TProgram, TDbContext}"/> class.
     /// </summary>
     /// <param name="builder">App builder under test.</param>
     protected OutboxSmokeTests(TestedAppBuilder<TProgram> builder)
@@ -35,7 +38,7 @@ public abstract class OutboxSmokeTests<TProgram> : IDisposable
     protected TestedApp<TProgram> App { get; }
 
     /// <summary>
-    /// Verifies messages can be enqueued.
+    /// Verifies messages can be enqueued over <typeparamref name="TDbContext"/>.
     /// </summary>
     [Fact]
     public void Outbox_resolves_with_all_its_dependencies()
@@ -44,7 +47,7 @@ public abstract class OutboxSmokeTests<TProgram> : IDisposable
         using var scope = App.Services.CreateScope();
 
         // Act
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TDbContext>>();
 
         // Assert
         Assert.NotNull(outbox);

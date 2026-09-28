@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Demo.Models.Enumerations;
 using MartinDrozdik.DDD.Demo.Models.ValueObjects;
+using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Extensions;
 
@@ -27,6 +28,11 @@ public class Invoice : IAggregateRoot<InvoiceId>
     public InvoiceNumber Number { get; private set; } = InvoiceNumber.Empty;
 
     public InvoiceState State { get; private set; } = InvoiceState.Draft;
+
+    /// <summary>
+    /// The scanned document attached to this invoice, or null when there is none.
+    /// </summary>
+    public BlobId? ScanId { get; private set; }
 
     /// <summary>
     /// Creates a new valid instance of the <see cref="Invoice"/> class.
@@ -62,6 +68,31 @@ public class Invoice : IAggregateRoot<InvoiceId>
         Issuer = newIssuer;
         IssuerId = newIssuer.Id;
     }*/
+
+    /// <summary>
+    /// Attaches a scanned document, replacing any already attached.
+    /// </summary>
+    /// <param name="scanId">Identity of the stored scan.</param>
+    /// <returns>The scan it replaced, or null when there was none. Its content still has to be removed.</returns>
+    public BlobId? AttachScan(BlobId scanId)
+    {
+        var replaced = ScanId;
+        ScanId = scanId;
+
+        return replaced;
+    }
+
+    /// <summary>
+    /// Detaches the scanned document.
+    /// </summary>
+    /// <returns>The scan that was attached, or null when there was none.</returns>
+    public BlobId? RemoveScan()
+    {
+        var removed = ScanId;
+        ScanId = null;
+
+        return removed;
+    }
 
     /// <summary>
     /// Issues the invoice, changing its state from Draft to Issued.

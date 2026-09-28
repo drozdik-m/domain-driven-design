@@ -1,5 +1,5 @@
 ﻿---
-description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, the transactional outbox with AddOutbox/IOutbox/IOutboxMessage, reverse proxy, or HTTP client resilience.
+description: Use when setting up or configuring MartinDrozdik.DDD.Web — AddAppServices, UseAppMiddlewares, EF Core setup with AddAppDbContext, health checks, OpenTelemetry, error handling middleware, DddDbContext, recurring background tasks with AddRecurringTask, the transactional outbox with AddOutbox/IOutbox<TContext>/IOutboxMessage, reverse proxy, or HTTP client resilience.
 ---
 
 You are an expert in the **MartinDrozdik.DDD.Web** library. Generate correct ASP.NET Core infrastructure setup using its specific APIs.
@@ -265,7 +265,7 @@ afterwards, at least once.
 Use it whenever a handler both changes state and causes something outside the database (email, webhook, another
 service). Not for work that is purely inside the same transaction.
 
-**Contracts live in the core package** (`MartinDrozdik.DDD.Outbox`): `IOutbox`, `IOutboxMessage`,
+**Contracts live in the core package** (`MartinDrozdik.DDD.Outbox`): `IOutbox<TContext>`, `IOutboxMessage`,
 `IOutboxMessageHandler<T>`, `OutboxMessageType`, `OutboxException`. Everything else — storage, engine, options,
 health check — is `MartinDrozdik.DDD.Web.Outbox`. A business-layer handler therefore only needs `MartinDrozdik.DDD`.
 
@@ -319,7 +319,7 @@ builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
 Enqueue from the command handler (or anywhere else inside the transaction) and let the existing save commit it:
 
 ```csharp
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<InvoiceDbContext> outbox)
     : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
@@ -327,7 +327,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
         await context.Invoices.AddAsync(invoice, cancellationToken);
 
-        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         await context.SaveChangesAsync(cancellationToken);   // aggregate + message, both or neither
         return invoice.Id;
@@ -335,8 +335,25 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
 }
 ```
 
-`Add()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type has no registered
+`AddOnSave()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type has no registered
 handler or the payload exceeds `MaxPayloadLength`. Never call `SaveChangesAsync` just to flush a message.
+
+#### Same context as the aggregate — always check
+
+The outbox only works if the message and the aggregate are saved by **one** `SaveChangesAsync` on **one** context
+instance. Getting this wrong loses messages silently. Check every time you wire or use it:
+
+- **Registration** — `AddOutbox<TDbContext>` names the context that owns the aggregates, and `modelBuilder.AddOutbox()`
+  is called in the `OnModelCreating` of that same context. Anything else riding on the outbox is registered over
+  it too: `AddBlobs<InvoiceDbContext>` pairs with `AddOutbox<InvoiceDbContext>` (a mismatch fails to resolve).
+- **One outbox per application** — call `AddOutbox` once, registering every message type in that call. A second
+  call throws, even over the same context.
+- **Handlers** — inject `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext` and save with that context. Never pair
+  it with a context from `IDbContextFactory`, a hand-rented pool instance or `new` — same type, different instance,
+  and its save never sees the tracked message. Types cannot catch that one.
+- **Several contexts** — if the aggregate lives in a context without the outbox, the outbox cannot cover that change.
+  Move the aggregate (or the outbox) so they share a context; never add a second save on another context
+  "for the message".
 
 #### Versioning the message type — always end the key with `.v1`
 
@@ -369,7 +386,7 @@ Keys are `[A-Za-z0-9._-]`, at most 100 characters, and compared case-insensitive
 | `BatchSize` | `100` | Messages delivered per `ProcessPendingAsync` call. |
 | `LeaseDuration` | `5 min` | How long a claim is honoured. Must exceed the slowest handler, or another processor takes the message mid-delivery. |
 | `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
-| `MaxPayloadLength` | `null` | Cap on serialized payload characters. `Add()` throws over it, before anything is saved. |
+| `MaxPayloadLength` | `null` | Cap on serialized payload characters. `AddOnSave()` throws over it, before anything is saved. |
 | `Retention` | `null` | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
 | `SerializerOptions` | `JsonSerializerOptions.Web` | Changing it after rows exist can make payloads unreadable. |
 
@@ -390,7 +407,7 @@ backlog threshold:
 builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>(degradedBacklogThreshold: 1000));
 ```
 
-Testing an outbox is in the `ddd-testing` skill — every app with an outbox gets an `OutboxSmokeTests<Program>`.
+Testing an outbox is in the `ddd-testing` skill — every app with an outbox gets an `OutboxSmokeTests<Program, TDbContext>`.
 
 ### OpenTelemetry
 

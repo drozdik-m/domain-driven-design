@@ -74,7 +74,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox>().Add(new TestOutboxMessage(text));
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage(text));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

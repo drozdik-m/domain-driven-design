@@ -1,6 +1,7 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Blobs;
 using MartinDrozdik.DDD.Web.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -22,6 +23,7 @@ public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options, TimePr
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
 
         modelBuilder.AddOutbox();
+        modelBuilder.AddBlobs();
 
         // Register audit shadow properties
         foreach (var entityType in modelBuilder.Model.GetAggregateRoots())

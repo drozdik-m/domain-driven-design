@@ -402,3 +402,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Blob storage of the demo application
+src/MartinDrozdik.DDD.Demo/blobs/

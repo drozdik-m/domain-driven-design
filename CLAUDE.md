@@ -63,6 +63,7 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 | `Exceptions` | `BusinessRuleException`, `ValidationException` |
 | `Enumerations` | `Enumeration` base class — object-oriented enums with behavior and properties; `ToStructEnum`/`FromStructEnum` map to and from a plain .NET `enum` for API contracts |
 | `Mediator` | `ICommand<TResponse>` + `ICommandHandler`, `IQuery<TResponse>` + `IQueryHandler`; pipeline integrators: `LoggingPipelineIntegrator`, `ValidationPipelineIntegrator` |
+| `Blobs` | Contracts for file storage: `Stores/` holds `IBlobStore` (bytes only) with its write options, receipt, entry and the shared `BlobContentCopier`; `BlobKey` (`{container}/{blobId}`)/`BlobContainer`, `BlobName` (a sanitized copy of the original name, kept only in the catalogue), `BlobMetadata`, `Checksums/` with `BlobChecksum` and the `ChecksumAlgorithm` enumeration, the `Blob` catalogue model, the `IBlobStorage` façade with its request record, `Sweepers/` with `IBlobSweeper` and `BlobSweepResult`, and the `DeleteBlobMessage` outbox message. The implementations (EF Core mapping, `FileBlobStore`, `BlobStorage<TDbContext>`, the sweeper) live in `.Web` |
 
 ### Options library (`MartinDrozdik.DDD.Options`)
 
@@ -71,6 +72,11 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 ### Web library (`MartinDrozdik.DDD.Web`)
 
 Entry point is two extension methods: `AddAppServices()` and `UseAppMiddlewares()`. Every module (OpenTelemetry, health checks, HTTP resilience, OpenAPI, RFC 7807 error formatting, FluentValidation config validation) is optional and composable.
+
+Two stateful modules sit on top of a consumer's `DbContext` and are mapped in its `OnModelCreating`:
+
+- **Transactional outbox** — `AddOutbox<TDbContext>()` + `modelBuilder.AddOutbox()`. `IOutbox<TDbContext>.AddOnSave()` only tracks a row in that context; the caller's `SaveChangesAsync` commits it. Every operation comes as `*OnSave` (tracked, committed by the caller) and `*NowAsync` (committed at once on its own connection): `AddOnSave`/`AddNowAsync` take optional `OutboxMessageSettings` (e.g. `AvailableAt`), plus `RemoveOnSaveAsync`/`RemoveNowAsync` and `PostponeOnSaveAsync`/`PostponeNowAsync`. `AddNowAsync()` with a later `AvailableAt` is the mirror image of `AddOnSave()`: delivered later unless the caller's commit takes it back with `RemoveOnSaveAsync()`.
+- **Blob storage** — `AddBlobs<TDbContext>(blobs => blobs.WithContainer(...))` + a store (`AddFileBlobStore(files => files.WithContainer(container, folder))`) + `modelBuilder.AddBlobs()`, and **requires** the outbox with `config.WithBlobs()`. Containers are isolated entities: each is registered explicitly with its own `BlobContainerOptions` (named options) and its own folder; an upload to an unregistered container throws. The sweep is global, configured by `BlobSweepOptions` via `WithSweep`. `IBlobStorage` coordinates an `IBlobStore` (content) with the `Blob` catalogue table; every removal of content is an outbox message. Content is written *before* the row is tracked, on purpose: each upload first schedules the removal of its content and cancels it in the commit that catalogues it, so a rollback cleans up after itself. `IBlobSweeper` only handles expiry. Every operation is idempotent — a blob that is already gone is a success, not an error.
 
 ### Testing library (`MartinDrozdik.DDD.Testing`)
 

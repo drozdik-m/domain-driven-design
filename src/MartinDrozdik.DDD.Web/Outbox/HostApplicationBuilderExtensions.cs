@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Outbox;
+using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.RecurringTasks;
@@ -60,6 +61,13 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configure);
 
+        // The registry, options and processor exist once per application, so a second call would be silently ignored
+        var existing = builder.Services.FirstOrDefault(d => d.ServiceType.IsGenericType && d.ServiceType.GetGenericTypeDefinition() == typeof(IOutbox<>));
+        if (existing is not null)
+        {
+            throw new OutboxException($"The outbox is already added over {existing.ServiceType.GenericTypeArguments[0].Name}, so it cannot be added over {typeof(TDbContext).Name} too. Call AddOutbox once, registering every message type in that call.");
+        }
+
         var optionsBuilder = builder.Services.AddOptions<OutboxOptions>();
         if (configureOptions is not null)
         {
@@ -78,7 +86,7 @@ public static class HostApplicationBuilderExtensions
         var registry = new OutboxRegistry();
         builder.Services.TryAddSingleton(registry);
 
-        builder.Services.TryAddScoped<IOutbox, Outbox<TDbContext>>();
+        builder.Services.TryAddScoped<IOutbox<TDbContext>, Outbox<TDbContext>>();
         builder.Services.TryAddScoped<IOutboxProcessor, OutboxProcessor<TDbContext>>();
 
         // Registered whether or not the built-in dispatch task is used, so the interceptor always has something to trigger.

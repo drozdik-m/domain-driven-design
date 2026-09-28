@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Blobs;
 using MartinDrozdik.DDD.Web.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -37,6 +38,7 @@ public class TestDbContext(DbContextOptions<TestDbContext> options, TimeProvider
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TestDbContext).Assembly);
         modelBuilder.AddOutbox();
+        modelBuilder.AddBlobs();
 
         // Register audit shadow properties
         foreach (var entityType in modelBuilder.Model.GetAggregateRoots().Concat(modelBuilder.Model.GetDomainEntities()))

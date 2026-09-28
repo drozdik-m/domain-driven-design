@@ -35,6 +35,63 @@ public class OutboxRegistrationTests
     }
 
     [Fact]
+    public void Adding_the_outbox_over_a_second_context_throws_naming_both_contexts()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(
+            configureOptions: null,
+            config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+
+        // Act
+        var exception = Assert.Throws<OutboxException>(() =>
+            builder.AddOutbox<OtherDbContext>(
+                configureOptions: null,
+                config => config.WithMessage<FirstMessage, FirstMessageHandler>()));
+
+        // Assert
+        Assert.Contains(nameof(RegistrationDbContext), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(OtherDbContext), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Adding_the_outbox_twice_over_the_same_context_throws()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(
+            configureOptions: null,
+            config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+
+        // Act
+        // Assert
+        // The second registry would be dropped, and its message types with it
+        Assert.Throws<OutboxException>(() =>
+            builder.AddOutbox<RegistrationDbContext>(
+                configureOptions: null,
+                config => config.WithMessage<FirstMessage, FirstMessageHandler>()));
+    }
+
+    [Fact]
+    public void The_outbox_resolves_only_over_the_context_it_was_added_over()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.Services.AddDbContext<OtherDbContext>(options => options.UseSqlite("Data Source=:memory:"));
+
+        // Act
+        builder.AddOutbox<RegistrationDbContext>(
+            configureOptions: null,
+            config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+        using var host = builder.Build();
+
+        // Assert
+        using var scope = host.Services.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetService<IOutbox<RegistrationDbContext>>());
+        Assert.Null(scope.ServiceProvider.GetService<IOutbox<OtherDbContext>>());
+    }
+
+    [Fact]
     public void The_engine_registers_without_any_background_loop()
     {
         // Arrange
@@ -50,7 +107,7 @@ public class OutboxRegistrationTests
         // The processor is there, so another scheduler could drive it
         using var scope = host.Services.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetService<IOutboxProcessor>());
-        Assert.NotNull(scope.ServiceProvider.GetService<IOutbox>());
+        Assert.NotNull(scope.ServiceProvider.GetService<IOutbox<RegistrationDbContext>>());
 
         // But nothing is polling on its own
         Assert.Empty(host.Services.GetServices<IHostedService>());
@@ -146,6 +203,8 @@ public class OutboxRegistrationTests
             modelBuilder.AddOutbox();
         }
     }
+
+    private sealed class OtherDbContext(DbContextOptions<OtherDbContext> options) : DbContext(options);
 
     private sealed record FirstMessage : IOutboxMessage
     {

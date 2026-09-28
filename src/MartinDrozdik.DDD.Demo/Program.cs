@@ -1,4 +1,6 @@
+using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Demo.Context;
+using MartinDrozdik.DDD.Demo.Models;
 using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Options;
 using MartinDrozdik.DDD.Demo.Outbox;
@@ -8,6 +10,8 @@ using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Pipelines.Integrators;
 using MartinDrozdik.DDD.Mediator.Pipelines.Validations;
 using MartinDrozdik.DDD.Web;
+using MartinDrozdik.DDD.Web.Blobs;
+using MartinDrozdik.DDD.Web.Blobs.Outbox;
 using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
@@ -52,7 +56,26 @@ builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
 // - AddOutboxDispatchTask is the schedule that drives it - drop to drive IOutboxProcessor from Quartz.NET or anything else instead.
 builder.AddOutbox<InvoiceDbContext>(
     outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
-    config => config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>());
+    config => config
+        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+        .WithBlobs()); // Blob deletion rides on the same outbox
+
+// Blob storage over the same context
+builder.AddBlobs<InvoiceDbContext>(blobs => blobs
+    .WithContainer(BlobContainers.InvoiceScans, containerOptions =>
+    {
+        containerOptions.MaxSize = 20 * 1024 * 1024;
+        containerOptions.AllowedExtensions = new HashSet<string>(StringComparer.Ordinal) { "pdf", "png", "jpg", "jpeg" };
+    }));
+
+builder.AddFileBlobStore(files => files
+    .WithContainer(BlobContainers.InvoiceScans, Path.Combine(builder.Environment.ContentRootPath, "blobs", BlobContainers.InvoiceScans.Name)));
+
+builder.AddBlobSweepRecurringTask(taskOptions =>
+{
+    taskOptions.InitialDelay = TimeSpan.FromMinutes(1);
+    taskOptions.Period = TimeSpan.FromHours(1);
+});
 
 builder.AddOutboxDispatchRecurringTask(taskOptions =>
 {
@@ -68,6 +91,9 @@ builder.Services.AddMediator(config =>
         .Merge<ValidationPipelineIntegrator>();
     config.WithQuery<GetInvoicesQuery, GetInvoicesQuery.Response, GetInvoicesQueryHandler>(integration);
     config.WithCommand<CreateInvoiceDraftCommand, InvoiceId, CreateInvoiceDraftCommandHandler>(integration);
+    config.WithCommand<AttachInvoiceScanCommand, BlobId, AttachInvoiceScanCommandHandler>(integration);
+    config.WithCommand<RemoveInvoiceScanCommand, RemoveInvoiceScanCommandHandler>(integration);
+    config.WithQuery<GetInvoiceScanQuery, BlobContent, GetInvoiceScanQueryHandler>(integration);
 });
 
 // --- APP ---

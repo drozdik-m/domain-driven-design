@@ -29,7 +29,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            scope.ServiceProvider.GetRequiredService<IOutbox>().Add(new TestOutboxMessage("prompt"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("prompt"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -62,6 +62,30 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     }
 
     [Fact]
+    public async Task Scheduling_a_message_for_later_does_not_trigger_the_dispatch_task()
+    {
+        // Arrange
+        // Every upload schedules one - waking the dispatcher for each would find nothing to deliver yet
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddNowAsync(
+                new TestOutboxMessage("later"),
+                new() { AvailableAt = DateTimeOffset.UtcNow.AddHours(1) },
+                TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await concrete.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
     public async Task Committing_a_message_queues_exactly_one_trigger()
     {
         // Arrange
@@ -73,7 +97,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            scope.ServiceProvider.GetRequiredService<IOutbox>().Add(new TestOutboxMessage("prompt"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("prompt"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 

@@ -229,12 +229,53 @@ Free tests that verify the outbox is wired up correctly and can process messages
 
 ```csharp
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
-    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
+    : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
 
 A handler missing a constructor dependency doesn't fail at startup. It fails at 3 AM, inside the processor, where the failure is swallowed into a retry and then a dead-letter.
 
 It **never dispatches anything** to avoid oppsy moments (like sending a real email).
+
+## Blobs
+
+Tools and smoke tests for blob storage. See the [web blob README](../MartinDrozdik.DDD.Web/README.md#blob-storage) for the store, the catalogue and the sweep.
+
+`InMemoryBlobStore` swaps the file store for a dictionary, so tests never touch the disk:
+
+```csharp
+using var app = new MyAppBuilder(output)
+    .WithInMemoryBlobStore()
+    .Build();
+```
+
+Extensions:
+
+```csharp
+// One sweep, in a fresh scope, exactly as the scheduled task would
+var result = await app.SweepBlobsAsync(TestContext.Current.CancellationToken);
+```
+
+### Holding your own store to the contract
+
+`BlobStoreContractTests` is the suite every `IBlobStore` has to pass. Derive from it to prove your own store is interchangeable with the ones that ship here:
+
+```csharp
+public sealed class MyBlobStoreTests : BlobStoreContractTests
+{
+    protected override IBlobStore CreateStore(TimeProvider timeProvider) => new MyBlobStore(timeProvider, ...);
+}
+```
+
+### Smoke testing blob storage
+
+Free tests that verify blob storage is wired up correctly. Pass every container the application stores into:
+
+```csharp
+public class MyAppBlobSmokeTests(ITestOutputHelper output)
+    : BlobSmokeTests<Program>(new MyAppBuilder(output), InvoiceScans.Container, Avatars.Container) { }
+```
+
+It **stores nothing**, don't worry.
 
 ## Asserting on logs
 

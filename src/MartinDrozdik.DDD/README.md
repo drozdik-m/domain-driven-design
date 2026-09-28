@@ -449,14 +449,14 @@ public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageH
 }
 ```
 
-`IOutbox.Add()` enqueues it into the current transaction.
+`IOutbox<TContext>.AddOnSave()` enqueues it into the current transaction of `TContext`.
 
 ``` csharp
 // DDD aggregate changes...
 
 // Enqueue a message to be sent ONLY IF the changes commit
 var message = new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName);
-outbox.Add(message);
+outbox.AddOnSave(message);
 
 // Save changes to the database
 await context.SaveChangesAsync(cancellationToken); // the aggregate and the message, both or neither
@@ -465,3 +465,25 @@ await context.SaveChangesAsync(cancellationToken); // the aggregate and the mess
 Versioning should be done via the `MessageType` name. Append `.v1`, `.v2`, etc. to the name and register a new handler for the new version. The old messages will still be handled by the old handler. Outbox messages should not be long lived, so you can delete old handlers and messages after a while (or even immediately if you empty the outbox).
 
 See the [MartinDrozdik.DDD.Web README](../MartinDrozdik.DDD.Web/README.md#transactional-outbox) for the wiring, retries, dead-lettering and the rest of the engine.
+
+## Blob Storage
+
+**So you want to store files? We made that easy and transactional.** Attachments, scans, exports - anything an aggregate refers to but is too big to keep in a column.
+
+*Here is just the contracts for the [web blob storage](../MartinDrozdik.DDD.Web/README.md#blob-storage) (or other potential implementations).*
+
+A DDD object called `Blob` represents an immutable file. It has a **stable storage key** and a **catalogue entry** with metadata.
+
+Blobs are categorized into separate containers and addresed by their key: `{container}/{blobId}`.
+
+``` csharp
+var key = BlobKey.Create(
+    "invoice-scans",    // a kind of content (folder, bucket, container, etc.)
+    BlobId.New());      // this blob, a version 7 GUID
+```
+
+`IBlobStore` moves bytes and knows nothing about a database/catalogue. Safe for concurrent access with idempotent operations. It can move files, Ceph blobs, S3, Azure Blob Storage, etc.
+
+`IBlobStorage` is a main entry catalogue that keeps track of `Blob` objects and their respective bytes stored via `IBlobStore`. It keeps the Blobs and their respective bytes in sync. No lingering files or rows with no content.
+
+See the [MartinDrozdik.DDD.Web README](../MartinDrozdik.DDD.Web/README.md#blob-storage) for the catalogue, the file store, transactional deletion and the sweep.

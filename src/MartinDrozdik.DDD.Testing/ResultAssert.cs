@@ -28,4 +28,26 @@ public static class ResultAssert
     {
         Assert.True(result.IsSuccess, $"Expected {nameof(Result<,>)} result to be successful, but it was not.");
     }
+
+    /// <summary>
+    /// Asserts that an <see cref="IResult"/> is a success.
+    /// </summary>
+    /// <param name="result">The result to check.</param>
+    public static void IsSuccess(this IResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        Assert.True(result.IsSuccess, $"Expected {nameof(IResult)} to be successful, but it was not.");
+    }
+
+    /// <summary>
+    /// Asserts that an <see cref="IResult"/> is a failure.
+    /// </summary>
+    /// <param name="result">The result to check.</param>
+    public static void IsFailure(this IResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        Assert.True(result.IsFailure, $"Expected {nameof(IResult)} to be a failure, but it was not.");
+    }
 }

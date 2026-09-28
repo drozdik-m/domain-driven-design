@@ -1,5 +1,5 @@
 ﻿---
-description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, the CQRS Mediator with Commands, Queries, and Pipelines, or outbox message contracts (IOutbox, IOutboxMessage, IOutboxMessageHandler, OutboxMessageType).
+description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, the CQRS Mediator with Commands, Queries, and Pipelines, or outbox message contracts (IOutbox<TContext>, IOutboxMessage, IOutboxMessageHandler, OutboxMessageType).
 ---
 
 You are an expert in the **MartinDrozdik.DDD** library. Generate correct, idiomatic code using its specific APIs and patterns.
@@ -21,6 +21,7 @@ If the domain model is ambiguous (unclear whether something is an Entity or Valu
 - **Use** FluentValidation at system boundaries (input DTOs); use Specifications for named, reusable domain rules on domain objects.
 - **Never** send a command from inside another command handler — extract the shared work into a service both handlers call. See [Handlers never call handlers](#handlers-never-call-handlers).
 - **Never** hand-write equality on a `ValueObject` subclass — the base already provides all of it. See [Value Object equality](#value-object-equality-is-already-implemented).
+- **Always** inject `IOutbox<TContext>` over the **same** context whose `SaveChangesAsync` saves the aggregate — `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext`, both from the handler's own scope. See [Same context as the aggregate](#same-context-as-the-aggregate--always-check).
 
 Install: `dotnet add package MartinDrozdik.DDD`
 
@@ -584,7 +585,7 @@ var invoice = await mediator.SendQuery<GetInvoiceQuery, Invoice>(
 
 ### Outbox Messages
 
-Contracts only — `IOutbox`, `IOutboxMessage`, `IOutboxMessageHandler<T>`, `OutboxMessageType` and
+Contracts only — `IOutbox<TContext>`, `IOutboxMessage`, `IOutboxMessageHandler<T>`, `OutboxMessageType` and
 `OutboxException` live in core (`MartinDrozdik.DDD.Outbox`) so a command handler can enqueue a side effect
 without referencing ASP.NET Core. The storage, engine, retries and schedule are in **MartinDrozdik.DDD.Web** —
 see the `ddd-web` skill for wiring.
@@ -608,7 +609,7 @@ public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageH
 ```
 
 ```csharp
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox outbox)
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<InvoiceDbContext> outbox)
     : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
@@ -616,7 +617,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
         await context.Invoices.AddAsync(invoice, cancellationToken);
 
-        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         await context.SaveChangesAsync(cancellationToken);   // aggregate + message, both or neither
         return invoice.Id;
@@ -624,7 +625,40 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox 
 }
 ```
 
-`Add()` only tracks the row — **it never saves**. Never add a `SaveChangesAsync` just to flush a message.
+`AddOnSave()` only tracks the row — **it never saves**. Never add a `SaveChangesAsync` just to flush a message.
+
+#### Same context as the aggregate — always check
+
+`AddOnSave()` tracks the message in the change tracker of `TContext`. It is only committed together with the
+aggregate if the **one** `SaveChangesAsync` that saves the aggregate is called on that very context instance.
+Otherwise the aggregate commits and the message never does (or the other way round) — silently.
+
+Before finishing any handler that enqueues, check:
+
+- **Same type** — the `TContext` of `IOutbox<TContext>` is the context the aggregate is loaded from and saved by.
+  `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext`, never next to another context.
+- **Same instance** — both are constructor-injected into the same handler (same DI scope). Never pair the outbox
+  with a context created by `IDbContextFactory`, taken from a pool by hand, or `new`-ed up; that is a different
+  instance whose save never sees the tracked message. The type system cannot catch this one.
+- **One save** — the context that saves the aggregate is the context that saves the message; no second
+  `SaveChangesAsync` on another context "for the message".
+- **Other outbox users follow the same rule** — anything else that enqueues through the outbox on your behalf
+  (e.g. blob storage) must be registered over the same context: `AddOutbox<InvoiceDbContext>` and
+  `AddBlobs<InvoiceDbContext>`.
+
+```csharp
+// Do — one context, one save
+public class IssueInvoiceCommandHandler(InvoiceDbContext context, IOutbox<InvoiceDbContext> outbox) { /* ... */ }
+
+// Don't — the message is tracked in a context nobody saves
+public class IssueInvoiceCommandHandler(InvoiceDbContext context, IOutbox<ReportingDbContext> outbox) { /* ... */ }
+
+// Don't — same type, different instance
+public class IssueInvoiceCommandHandler(IDbContextFactory<InvoiceDbContext> factory, IOutbox<InvoiceDbContext> outbox)
+{
+    // await using var context = await factory.CreateDbContextAsync(ct);  ← not the outbox's context
+}
+```
 
 **The message is not the aggregate.** It is serialized now and handled minutes later, possibly on another machine,
 long after the aggregate has moved on. Carry what the handler needs, not an entity graph, and make the handler

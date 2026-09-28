@@ -164,7 +164,7 @@ public class MyAppErrorHandlingTests(ITestOutputHelper output)
 
 // Verifies the outbox is wired and every message type has a resolvable handler (see Outbox below)
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
-    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
+    : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
 
 `GetOpenApiEndpoints` is the only member any of these *requires* you to override.
@@ -231,14 +231,21 @@ Two tests earn their place in most apps: **the message is enqueued by the same t
 caused it (call the endpoint, then read the row without processing), and **processing delivers it** (call the
 endpoint, `ProcessOutboxAsync`, assert `ProcessedAt` is set and the side effect happened).
 
+The first one is also the only check that the handler enqueues on the **same context instance** that saves the
+aggregate — the types (`IOutbox<TContext>`) catch a wrong context, but not a second instance of the right one (e.g.
+from `IDbContextFactory`). Assert the aggregate row and the message row appear together, and where a request can
+fail after enqueueing, that neither appears.
+
 ### Outbox smoke tests — write one for every app with an outbox
 
 ```csharp
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
-    : OutboxSmokeTests<Program>(new MyAppBuilder(output)) { }
+    : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
 
-Four free tests, no body: `IOutbox` resolves, `IOutboxProcessor` resolves, `OutboxOptions` passes the app's own
+`TDbContext` is the context passed to `AddOutbox<TDbContext>` — the one that owns the aggregates.
+
+Four free tests, no body: `IOutbox<TDbContext>` resolves, `IOutboxProcessor` resolves, `OutboxOptions` passes the app's own
 validation, and **every registered message type has a handler that can be constructed**. That last one is the
 reason to bother — a handler missing a constructor dependency otherwise surfaces in production, inside the
 processor, where the failure is swallowed into a retry and then a dead-letter.

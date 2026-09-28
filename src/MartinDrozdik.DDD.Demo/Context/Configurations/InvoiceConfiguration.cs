@@ -1,8 +1,10 @@
 ﻿using MartinDrozdik.DDD.Demo.Models.Aggregates;
 using MartinDrozdik.DDD.Demo.Models.Entities;
+using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Identities.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MartinDrozdik.DDD.Demo.Context.Configurations;
 
@@ -17,6 +19,10 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasName("InvoiceId");
         builder.Property(i => i.Id)
             .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
+
+        builder.Property(i => i.ScanId)
+            .HasConversion(new ValueConverter<BlobId?, Guid>(id => id!.Key, key => new BlobId(key)))
+            .IsRequired(false);
 
         const string issuerIdShadowProperty = "IssuerId";
         builder.Property<PersonId?>(issuerIdShadowProperty)

@@ -103,13 +103,14 @@ public sealed class OutboxMessage
     public Guid ConcurrencyStamp { get; private set; } = Guid.CreateVersion7();
 
     /// <summary>
-    /// Creates a message that is immediately available for delivery.
+    /// Creates a message.
     /// </summary>
     /// <param name="messageType">The type of the message.</param>
     /// <param name="payload">The serialized body of the message.</param>
     /// <param name="occurredAtUtc">The UTC time the message was enqueued.</param>
+    /// <param name="availableAtUtc">The UTC time from which it may be delivered, or null for at once.</param>
     /// <returns>The new message.</returns>
-    public static OutboxMessage Create(OutboxMessageType messageType, OutboxPayload payload, DateTime occurredAtUtc)
+    public static OutboxMessage Create(OutboxMessageType messageType, OutboxPayload payload, DateTime occurredAtUtc, DateTime? availableAtUtc = null)
     {
         ArgumentNullException.ThrowIfNull(messageType);
         ArgumentNullException.ThrowIfNull(payload);
@@ -120,12 +121,18 @@ public sealed class OutboxMessage
             MessageType = messageType,
             Payload = payload,
             OccurredAt = occurredAtUtc,
-            AvailableAt = occurredAtUtc,
+            AvailableAt = availableAtUtc ?? occurredAtUtc,
         };
 
         result.RotateConcurrencyStamp();
         return result;
     }
+
+    /// <summary>
+    /// Issues the ticket for this message version.
+    /// </summary>
+    /// <returns>The ticket.</returns>
+    public OutboxTicket ToTicket() => new(Id, ConcurrencyStamp);
 
     /// <summary>
     /// Takes a lease on the message so no other processor delivers it concurrently.
@@ -187,6 +194,16 @@ public sealed class OutboxMessage
         FailedAt = nowUtc;
         LastError = Truncate(error);
         ReleaseClaim();
+        RotateConcurrencyStamp();
+    }
+
+    /// <summary>
+    /// Moves the delivery of the message.
+    /// </summary>
+    /// <param name="availableAtUtc">The new UTC time from which it may be delivered.</param>
+    internal void Postpone(DateTime availableAtUtc)
+    {
+        AvailableAt = availableAtUtc;
         RotateConcurrencyStamp();
     }
 

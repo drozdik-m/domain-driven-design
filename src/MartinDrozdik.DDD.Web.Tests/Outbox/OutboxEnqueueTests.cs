@@ -23,10 +23,10 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
-        outbox.Add(new TestOutboxMessage("hello"));
+        outbox.AddOnSave(new TestOutboxMessage("hello"));
 
         // Assert
         var stored = await context.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken);
@@ -41,11 +41,11 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
         context.SomeEntities.Add(new SomeAggregateRoot());
-        outbox.Add(new TestOutboxMessage("hello"));
+        outbox.AddOnSave(new TestOutboxMessage("hello"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -65,12 +65,12 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
         await using (var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken))
         {
-            outbox.Add(new TestOutboxMessage("hello"));
+            outbox.AddOnSave(new TestOutboxMessage("hello"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             await transaction.RollbackAsync(TestContext.Current.CancellationToken);
         }
@@ -91,11 +91,11 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
             .WithServices(services => services.Configure<OutboxOptions>(options => options.MaxPayloadLength = 16))
             .Build();
         using var scope = app.Services.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
         var exception = Assert.Throws<OutboxException>(
-            () => outbox.Add(new TestOutboxMessage(new string('a', 500))));
+            () => outbox.AddOnSave(new TestOutboxMessage(new string('a', 500))));
 
         // Assert
         Assert.Contains("16", exception.Message, StringComparison.Ordinal);

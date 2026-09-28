@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 
-public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions<InvoiceOptions> options, IOutbox outbox) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
+public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions<InvoiceOptions> options, IOutbox<InvoiceDbContext> outbox) : ICommandHandler<CreateInvoiceDraftCommand, InvoiceId>
 {
     public async Task<InvoiceId> HandleAsync(CreateInvoiceDraftCommand command, CancellationToken cancellationToken)
     {
@@ -39,7 +39,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
 
         // Announce the draft via outbox pattern
-        outbox.Add(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         // Save invoice
         await context.Invoices.AddAsync(invoice, cancellationToken);

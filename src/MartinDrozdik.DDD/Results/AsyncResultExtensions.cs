@@ -25,7 +25,7 @@ public static class AsyncResultExtensions
 
         return result.IsFailure
             ? Result.Failure<TNew, E>(result.Error)
-            : Result.Success<TNew, E>(await selector(result.Value).ConfigureAwait(false));
+            : Result.Success<TNew, E>(await selector(result.Value));
     }
 
     /// <summary>
@@ -43,8 +43,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.MapAsync(selector).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.MapAsync(selector);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public static class AsyncResultExtensions
 
         return result.IsFailure
             ? Result.Failure<TNew, E>(result.Error)
-            : await binder(result.Value).ConfigureAwait(false);
+            : await binder(result.Value);
     }
 
     /// <summary>
@@ -82,8 +82,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.BindAsync(binder).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.BindAsync(binder);
     }
 
     /// <summary>
@@ -101,7 +101,7 @@ public static class AsyncResultExtensions
 
         return result.IsFailure
             ? result
-            : await binder().ConfigureAwait(false);
+            : await binder();
     }
 
     /// <summary>
@@ -117,8 +117,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.BindAsync(binder).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.BindAsync(binder);
     }
 
     /// <summary>
@@ -137,7 +137,7 @@ public static class AsyncResultExtensions
 
         if (result.IsSuccess)
         {
-            await action(result.Value).ConfigureAwait(false);
+            await action(result.Value);
         }
 
         return result;
@@ -157,8 +157,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.TapAsync(action).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.TapAsync(action);
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public static class AsyncResultExtensions
 
         if (result.IsFailure)
         {
-            await action(result.Error).ConfigureAwait(false);
+            await action(result.Error);
         }
 
         return result;
@@ -197,8 +197,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.TapErrorAsync(action).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.TapErrorAsync(action);
     }
 
     /// <summary>
@@ -216,7 +216,7 @@ public static class AsyncResultExtensions
 
         if (result.IsFailure)
         {
-            await action(result.Error).ConfigureAwait(false);
+            await action(result.Error);
         }
 
         return result;
@@ -235,8 +235,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.TapErrorAsync(action).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.TapErrorAsync(action);
     }
 
     /// <summary>
@@ -258,8 +258,8 @@ public static class AsyncResultExtensions
         ArgumentNullException.ThrowIfNull(onFailure);
 
         return result.IsFailure
-            ? await onFailure(result.Error).ConfigureAwait(false)
-            : await onSuccess(result.Value).ConfigureAwait(false);
+            ? await onFailure(result.Error)
+            : await onSuccess(result.Value);
     }
 
     /// <summary>
@@ -279,8 +279,8 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.MatchAsync(onSuccess, onFailure).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.MatchAsync(onSuccess, onFailure);
     }
 
     /// <summary>
@@ -301,8 +301,8 @@ public static class AsyncResultExtensions
         ArgumentNullException.ThrowIfNull(onFailure);
 
         return result.IsFailure
-            ? await onFailure(result.Error).ConfigureAwait(false)
-            : await onSuccess().ConfigureAwait(false);
+            ? await onFailure(result.Error)
+            : await onSuccess();
     }
 
     /// <summary>
@@ -321,7 +321,7 @@ public static class AsyncResultExtensions
     {
         ArgumentNullException.ThrowIfNull(resultTask);
 
-        var result = await resultTask.ConfigureAwait(false);
-        return await result.MatchAsync(onSuccess, onFailure).ConfigureAwait(false);
+        var result = await resultTask;
+        return await result.MatchAsync(onSuccess, onFailure);
     }
 }

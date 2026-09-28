@@ -385,7 +385,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox>().Add(message);
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(message);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

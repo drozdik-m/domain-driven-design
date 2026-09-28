@@ -39,4 +39,8 @@
     <ProjectReference Include="..\MartinDrozdik.DDD.Web\MartinDrozdik.DDD.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="blobs\" />
+  </ItemGroup>
+
 </Project>
