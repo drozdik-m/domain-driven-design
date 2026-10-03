@@ -234,7 +234,7 @@ constructor-injected as usual. A failing iteration is logged and the loop carrie
 | `Enabled` | `true` | Read once at startup. A disabled task never starts and cannot be triggered. |
 | `InitialDelay` | `TimeSpan.Zero` | Wait after startup before the first iteration. |
 | `Period` | `5 min` | Gap measured from when the **previous iteration finished**, so iterations never overlap and cannot back up. |
-| `Timeout` | `null` | Cancels the iteration's token when it elapses; the loop moves on. |
+| `Timeout` | `null` | Cancels the iteration's token and logs a warning when it elapses; the loop continues once the iteration returns (no overlap, so a task ignoring its token holds up the loop). |
 
 To run a task off-schedule, inject `IRecurringTaskTrigger<TTask>` anywhere — a controller, a handler, another task:
 

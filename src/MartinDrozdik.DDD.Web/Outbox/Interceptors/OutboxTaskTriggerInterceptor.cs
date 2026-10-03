@@ -1,3 +1,4 @@
+using System.Data.Common;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,17 @@ namespace MartinDrozdik.DDD.Web.Outbox.Interceptors;
 /// Without it a message waits up to one polling period before anything looks at it.
 /// The trigger only shortens that wait, to this interceptor is not required for correctness, only for responsiveness.
 /// </para>
+/// <para>
+/// A plain <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> commits on its own, so the trigger fires right after it.
+/// Inside an explicit transaction started with <see cref="Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade.BeginTransactionAsync(CancellationToken)"/>
+/// the save is not the commit: the trigger waits for the transaction to commit, and is dropped when it rolls back.
+/// Otherwise the woken dispatch would read before the messages are visible and the trigger would be spent for nothing.
+/// </para>
+/// <para>
+/// A commit this interceptor cannot see, such as a <see cref="DbTransaction"/> passed in with
+/// <see cref="Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.UseTransaction(Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade, DbTransaction?)"/>
+/// and committed directly, leaves the messages to the next scheduled poll.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -25,12 +37,17 @@ namespace MartinDrozdik.DDD.Web.Outbox.Interceptors;
 /// </example>
 /// <param name="trigger">The trigger of the built-in dispatch task.</param>
 public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDispatchRecurringTask> trigger)
-    : SaveChangesInterceptor
+    : SaveChangesInterceptor, IDbTransactionInterceptor
 {
     /// <summary>
     /// Whether the save currently running is writing new messages.
     /// </summary>
     private bool _isWritingMessages;
+
+    /// <summary>
+    /// Whether the explicit transaction currently open has saved new messages, so its commit should wake the dispatch task.
+    /// </summary>
+    private bool _isTriggerPendingCommit;
 
     /// <inheritdoc />
     public override InterceptionResult<int> SavingChanges(
@@ -58,7 +75,9 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
     /// <inheritdoc />
     public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
     {
-        TriggerIfNeeded();
+        ArgumentNullException.ThrowIfNull(eventData);
+
+        TriggerIfNeeded(eventData.Context);
         return base.SavedChanges(eventData, result);
     }
 
@@ -68,7 +87,9 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
         int result,
         CancellationToken cancellationToken = default)
     {
-        TriggerIfNeeded();
+        ArgumentNullException.ThrowIfNull(eventData);
+
+        TriggerIfNeeded(eventData.Context);
         return base.SavedChangesAsync(eventData, result, cancellationToken);
     }
 
@@ -102,6 +123,59 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
         return base.SaveChangesCanceledAsync(eventData, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public InterceptionResult<DbTransaction> TransactionStarting(
+        DbConnection connection,
+        TransactionStartingEventData eventData,
+        InterceptionResult<DbTransaction> result)
+    {
+        _isTriggerPendingCommit = false;
+        return result;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<InterceptionResult<DbTransaction>> TransactionStartingAsync(
+        DbConnection connection,
+        TransactionStartingEventData eventData,
+        InterceptionResult<DbTransaction> result,
+        CancellationToken cancellationToken = default)
+    {
+        _isTriggerPendingCommit = false;
+        return ValueTask.FromResult(result);
+    }
+
+    /// <inheritdoc />
+    public void TransactionCommitted(DbTransaction transaction, TransactionEndEventData eventData)
+    {
+        TriggerIfPendingCommit();
+    }
+
+    /// <inheritdoc />
+    public Task TransactionCommittedAsync(
+        DbTransaction transaction,
+        TransactionEndEventData eventData,
+        CancellationToken cancellationToken = default)
+    {
+        TriggerIfPendingCommit();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public void TransactionRolledBack(DbTransaction transaction, TransactionEndEventData eventData)
+    {
+        _isTriggerPendingCommit = false;
+    }
+
+    /// <inheritdoc />
+    public Task TransactionRolledBackAsync(
+        DbTransaction transaction,
+        TransactionEndEventData eventData,
+        CancellationToken cancellationToken = default)
+    {
+        _isTriggerPendingCommit = false;
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Decides whether the save is writing new messages.
     /// </summary>
@@ -113,9 +187,11 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
             .Any(entry => entry.State == EntityState.Added && entry.Entity.AvailableAt <= entry.Entity.OccurredAt) == true; // entry.Entity.OccurredAt is basically the current time
 
     /// <summary>
-    /// Wakes the dispatch task when the completed save wrote new messages.
+    /// Wakes the dispatch task when the completed save wrote new messages,
+    /// or leaves that to the commit when the save ran inside an explicit transaction.
     /// </summary>
-    private void TriggerIfNeeded()
+    /// <param name="context">The context that was saved.</param>
+    private void TriggerIfNeeded(DbContext? context)
     {
         if (!_isWritingMessages)
         {
@@ -123,6 +199,29 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
         }
 
         _isWritingMessages = false;
+
+        // The transaction SaveChanges opens on its own is already committed by now
+        // This transaction is the callers
+        if (context?.Database.CurrentTransaction is not null)
+        {
+            _isTriggerPendingCommit = true;
+            return;
+        }
+
+        trigger.Trigger();
+    }
+
+    /// <summary>
+    /// Wakes the dispatch task when the transaction that just committed saved new messages.
+    /// </summary>
+    private void TriggerIfPendingCommit()
+    {
+        if (!_isTriggerPendingCommit)
+        {
+            return;
+        }
+
+        _isTriggerPendingCommit = false;
         trigger.Trigger();
     }
 }

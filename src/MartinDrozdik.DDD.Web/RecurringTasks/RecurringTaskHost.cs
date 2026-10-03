@@ -104,10 +104,14 @@ internal sealed class RecurringTaskHost<TTask>(
         var startedAt = timeProvider.GetTimestamp();
 
         // Setup cancellation tokens for the iteration
+        var limit = timeout.GetValueOrDefault();
         using var timeoutCts = timeout.HasValue
-            ? new CancellationTokenSource(timeout.Value, timeProvider)
+            ? new CancellationTokenSource(limit, timeProvider)
             : new CancellationTokenSource();
         using var iterationCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, stoppingToken);
+
+        // Warn the moment the timeout elapses, so even a task that ignores its token and never returns gets reported
+        await using var timeoutWarning = timeoutCts.Token.Register(() => RecurringTaskLogging.LogTimeoutElapsed(logger, s_taskName, limit));
 
         try
         {
@@ -116,7 +120,15 @@ internal sealed class RecurringTaskHost<TTask>(
             var task = scope.ServiceProvider.GetRequiredService<TTask>();
             await task.RunAsync(iterationCts.Token);
 
-            RecurringTaskLogging.LogIterationCompleted(logger, s_taskName, Elapsed(startedAt));
+            // A task honouring its timeout by returning early did not finish its work
+            if (timeoutCts.IsCancellationRequested)
+            {
+                RecurringTaskLogging.LogIterationEndedAfterTimeout(logger, s_taskName, limit, Elapsed(startedAt));
+            }
+            else
+            {
+                RecurringTaskLogging.LogIterationCompleted(logger, s_taskName, Elapsed(startedAt));
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -125,8 +137,7 @@ internal sealed class RecurringTaskHost<TTask>(
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            var timeoutLog = timeout ?? TimeSpan.Zero; // Should never be null here
-            RecurringTaskLogging.LogIterationTimedOut(logger, s_taskName, timeoutLog, Elapsed(startedAt));
+            RecurringTaskLogging.LogIterationEndedAfterTimeout(logger, s_taskName, limit, Elapsed(startedAt));
         }
         catch (Exception exception)
         {

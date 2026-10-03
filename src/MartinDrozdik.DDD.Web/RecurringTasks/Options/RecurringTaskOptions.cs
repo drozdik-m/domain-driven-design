@@ -15,6 +15,16 @@ public sealed class RecurringTaskOptions<TTask>
     where TTask : IRecurringTask
 {
     /// <summary>
+    /// Gets the longest <see cref="InitialDelay"/>, <see cref="Period"/> and <see cref="Timeout"/> the schedule accepts: 45 days.
+    /// </summary>
+    /// <remarks>
+    /// The schedule lives in memory and starts over with every restart, so a longer wait would rarely be reached anyway.
+    /// It also keeps every wait safely below the roughly 49.7 days a timer-backed <see cref="CancellationTokenSource"/> can wait.
+    /// Longer or persistent schedules belong in a dedicated scheduler such as Quartz.NET.
+    /// </remarks>
+    public static TimeSpan MaxWait => TimeSpan.FromDays(45);
+
+    /// <summary>
     /// Gets or sets a value indicating whether the task runs at all.
     /// Evaluated once at startup — a disabled task never starts its loop and cannot be triggered.
     /// </summary>
@@ -24,18 +34,22 @@ public sealed class RecurringTaskOptions<TTask>
     /// Gets or sets how long to wait after application startup before the first iteration.
     /// Keeps background work from competing with the startup burst.
     /// A trigger raised during this delay starts the first iteration immediately.
+    /// Must not be negative or longer than <see cref="MaxWait"/>.
     /// </summary>
     public TimeSpan InitialDelay { get; set; } = TimeSpan.Zero;
 
     /// <summary>
     /// Gets or sets the gap between iterations, measured from the moment the previous iteration <b>finished</b>.
     /// Iterations therefore never overlap and a slow iteration can never build up a backlog.
+    /// Must be greater than zero and not longer than <see cref="MaxWait"/>.
     /// </summary>
     public TimeSpan Period { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Gets or sets an optional limit on how long a single iteration may run.
-    /// When it elapses, the <see cref="CancellationToken"/> passed to <see cref="IRecurringTask.RunAsync(CancellationToken)"/> is cancelled and the loop moves on.
+    /// When it elapses, the <see cref="CancellationToken"/> passed to <see cref="IRecurringTask.RunAsync(CancellationToken)"/> is cancelled and a warning is logged.
+    /// The task is not aborted: the loop continues once <see cref="IRecurringTask.RunAsync(CancellationToken)"/> returns, so iterations never overlap.
+    /// When set, must be greater than zero and not longer than <see cref="MaxWait"/>; leave it <see langword="null"/> for no limit.
     /// </summary>
     public TimeSpan? Timeout { get; set; }
 }

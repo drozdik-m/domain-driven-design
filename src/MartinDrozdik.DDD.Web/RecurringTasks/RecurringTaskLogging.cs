@@ -22,8 +22,11 @@ internal static partial class RecurringTaskLogging
     [LoggerMessage(Level = LogLevel.Error, Message = "Recurring task {TaskName} failed after {ElapsedMilliseconds} ms. The loop continues and will run again.")]
     internal static partial void LogIterationFailed(ILogger logger, Exception exception, string taskName, double elapsedMilliseconds);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Recurring task {TaskName} exceeded its timeout of {Timeout} and was cancelled after {ElapsedMilliseconds} ms.")]
-    internal static partial void LogIterationTimedOut(ILogger logger, string taskName, TimeSpan timeout, double elapsedMilliseconds);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recurring task {TaskName} exceeded its timeout of {Timeout}. Its cancellation token was cancelled and the next iteration waits until this one returns.")]
+    internal static partial void LogTimeoutElapsed(ILogger logger, string taskName, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} ended an iteration {ElapsedMilliseconds} ms after it started, cancelled by its timeout of {Timeout}.")]
+    internal static partial void LogIterationEndedAfterTimeout(ILogger logger, string taskName, TimeSpan timeout, double elapsedMilliseconds);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} is stopping.")]
     internal static partial void LogStopping(ILogger logger, string taskName);

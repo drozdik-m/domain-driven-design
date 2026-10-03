@@ -319,7 +319,7 @@ builder.AddRecurringTask<CleanupTask>(options =>
 
 - **`InitialDelay`** – how long to wait after startup, so background work doesn't elbow its way into the startup burst.
 - **`Period`** – the gap between iterations, measured from when the previous one **finished**, not when it started. Iterations never overlap and a slow run can never build a backlog.
-- **`Timeout`** – optional. Cancels the iteration's token when it overruns, then carries on.
+- **`Timeout`** – optional. Cancels the iteration's token and logs a warning the moment it overruns. The loop continues on once the iteration returns, so iterations still never overlap.
 - **`Enabled`** – decided at startup. `false` and the loop never even begins.
 
 All options are validated.
@@ -489,7 +489,7 @@ Start at `.v1` on day one, even when you're sure it'll never change. It will.
 
 #### Deliver it now, not in 30 seconds (optional)
 
-Attach `OutboxTaskTriggerInterceptor` to your context and wake up the dispatch loop immidiately to avoid waiting for the next poll.
+Attach `OutboxTaskTriggerInterceptor` to your context and wake up the dispatch loop immediately to avoid waiting for the next poll.
 
 ```csharp
 builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
@@ -499,7 +499,7 @@ builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
 });
 ```
 
-You can also inject `IOutboxTaskTrigger` and call `Trigger()` from anywhere. It's **coalesced**.
+You can also inject `IRecurringTaskTrigger<OutboxDispatchRecurringTask>` and call `Trigger()` from anywhere. It's **coalesced**.
 
 *Purely about responsiveness. Leave it out and the message simply waits for the next poll.*
 
