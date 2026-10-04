@@ -235,6 +235,10 @@ constructor-injected as usual. A failing iteration is logged and the loop carrie
 | `InitialDelay` | `TimeSpan.Zero` | Wait after startup before the first iteration. |
 | `Period` | `5 min` | Gap measured from when the **previous iteration finished**, so iterations never overlap and cannot back up. |
 | `Timeout` | `null` | Cancels the iteration's token and logs a warning when it elapses; the loop continues once the iteration returns (no overlap, so a task ignoring its token holds up the loop). |
+| `RunBetween` | `null` | `RecurringTaskTimeWindow(From, To)` of local time, `From` inclusive, `To` exclusive, may wrap past midnight (`22:00–04:00`). Checked before each iteration; outside it the loop waits right until `From`. |
+| `MaxRunsPerDay` | `null` | Cap on started iterations per day (failed ones count). Once reached, the loop waits until the next day, which starts at `RunBetween.From` or midnight. **In-memory counter only** — resets on restart, per instance. |
+
+Both rules apply to triggers too: a trigger outside the window or over the limit is served at the next allowed moment. Once a night: `RunBetween = new(new(2, 0), new(4, 0))`, `MaxRunsPerDay = 1`, `Period = TimeSpan.FromMinutes(30)`. Stricter or persistent schedules → Quartz.NET.
 
 To run a task off-schedule, inject `IRecurringTaskTrigger<TTask>` anywhere — a controller, a handler, another task:
 

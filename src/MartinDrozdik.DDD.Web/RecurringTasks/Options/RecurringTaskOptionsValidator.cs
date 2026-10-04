@@ -34,5 +34,15 @@ internal sealed class RecurringTaskOptionsValidator<TTask> : AbstractValidator<R
             .LessThanOrEqualTo(maxWait)
             .WithMessage($"Recurring task timeout must not be longer than {maxWait.TotalDays} days. Leave it unset for no limit.")
             .When(x => x.Timeout.HasValue);
+
+        RuleFor(x => x.RunBetween)
+            .Must(window => window!.From != window.To)
+            .WithMessage("Recurring task time window must start and end at different times. Leave it unset to run all day.")
+            .When(x => x.RunBetween is not null);
+
+        RuleFor(x => x.MaxRunsPerDay)
+            .GreaterThanOrEqualTo(1)
+            .WithMessage("Recurring task daily limit must be at least 1 when set. Leave it unset for no limit, or set Enabled to false to never run.")
+            .When(x => x.MaxRunsPerDay.HasValue);
     }
 }

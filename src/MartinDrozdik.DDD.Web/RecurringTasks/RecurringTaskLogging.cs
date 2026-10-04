@@ -13,6 +13,15 @@ internal static partial class RecurringTaskLogging
     [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} scheduled with an initial delay of {InitialDelay} and a period of {Period}.")]
     internal static partial void LogScheduled(ILogger logger, string taskName, TimeSpan initialDelay, TimeSpan period);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} starts iterations only between {From} and {To} local time.")]
+    internal static partial void LogTimeWindow(ILogger logger, string taskName, TimeOnly from, TimeOnly to);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} starts at most {MaxRunsPerDay} iterations per day, counted in memory.")]
+    internal static partial void LogDailyLimit(ILogger logger, string taskName, int maxRunsPerDay);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Recurring task {TaskName} may not run now, being outside its time window or over its daily limit. Next attempt in {Wait}.")]
+    internal static partial void LogRunPostponed(ILogger logger, string taskName, TimeSpan wait);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Recurring task {TaskName} is starting an iteration. Triggered on demand: {Triggered}.")]
     internal static partial void LogIterationStarting(ILogger logger, string taskName, bool triggered);
 

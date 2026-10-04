@@ -49,6 +49,17 @@ internal sealed class RecurringTaskHost<TTask>(
         }
 
         RecurringTaskLogging.LogScheduled(_logger, s_taskName, options.InitialDelay, options.Period);
+        if (options.RunBetween is { } window)
+        {
+            RecurringTaskLogging.LogTimeWindow(_logger, s_taskName, window.From, window.To);
+        }
+
+        if (options.MaxRunsPerDay is { } maxRunsPerDay)
+        {
+            RecurringTaskLogging.LogDailyLimit(_logger, s_taskName, maxRunsPerDay);
+        }
+
+        var gate = new RecurringTaskRunGate(options.RunBetween, options.MaxRunsPerDay);
 
         // Run the loop until the application is shutting down
         try
@@ -57,6 +68,16 @@ internal sealed class RecurringTaskHost<TTask>(
 
             while (!stoppingToken.IsCancellationRequested)
             {
+                // Outside the time window or over the daily limit, wait right until the next allowed moment.
+                // A trigger raised meanwhile ends the wait early, and the check below simply parks the loop again.
+                if (gate.GetWaitBeforeRun(timeProvider.GetLocalNow().DateTime) is { } wait)
+                {
+                    RecurringTaskLogging.LogRunPostponed(_logger, s_taskName, wait);
+                    triggered = await WaitAsync(wait, stoppingToken);
+                    continue;
+                }
+
+                gate.RecordRun(timeProvider.GetLocalNow().DateTime);
                 await RunIterationAsync(options.Timeout, triggered, stoppingToken);
                 triggered = await WaitAsync(options.Period, stoppingToken);
             }

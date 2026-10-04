@@ -78,6 +78,62 @@ public class RecurringTaskOptionsValidationTests
     }
 
     [Fact]
+    public void Time_window_starting_and_ending_at_the_same_time_is_rejected()
+    {
+        // Arrange
+        var options = new RecurringTaskOptions<ProbeTask> { RunBetween = new(new TimeOnly(2, 0), new TimeOnly(2, 0)) };
+
+        // Act
+        var result = _validation.Validate(null, options);
+
+        // Assert
+        Assert.True(result.Failed);
+        Assert.Contains(result.Failures, failure => failure.Contains(nameof(RecurringTaskOptions<>.RunBetween), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Time_window_wrapping_past_midnight_is_valid()
+    {
+        // Arrange
+        var options = new RecurringTaskOptions<ProbeTask> { RunBetween = new(new TimeOnly(22, 0), new TimeOnly(4, 0)) };
+
+        // Act
+        var result = _validation.Validate(null, options);
+
+        // Assert
+        Assert.True(result.Succeeded, result.FailureMessage);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Daily_limit_that_is_set_but_not_positive_is_rejected(int maxRunsPerDay)
+    {
+        // Arrange
+        var options = new RecurringTaskOptions<ProbeTask> { MaxRunsPerDay = maxRunsPerDay };
+
+        // Act
+        var result = _validation.Validate(null, options);
+
+        // Assert
+        Assert.True(result.Failed);
+        Assert.Contains(result.Failures, failure => failure.Contains(nameof(RecurringTaskOptions<>.MaxRunsPerDay), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Daily_limit_of_one_is_valid()
+    {
+        // Arrange
+        var options = new RecurringTaskOptions<ProbeTask> { MaxRunsPerDay = 1 };
+
+        // Act
+        var result = _validation.Validate(null, options);
+
+        // Assert
+        Assert.True(result.Succeeded, result.FailureMessage);
+    }
+
+    [Fact]
     public void Failure_names_the_task_it_belongs_to()
     {
         // Arrange

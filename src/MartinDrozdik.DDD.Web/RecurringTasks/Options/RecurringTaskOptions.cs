@@ -52,4 +52,27 @@ public sealed class RecurringTaskOptions<TTask>
     /// When set, must be greater than zero and not longer than <see cref="MaxWait"/>; leave it <see langword="null"/> for no limit.
     /// </summary>
     public TimeSpan? Timeout { get; set; }
+
+    /// <summary>
+    /// Gets or sets an optional daily window of local time in which an iteration may start, e.g. a nightly window from 22:00 to 04:00.
+    /// Checked just before each iteration against the local time of the <see cref="TimeProvider"/>.
+    /// Outside the window the loop waits until <see cref="RecurringTaskTimeWindow.From"/>.
+    /// Leave it <see langword="null"/> to run all day.
+    /// </summary>
+    /// <remarks>
+    /// Checked against the local time of the <see cref="TimeProvider"/>.
+    /// </remarks>
+    public RecurringTaskTimeWindow? RunBetween { get; set; }
+
+    /// <summary>
+    /// Gets or sets an optional limit on how many iterations may start per day, e.g. 1 to run a task once a day.
+    /// Every started iteration counts. Once the limit is reached the loop waits until the next day starts.
+    /// A day starts at <see cref="RecurringTaskTimeWindow.From"/> of <see cref="RunBetween"/> when set.
+    /// When set, must be at least 1; leave it <see langword="null"/> for no limit.
+    /// </summary>
+    /// <remarks>
+    /// The runs are counted <b>in memory only</b>: the count starts over with every host restart.
+    /// A guarantee that survives restarts or spans instances needs a dedicated scheduler such as Quartz.NET.
+    /// </remarks>
+    public int? MaxRunsPerDay { get; set; }
 }

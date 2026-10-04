@@ -573,6 +573,92 @@ public class RecurringTaskHostTests
         Assert.Contains(harness.Logger.At(LogLevel.Error), entry => entry.Exception is OperationCanceledException);
     }
 
+    [Fact]
+    public async Task Task_outside_its_time_window_waits_right_until_the_window_opens()
+    {
+        // Arrange
+        var schedule = Schedule();
+        schedule.RunBetween = new RecurringTaskTimeWindow(new TimeOnly(22, 0), new TimeOnly(4, 0));
+        using var harness = new RecurringTaskTestHarness(schedule);
+        harness.Time.SetUtcNow(new DateTimeOffset(2000, 1, 1, 20, 0, 0, TimeSpan.Zero));
+        await harness.StartAsync(TestContext.Current.CancellationToken);
+        await harness.Time.WaitForTimerAsync(1);
+
+        // Act
+        // Timer 1 is the initial delay, timer 2 the wait until 22:00 that replaces the iteration
+        harness.Time.Advance(s_initialDelay);
+        await harness.Time.WaitForTimerAsync(2);
+
+        // Assert
+        var untilWindow = new TimeSpan(1, 59, 50);
+        Assert.Equal(0, harness.Task.RunCount);
+        Assert.Contains(
+            harness.Logger.At(LogLevel.Debug),
+            entry => entry.Message.Contains($"Next attempt in {untilWindow}", StringComparison.Ordinal));
+
+        harness.Time.Advance(untilWindow);
+        var run = await harness.Task.WaitForRunAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, run);
+        Assert.Equal(new TimeOnly(22, 0), TimeOnly.FromDateTime(harness.Time.GetLocalNow().DateTime));
+    }
+
+    [Fact]
+    public async Task Trigger_outside_the_time_window_does_not_run_the_task_until_the_window_opens()
+    {
+        // Arrange
+        var schedule = Schedule();
+        schedule.RunBetween = new RecurringTaskTimeWindow(new TimeOnly(22, 0), new TimeOnly(4, 0));
+        using var harness = new RecurringTaskTestHarness(schedule);
+        harness.Time.SetUtcNow(new DateTimeOffset(2000, 1, 1, 20, 0, 0, TimeSpan.Zero));
+        await harness.StartAsync(TestContext.Current.CancellationToken);
+        await harness.Time.WaitForTimerAsync(1);
+        harness.Time.Advance(s_initialDelay);
+        await harness.Time.WaitForTimerAsync(2);
+
+        // Act
+        harness.Trigger.Trigger();
+
+        // Assert
+        // The trigger ends the wait, the loop checks again and parks on timer 3 without running anything
+        await harness.Time.WaitForTimerAsync(3);
+        Assert.Equal(0, harness.Task.RunCount);
+
+        harness.Time.Advance(new TimeSpan(1, 59, 50));
+        var run = await harness.Task.WaitForRunAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, run);
+    }
+
+    [Fact]
+    public async Task Task_over_its_daily_limit_waits_until_the_next_day()
+    {
+        // Arrange
+        var schedule = Schedule();
+        schedule.MaxRunsPerDay = 1;
+        using var harness = new RecurringTaskTestHarness(schedule);
+        harness.Time.SetUtcNow(new DateTimeOffset(2000, 1, 1, 10, 0, 0, TimeSpan.Zero));
+        await harness.StartAsync(TestContext.Current.CancellationToken);
+        await harness.Time.WaitForTimerAsync(1);
+        harness.Time.Advance(s_initialDelay);
+        await harness.Task.WaitForRunAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        // Timer 2 is the period, timer 3 the wait until midnight that replaces the second iteration
+        await harness.Time.WaitForTimerAsync(2);
+        harness.Time.Advance(s_period);
+        await harness.Time.WaitForTimerAsync(3);
+
+        // Assert
+        var untilMidnight = TimeSpan.FromHours(14) - s_initialDelay - s_period;
+        Assert.Equal(1, harness.Task.RunCount);
+        Assert.Contains(
+            harness.Logger.At(LogLevel.Debug),
+            entry => entry.Message.Contains($"Next attempt in {untilMidnight}", StringComparison.Ordinal));
+
+        harness.Time.Advance(untilMidnight);
+        var secondRun = await harness.Task.WaitForRunAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, secondRun);
+    }
+
     private static RecurringTaskOptions<TestRecurringTask> Schedule(bool enabled = true, TimeSpan? timeout = null)
     {
         return new RecurringTaskOptions<TestRecurringTask>

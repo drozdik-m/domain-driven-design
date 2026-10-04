@@ -321,6 +321,22 @@ builder.AddRecurringTask<CleanupTask>(options =>
 - **`Period`** – the gap between iterations, measured from when the previous one **finished**, not when it started. Iterations never overlap and a slow run can never build a backlog.
 - **`Timeout`** – optional. Cancels the iteration's token and logs a warning the moment it overruns. The loop continues on once the iteration returns, so iterations still never overlap.
 - **`Enabled`** – decided at startup. `false` and the loop never even begins.
+- **`RunBetween`** – optional daily window of local time, e.g. `new(new TimeOnly(22, 0), new TimeOnly(4, 0))` for nights. Checked just before each iteration. Outside it, the loop waits right until the window opens, so the job starts on the dot. A window may wrap past midnight.
+- **`MaxRunsPerDay`** – optional cap on started iterations per day (failed ones count too). Once reached, the loop waits until the next day, which starts when the window opens, or at midnight without one. So a night from 22:00 to 04:00 counts as one day.
+
+**Once a night**, starting on time every night:
+
+```csharp
+builder.AddRecurringTask<NightlyReportTask>(options =>
+{
+    options.RunBetween = new(new TimeOnly(2, 0), new TimeOnly(4, 0));
+    options.MaxRunsPerDay = 1;
+    // After its one run, failed or not, the loop waits for 02:00 tomorrow, so the Period barely matters here
+    options.Period = TimeSpan.FromMinutes(30);
+});
+```
+
+> ⚠️ `MaxRunsPerDay` is an **in-memory counter**. It starts over with every restart. Need a hard guarantee? See the schedulers below.
 
 All options are validated.
 
