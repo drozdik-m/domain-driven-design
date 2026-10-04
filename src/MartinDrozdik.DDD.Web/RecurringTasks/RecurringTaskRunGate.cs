@@ -32,11 +32,13 @@ internal sealed class RecurringTaskRunGate(RecurringTaskTimeWindow? window, int?
     /// <returns><see langword="null"/> when an iteration may start now, otherwise the time until it may.</returns>
     public TimeSpan? GetWaitBeforeRun(DateTime localNow)
     {
+        // The current time is outside the window, so wait until the next window opens
         if (window?.Contains(TimeOnly.FromDateTime(localNow)) == false)
         {
             return UntilNext(window.From, localNow);
         }
 
+        // The current day has reached its maximum number of runs, so wait until the next day
         if (maxRunsPerDay is { } limit && RunsOn(DayOf(localNow)) >= limit)
         {
             return UntilNext(_dayStart, localNow);
@@ -59,11 +61,14 @@ internal sealed class RecurringTaskRunGate(RecurringTaskTimeWindow? window, int?
     private static TimeSpan UntilNext(TimeOnly time, DateTime localNow)
     {
         var next = localNow.Date + time.ToTimeSpan();
+
+        // If the next time is in the past, add a day to get to the next occurrence
         if (next <= localNow)
         {
             next = next.AddDays(1);
         }
 
+        // Return the time until the next occurrence
         return next - localNow;
     }
 
@@ -75,6 +80,10 @@ internal sealed class RecurringTaskRunGate(RecurringTaskTimeWindow? window, int?
     private DateOnly DayOf(DateTime localNow)
     {
         var date = DateOnly.FromDateTime(localNow);
-        return TimeOnly.FromDateTime(localNow) >= _dayStart ? date : date.AddDays(-1);
+
+        // If the current time is before the start of the day, consider it as part of the previous day
+        return TimeOnly.FromDateTime(localNow) >= _dayStart
+            ? date
+            : date.AddDays(-1);
     }
 }
