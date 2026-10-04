@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 
@@ -46,7 +47,7 @@ public sealed class OutboxRegistry
 
         if (_registrations.TryGetValue(registration.MessageType.Key, out var existing))
         {
-            throw new OutboxException($"Outbox message type '{registration.MessageType}' is registered by both {existing.MessageClrType.Name} and {registration.MessageClrType.Name}. The key is what maps a stored row back to a type, so it must identify exactly one of them.");
+            throw new OutboxException($"Outbox message type '{registration.MessageType}' is registered by both {existing.MessageClrType.GetReadableName()} and {registration.MessageClrType.GetReadableName()}. The key is what maps a stored row back to a type, so it must identify exactly one of them.");
         }
 
         _registrations.Add(registration.MessageType.Key, registration);

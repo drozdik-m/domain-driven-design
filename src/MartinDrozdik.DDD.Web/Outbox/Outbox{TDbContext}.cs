@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Transactions;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
@@ -177,7 +178,7 @@ internal sealed class Outbox<TDbContext>(
         var messageType = TMessage.MessageType;
         if (!registry.Contains(messageType))
         {
-            throw new OutboxException($"Outbox message type '{messageType}' has no registered handler. Register it with WithMessage<{typeof(TMessage).Name}, ...>() when calling AddOutbox.");
+            throw new OutboxException($"Outbox message type '{messageType}' has no registered handler. Register it with WithMessage<{typeof(TMessage).GetReadableName()}, ...>() when calling AddOutbox.");
         }
 
         var payload = SerializeMessage(message, messageType);

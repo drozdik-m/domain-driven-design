@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using MartinDrozdik.DDD.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Mediator.Pipelines;
 
@@ -33,7 +34,7 @@ public class ServicePipelineBuilder<TInput>
         ArgumentNullException.ThrowIfNull(pipelineType);
         if (!typeof(IPipelineBehavior<TInput>).IsAssignableFrom(pipelineType))
         {
-            throw new ArgumentException($"Type {pipelineType.Name} does not implement {nameof(IPipelineBehavior<TInput>)}", nameof(pipelineType));
+            throw new ArgumentException($"Type {pipelineType.GetReadableName()} does not implement {nameof(IPipelineBehavior<>)}", nameof(pipelineType));
         }
 
         // Add the pipeline to the start of the list to ensure it is executed first

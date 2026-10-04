@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
@@ -65,7 +66,7 @@ public static class HostApplicationBuilderExtensions
         var existing = builder.Services.FirstOrDefault(d => d.ServiceType.IsGenericType && d.ServiceType.GetGenericTypeDefinition() == typeof(IOutbox<>));
         if (existing is not null)
         {
-            throw new OutboxException($"The outbox is already added over {existing.ServiceType.GenericTypeArguments[0].Name}, so it cannot be added over {typeof(TDbContext).Name} too. Call AddOutbox once, registering every message type in that call.");
+            throw new OutboxException($"The outbox is already added over {existing.ServiceType.GenericTypeArguments[0].GetReadableName()}, so it cannot be added over {typeof(TDbContext).GetReadableName()} too. Call AddOutbox once, registering every message type in that call.");
         }
 
         var optionsBuilder = builder.Services.AddOptions<OutboxOptions>();
@@ -114,7 +115,7 @@ public static class HostApplicationBuilderExtensions
     /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
     /// <example>
     /// <code>
-    /// builder.AddOutboxDispatchTask(schedule =&gt;
+    /// builder.AddOutboxDispatchRecurringTask(schedule =&gt;
     /// {
     ///     schedule.InitialDelay = TimeSpan.FromSeconds(10);
     ///     schedule.Period = TimeSpan.FromSeconds(30);

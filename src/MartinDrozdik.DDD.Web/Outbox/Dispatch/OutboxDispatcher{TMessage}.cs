@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
@@ -50,7 +51,7 @@ internal sealed class OutboxDispatcher<TMessage>(IServiceProvider provider, IOpt
         }
         catch (JsonException exception)
         {
-            throw new OutboxException($"The stored payload of outbox message type '{TMessage.MessageType}' could not be deserialized into {typeof(TMessage).Name}.", exception);
+            throw new OutboxException($"The stored payload of outbox message type '{TMessage.MessageType}' could not be deserialized into {typeof(TMessage).GetReadableName()}.", exception);
         }
 
         return message ?? throw new OutboxException($"The stored payload of outbox message type '{TMessage.MessageType}' deserialized to null.");

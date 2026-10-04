@@ -25,7 +25,7 @@ public class FluentValidateOptions<TOptions> : IValidateOptions<TOptions>
             return ValidateOptionsResult.Success;
         }
 
-        var failures = error.Details.Select(e => $"Failed options validation for {options.GetType().Name}.{e.Key} {e.Value}");
+        var failures = error.Details.Select(e => $"Failed options validation for {options.GetType().GetReadableName()}.{e.Key} {e.Value}");
         return ValidateOptionsResult.Fail(failures);
     }
 }

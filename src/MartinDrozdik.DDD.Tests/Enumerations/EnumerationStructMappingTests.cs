@@ -74,8 +74,8 @@ public class EnumerationStructMappingTests
             EnumerationStructMapping.ThrowIfIncomplete<TestEnum, MissingMemberState>);
 
         // Assert
-        Assert.Contains($"Unmapped {nameof(TestEnum)} member(s): {nameof(TestEnum.Three)}", exception.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain($"Unmapped {nameof(MissingMemberState)}", exception.Message, StringComparison.Ordinal);
+        Assert.Contains($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(TestEnum)} member(s): {nameof(TestEnum.Three)}", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(MissingMemberState)}", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -86,8 +86,8 @@ public class EnumerationStructMappingTests
             EnumerationStructMapping.ThrowIfIncomplete<TestEnum, ExtraMemberState>);
 
         // Assert
-        Assert.Contains($"Unmapped {nameof(ExtraMemberState)} member(s): {nameof(ExtraMemberState.Four)}", exception.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain($"Unmapped {nameof(TestEnum)}", exception.Message, StringComparison.Ordinal);
+        Assert.Contains($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(ExtraMemberState)} member(s): {nameof(ExtraMemberState.Four)}", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(TestEnum)}", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,8 +98,8 @@ public class EnumerationStructMappingTests
             EnumerationStructMapping.ThrowIfIncomplete<TestEnum, MismatchedState>);
 
         // Assert
-        Assert.Contains($"Unmapped {nameof(TestEnum)} member(s): {nameof(TestEnum.Three)}", exception.Message, StringComparison.Ordinal);
-        Assert.Contains($"Unmapped {nameof(MismatchedState)} member(s): {nameof(MismatchedState.Surplus)}", exception.Message, StringComparison.Ordinal);
+        Assert.Contains($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(TestEnum)} member(s): {nameof(TestEnum.Three)}", exception.Message, StringComparison.Ordinal);
+        Assert.Contains($"Unmapped {nameof(EnumerationStructMappingTests)}.{nameof(MismatchedState)} member(s): {nameof(MismatchedState.Surplus)}", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Mediator.Commands;
+﻿using MartinDrozdik.DDD.Extensions;
+using MartinDrozdik.DDD.Mediator.Commands;
 using MartinDrozdik.DDD.Mediator.Exceptions;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using MartinDrozdik.DDD.Mediator.Queries;
@@ -15,7 +16,7 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
     {
         // Resolve the command handler from the service provider
         var handler = provider.GetService<IQueryHandler<TRequest, TResponse>>()
-            ?? throw new MediatorException($"No {nameof(IQueryHandler<TRequest, TResponse>)} registered for {typeof(TRequest).Name}");
+            ?? throw new MediatorException($"No {nameof(IQueryHandler<,>)} registered for {typeof(TRequest).GetReadableName()}");
 
         // Resolve any pipeline behaviors for the query
         var pipeline = provider.GetService<IPipelineBehavior<TRequest, TResponse>>()
@@ -31,7 +32,7 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
     {
         // Resolve the command handler from the service provider
         var handler = provider.GetService<ICommandHandler<TRequest, TResponse>>()
-            ?? throw new MediatorException($"No {nameof(ICommandHandler<TRequest, TResponse>)} registered for {typeof(TRequest).Name}");
+            ?? throw new MediatorException($"No {nameof(ICommandHandler<,>)} registered for {typeof(TRequest).GetReadableName()}");
 
         // Resolve any pipeline behaviors for the command
         var pipeline = provider.GetService<IPipelineBehavior<TRequest, TResponse>>()
@@ -47,7 +48,7 @@ public class ServiceMediator(IServiceProvider provider) : IMediator
     {
         // Resolve the command handler from the service provider
         var handler = provider.GetService<ICommandHandler<TRequest>>()
-            ?? throw new MediatorException($"No {nameof(ICommandHandler<TRequest>)} handler registered for {typeof(TRequest).Name}");
+            ?? throw new MediatorException($"No {nameof(ICommandHandler<>)} handler registered for {typeof(TRequest).GetReadableName()}");
 
         // Resolve any pipeline behaviors for the command
         var pipeline = provider.GetService<IPipelineBehavior<TRequest>>()

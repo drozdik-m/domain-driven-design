@@ -40,12 +40,12 @@ public static class EnumerationDeserializerAssertions
     {
         // Valid name
         var validResult = TEnumeration.FromName(validName);
-        Assert.True(validResult.IsSuccess, $"{nameof(IEnumerationDeserializer<TEnumeration>.FromName)} failed for valid name '{validName}'");
+        Assert.True(validResult.IsSuccess, $"{nameof(IEnumerationDeserializer<>.FromName)} failed for valid name '{validName}'");
         Assert.Equal(expectedValue, validResult.Value);
 
         // Invalid name
         var invalidResult = TEnumeration.FromName(invalidName);
-        Assert.True(invalidResult.IsFailure, $"{nameof(IEnumerationDeserializer<TEnumeration>.FromName)} succeeded for invalid name '{invalidName}', but it should have failed.");
+        Assert.True(invalidResult.IsFailure, $"{nameof(IEnumerationDeserializer<>.FromName)} succeeded for invalid name '{invalidName}', but it should have failed.");
         Assert.Equal(EnumerationErrorCodes.EnumerationNameNotFound, invalidResult.Error?.Code);
         Assert.NotNull(invalidResult.Error);
     }
@@ -65,18 +65,18 @@ public static class EnumerationDeserializerAssertions
     {
         // Valid name
         var validResult = TEnumeration.FromNameOptional(validName);
-        Assert.True(validResult.IsSuccess, $"{nameof(IEnumerationDeserializer<TEnumeration>.FromNameOptional)} failed for valid name '{validName}'");
+        Assert.True(validResult.IsSuccess, $"{nameof(IEnumerationDeserializer<>.FromNameOptional)} failed for valid name '{validName}'");
         Assert.Equal(expectedValue, validResult.Value);
 
         // Invalid name
         var invalidResult = TEnumeration.FromNameOptional(invalidName);
-        Assert.True(invalidResult.IsFailure, $"{nameof(IEnumerationDeserializer<TEnumeration>.FromNameOptional)} succeeded for invalid name '{invalidName}', but it should have failed.");
+        Assert.True(invalidResult.IsFailure, $"{nameof(IEnumerationDeserializer<>.FromNameOptional)} succeeded for invalid name '{invalidName}', but it should have failed.");
         Assert.Equal(EnumerationErrorCodes.EnumerationNameNotFound, invalidResult.Error?.Code);
         Assert.NotNull(invalidResult.Error);
 
         // Null name
         var nullResult = TEnumeration.FromNameOptional(null);
-        Assert.True(nullResult.IsSuccess, $"{nameof(IEnumerationDeserializer<TEnumeration>.FromNameOptional)} failed for null name.");
+        Assert.True(nullResult.IsSuccess, $"{nameof(IEnumerationDeserializer<>.FromNameOptional)} failed for null name.");
         Assert.Null(nullResult.Value);
     }
 }

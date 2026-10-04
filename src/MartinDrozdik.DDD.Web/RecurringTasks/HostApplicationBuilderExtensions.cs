@@ -17,6 +17,9 @@ public static class HostApplicationBuilderExtensions
     /// <remarks>
     /// <typeparamref name="TTask"/> is registered as scoped and resolved from a fresh scope for every iteration.
     /// A failing iteration is logged and the loop carries on.
+    /// <para>
+    /// Calling it again for the same <typeparamref name="TTask"/> adds no second loop, but every <paramref name="configure"/> is applied in order.
+    /// </para>
     /// </remarks>
     /// <typeparam name="TTask">The task to run.</typeparam>
     /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
@@ -41,7 +44,7 @@ public static class HostApplicationBuilderExtensions
             .Configure(configure)
             .ValidateOnStart();
 
-        // Singleton validator - added and implementation-deduped by TryAddEnumerable, so registering the same task twice is harmless
+        // Singleton validator - added and implementation-deduped by TryAddEnumerable, so registering the same task twice validates it once
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<RecurringTaskOptions<TTask>>, RecurringTaskOptionsValidation<TTask>>());
 
@@ -51,12 +54,12 @@ public static class HostApplicationBuilderExtensions
         // The actual scoped task
         builder.Services.TryAddScoped<TTask>();
 
-        // Register RegularTaskTrigger<TTask> so WaitAsync is accesible internally
+        // Register the concrete RecurringTaskTrigger<TTask> too, so the host can reach its internal WaitAsync
         builder.Services.TryAddSingleton<RecurringTaskTrigger<TTask>>();
         builder.Services.TryAddSingleton<IRecurringTaskTrigger<TTask>>(
             provider => provider.GetRequiredService<RecurringTaskTrigger<TTask>>());
 
-        // AddHostedService deduplicates by implementation type, so registering a task twice is harmless.
+        // AddHostedService deduplicates by implementation type, so registering a task twice still runs one loop. Both configure delegates apply tho.
         builder.Services.AddHostedService<RecurringTaskHost<TTask>>();
 
         return builder;

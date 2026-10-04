@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,7 +65,7 @@ public abstract class RecurringTaskSmokeTests<TProgram, TTask> : IDisposable
         var schedule = App.Services.GetRequiredService<IOptions<RecurringTaskOptions<TTask>>>().Value;
 
         // Assert
-        App.TestOutputHelper.WriteLine($"{typeof(TTask).Name}: enabled={schedule.Enabled}, initial delay={schedule.InitialDelay}, period={schedule.Period}, timeout={schedule.Timeout?.ToString() ?? "none"}");
+        App.TestOutputHelper.WriteLine($"{typeof(TTask).GetReadableName()}: enabled={schedule.Enabled}, initial delay={schedule.InitialDelay}, period={schedule.Period}, timeout={schedule.Timeout?.ToString() ?? "none"}");
     }
 
     /// <summary>

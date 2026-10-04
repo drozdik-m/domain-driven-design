@@ -1,6 +1,7 @@
 using System.Text;
 using MartinDrozdik.DDD.Enumerations.Attributes;
 using MartinDrozdik.DDD.Enumerations.Statics;
+using MartinDrozdik.DDD.Extensions;
 
 namespace MartinDrozdik.DDD.Enumerations;
 
@@ -95,8 +96,8 @@ public static class EnumerationStructMapping
         where TEnumeration : Enumeration
         where TEnum : struct, Enum
     {
-        var enumerationName = typeof(TEnumeration).Name;
-        var structEnumName = typeof(TEnum).Name;
+        var enumerationName = typeof(TEnumeration).GetReadableName();
+        var structEnumName = typeof(TEnum).GetReadableName();
 
         var message = new StringBuilder()
             .Append($"Enumeration {enumerationName} and enum {structEnumName} do not map 1:1.");

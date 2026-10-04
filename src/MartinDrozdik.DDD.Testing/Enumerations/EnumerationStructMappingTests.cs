@@ -1,5 +1,6 @@
 using MartinDrozdik.DDD.Enumerations;
 using MartinDrozdik.DDD.Exceptions;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Testing.Attributes;
 using Xunit;
 
@@ -76,7 +77,7 @@ public abstract class EnumerationStructMappingTests<TEnumeration, TEnum>
         }
 
         // Assert
-        AssertNoFailures($"member(s) that do not convert to {typeof(TEnum).Name}", failures);
+        AssertNoFailures($"member(s) that do not convert to {typeof(TEnum).GetReadableName()}", failures);
     }
 
     /// <summary>
@@ -105,7 +106,7 @@ public abstract class EnumerationStructMappingTests<TEnumeration, TEnum>
         }
 
         // Assert
-        AssertNoFailures($"member(s) that do not convert to {typeof(TEnumeration).Name}", failures);
+        AssertNoFailures($"member(s) that do not convert to {typeof(TEnumeration).GetReadableName()}", failures);
     }
 
     /// <summary>
@@ -137,7 +138,7 @@ public abstract class EnumerationStructMappingTests<TEnumeration, TEnum>
         }
 
         // Assert
-        AssertNoFailures($"member(s) that do not survive a round trip through {typeof(TEnum).Name}", failures);
+        AssertNoFailures($"member(s) that do not survive a round trip through {typeof(TEnum).GetReadableName()}", failures);
     }
 
     /// <summary>
@@ -169,7 +170,7 @@ public abstract class EnumerationStructMappingTests<TEnumeration, TEnum>
         }
 
         // Assert
-        AssertNoFailures($"member(s) that do not survive a round trip through {typeof(TEnumeration).Name}", failures);
+        AssertNoFailures($"member(s) that do not survive a round trip through {typeof(TEnumeration).GetReadableName()}", failures);
     }
 
     /// <summary>
@@ -185,6 +186,6 @@ public abstract class EnumerationStructMappingTests<TEnumeration, TEnum>
             return;
         }
 
-        Assert.Fail($"{typeof(TEnumeration).Name} -> {typeof(TEnum).Name}: {failures.Count} {problem}: {string.Join(", ", failures)}");
+        Assert.Fail($"{typeof(TEnumeration).GetReadableName()} -> {typeof(TEnum).GetReadableName()}: {failures.Count} {problem}: {string.Join(", ", failures)}");
     }
 }

@@ -12,6 +12,7 @@ namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
 ///     <item><see cref="BlockIteration(int)"/></item>
 ///     <item><see cref="FailIteration(int, Exception)"/></item>
 ///     <item><see cref="HangUntilCancelled"/></item>
+///     <item><see cref="ReturnWhenCancelled"/></item>
 /// </list>
 /// Each of those replaces whatever was asked for before, and all of them must be called before the host is started.
 /// </remarks>
@@ -63,6 +64,22 @@ internal sealed class TestRecurringTask : IRecurringTask
     public void HangUntilCancelled()
     {
         _behaviour = (_, cancellationToken) => Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+    }
+
+    /// <summary>
+    /// Makes every iteration run until its own cancellation token is cancelled, and then return normally instead of throwing,
+    /// as a batch loop checking <see cref="CancellationToken.IsCancellationRequested"/> between items would.
+    /// </summary>
+    public void ReturnWhenCancelled()
+    {
+        _behaviour = static async (_, cancellationToken) =>
+        {
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using (cancellationToken.Register(() => cancelled.TrySetResult()))
+            {
+                await cancelled.Task;
+            }
+        };
     }
 
     /// <inheritdoc />

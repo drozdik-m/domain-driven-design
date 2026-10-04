@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,7 +24,7 @@ internal sealed class RecurringTaskHost<TTask>(
     ILogger<RecurringTaskHost<TTask>> logger) : BackgroundService
     where TTask : class, IRecurringTask
 {
-    private static readonly string s_taskName = typeof(TTask).Name;
+    private static readonly string s_taskName = typeof(TTask).GetReadableName();
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

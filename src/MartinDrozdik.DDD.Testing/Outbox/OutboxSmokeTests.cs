@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Options;
@@ -105,7 +106,7 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
         Assert.NotEmpty(registrations);
         foreach (var registration in registrations)
         {
-            App.TestOutputHelper.WriteLine($"{registration.MessageType} -> {registration.HandlerServiceType.Name}");
+            App.TestOutputHelper.WriteLine($"{registration.MessageType} -> {registration.HandlerServiceType.GetReadableName()}");
 
             var handler = scope.ServiceProvider.GetService(registration.HandlerServiceType);
             Assert.True(handler is not null, $"Outbox message type '{registration.MessageType}' has no resolvable handler.");

@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Mediator;
+﻿using MartinDrozdik.DDD.Extensions;
+using MartinDrozdik.DDD.Mediator;
 using MartinDrozdik.DDD.Mediator.Pipelines;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public class LoggingPipeline<TRequest, TOutput>(ILogger<LoggingPipeline<TRequest
             var result = await next(cancellationToken);
             if (logger.IsEnabled(LogLevel.Information))
             {
-                logger.LogInformation("Request of type {RequestType} processed successfully: {@Request} -> {@Response}", typeof(TRequest).Name, input, result);
+                logger.LogInformation("Request of type {RequestType} processed successfully: {@Request} -> {@Response}", typeof(TRequest).GetReadableName(), input, result);
             }
 
             return result;
@@ -31,7 +32,7 @@ public class LoggingPipeline<TRequest, TOutput>(ILogger<LoggingPipeline<TRequest
         {
             if (logger.IsEnabled(LogLevel.Error))
             {
-                logger.LogError(ex, "An error occurred while processing request of type {RequestType}: {@Request}", typeof(TRequest).Name, input);
+                logger.LogError(ex, "An error occurred while processing request of type {RequestType}: {@Request}", typeof(TRequest).GetReadableName(), input);
             }
 
             throw;

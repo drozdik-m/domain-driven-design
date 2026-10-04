@@ -53,7 +53,7 @@ builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
 
 // A transactional outbox over the same context
 // - AddOutbox is the engine
-// - AddOutboxDispatchTask is the schedule that drives it - drop to drive IOutboxProcessor from Quartz.NET or anything else instead.
+// - AddOutboxDispatchRecurringTask is the schedule that drives it - drop to drive IOutboxProcessor from Quartz.NET or anything else instead.
 builder.AddOutbox<InvoiceDbContext>(
     outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
     config => config

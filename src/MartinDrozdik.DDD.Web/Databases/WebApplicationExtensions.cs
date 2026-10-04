@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using MartinDrozdik.DDD.Extensions;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,7 +24,7 @@ public static class WebApplicationExtensions
         {
             if (app.Logger.IsEnabled(LogLevel.Information))
             {
-                app.Logger.LogInformation("Ensuring database for {DbContext} is deleted.", typeof(T).Name);
+                app.Logger.LogInformation("Ensuring database for {DbContext} is deleted.", typeof(T).GetReadableName());
             }
 
             await app.ExecuteContextOperationAsync<T>(e => e.Database.EnsureDeletedAsync());
@@ -31,7 +32,7 @@ public static class WebApplicationExtensions
 #pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
         catch (Exception e)
         {
-            app.Logger.LogError(e, "An error occurred while deleting database for {DbContext}.", typeof(T).Name);
+            app.Logger.LogError(e, "An error occurred while deleting database for {DbContext}.", typeof(T).GetReadableName());
             throw;
         }
 #pragma warning restore S2139 // Exceptions should be either logged or rethrown but not both
@@ -50,7 +51,7 @@ public static class WebApplicationExtensions
         {
             if (app.Logger.IsEnabled(LogLevel.Information))
             {
-                app.Logger.LogInformation("Ensuring database for {DbContext} is created.", typeof(T).Name);
+                app.Logger.LogInformation("Ensuring database for {DbContext} is created.", typeof(T).GetReadableName());
             }
 
             await app.ExecuteContextOperationAsync<T>(e => e.Database.EnsureCreatedAsync());
@@ -58,7 +59,7 @@ public static class WebApplicationExtensions
 #pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
         catch (Exception e)
         {
-            app.Logger.LogError(e, "An error occurred while creating database for {DbContext}.", typeof(T).Name);
+            app.Logger.LogError(e, "An error occurred while creating database for {DbContext}.", typeof(T).GetReadableName());
             throw;
         }
 #pragma warning restore S2139 // Exceptions should be either logged or rethrown but not both
@@ -77,7 +78,7 @@ public static class WebApplicationExtensions
         {
             if (app.Logger.IsEnabled(LogLevel.Information))
             {
-                app.Logger.LogInformation("Ensuring database for {DbContext} is migrated.", typeof(T).Name);
+                app.Logger.LogInformation("Ensuring database for {DbContext} is migrated.", typeof(T).GetReadableName());
             }
 
             await app.ExecuteContextOperationAsync<T>(e => e.Database.MigrateAsync());
@@ -85,7 +86,7 @@ public static class WebApplicationExtensions
 #pragma warning disable S2139 // Exceptions should be either logged or rethrown but not both
         catch (Exception e)
         {
-            app.Logger.LogError(e, "An error occurred while migrating database for {DbContext}.", typeof(T).Name);
+            app.Logger.LogError(e, "An error occurred while migrating database for {DbContext}.", typeof(T).GetReadableName());
             throw;
         }
 #pragma warning restore S2139 // Exceptions should be either logged or rethrown but not both
@@ -103,7 +104,7 @@ public static class WebApplicationExtensions
     {
         await using var context = app.Services.CreateAsyncScope();
         using var dbContext = context.ServiceProvider.GetService<T>()
-            ?? throw new InvalidOperationException($"DbContext of type {typeof(T).Name} is not registered in the service provider.");
+            ?? throw new InvalidOperationException($"DbContext of type {typeof(T).GetReadableName()} is not registered in the service provider.");
         await operation(dbContext);
     }
 }

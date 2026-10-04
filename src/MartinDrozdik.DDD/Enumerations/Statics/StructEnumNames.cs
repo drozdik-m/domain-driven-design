@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Reflection;
 using MartinDrozdik.DDD.Enumerations.Attributes;
+using MartinDrozdik.DDD.Extensions;
 
 namespace MartinDrozdik.DDD.Enumerations.Statics;
 
@@ -56,7 +57,7 @@ internal static class StructEnumNames
         // A combination of flags has no single name, so it can never identify one enumeration member
         if (enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
         {
-            throw new ArgumentException($"The enum {enumType.Name} is marked with {nameof(FlagsAttribute)}. A combination of flags has no single {nameof(EnumerationName)} and cannot be mapped to an {nameof(Enumeration)}.");
+            throw new ArgumentException($"The enum {enumType.GetReadableName()} is marked with {nameof(FlagsAttribute)}. A combination of flags has no single {nameof(EnumerationName)} and cannot be mapped to an {nameof(Enumeration)}.");
         }
 
         var fields = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
@@ -96,7 +97,7 @@ internal static class StructEnumNames
         }
 
         var offending = string.Join(", ", aliases.Select(g => $"{g.Key} ({string.Join(" = ", g.Select(f => f.Name))})"));
-        throw new ArgumentException($"Found {aliases.Count} aliased value(s) in enum {enumType.Name}: {offending}. Aliases make the mapping to an {nameof(Enumeration)} ambiguous.");
+        throw new ArgumentException($"Found {aliases.Count} aliased value(s) in enum {enumType.GetReadableName()}: {offending}. Aliases make the mapping to an {nameof(Enumeration)} ambiguous.");
     }
 
     /// <summary>
@@ -118,6 +119,6 @@ internal static class StructEnumNames
         }
 
         var offending = string.Join(", ", duplicates.Select(g => $"{g.Key} ({string.Join(", ", g.Select(m => m.Member))})"));
-        throw new ArgumentException($"Found {duplicates.Count} duplicate enumeration name(s) in enum {enumType.Name}: {offending}.");
+        throw new ArgumentException($"Found {duplicates.Count} duplicate enumeration name(s) in enum {enumType.GetReadableName()}: {offending}.");
     }
 }

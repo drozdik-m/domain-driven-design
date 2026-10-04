@@ -17,10 +17,10 @@ public interface IRecurringTask
     /// Runs a single iteration of the task.
     /// </summary>
     /// <param name="cancellationToken">
-    /// Cancelled when the application:
+    /// Cancelled when:
     /// <list type="bullet">
-    ///     <item>is shutting down</item>
-    ///     <item>exceeds <see cref="RecurringTaskOptions{TTask}.Timeout"/></item>
+    ///     <item>the application is shutting down</item>
+    ///     <item>this iteration exceeds <see cref="RecurringTaskOptions{TTask}.Timeout"/></item>
     /// </list>
     /// </param>
     /// <remarks>

@@ -11,6 +11,7 @@ internal sealed class RecurringTaskOptionsValidation<TTask> : IValidateOptions<R
     where TTask : IRecurringTask
 {
     private static readonly RecurringTaskOptionsValidator<TTask> s_validator = new();
+    private static readonly string s_taskName = typeof(TTask).GetReadableName();
 
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, RecurringTaskOptions<TTask> options)
@@ -23,7 +24,7 @@ internal sealed class RecurringTaskOptionsValidation<TTask> : IValidateOptions<R
             return ValidateOptionsResult.Success;
         }
 
-        var failures = error.Details.Select(e => $"Failed options validation for recurring task {typeof(TTask).Name}.{e.Key} {e.Value}");
+        var failures = error.Details.Select(e => $"Failed options validation for recurring task {s_taskName}.{e.Key} {e.Value}");
         return ValidateOptionsResult.Fail(failures);
     }
 }

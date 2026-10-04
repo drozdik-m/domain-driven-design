@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace MartinDrozdik.DDD.Testing.Logging;
@@ -20,6 +21,6 @@ public sealed record LogEntry(LogLevel Level, string Category, EventId EventId, 
     {
         return Exception is null
             ? $"[{Level}] {Category}: {Message}"
-            : $"[{Level}] {Category}: {Message} ({Exception.GetType().Name}: {Exception.Message})";
+            : $"[{Level}] {Category}: {Message} ({Exception.GetType().GetReadableName()}: {Exception.Message})";
     }
 }

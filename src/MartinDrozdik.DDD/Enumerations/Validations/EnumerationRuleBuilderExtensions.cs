@@ -1,5 +1,6 @@
 using FluentValidation;
 using MartinDrozdik.DDD.Enumerations.Errors;
+using MartinDrozdik.DDD.Extensions;
 
 namespace MartinDrozdik.DDD.Enumerations.Validations;
 
@@ -39,7 +40,7 @@ public static class EnumerationRuleBuilderExtensions
         return ruleBuilder
             .Must(value => mapper.CanMap(value))
             .WithErrorCode(EnumerationErrorCodes.EnumerationNameNotFound.Key)
-            .WithMessage($"'{{PropertyValue}}' is not a valid {typeof(TEnumeration).Name}.");
+            .WithMessage($"'{{PropertyValue}}' is not a valid {typeof(TEnumeration).GetReadableName()}.");
     }
 
     /// <summary>
@@ -67,6 +68,6 @@ public static class EnumerationRuleBuilderExtensions
         return ruleBuilder
             .Must(value => value is null || mapper.CanMap(value.Value))
             .WithErrorCode(EnumerationErrorCodes.EnumerationNameNotFound.Key)
-            .WithMessage($"'{{PropertyValue}}' is not a valid {typeof(TEnumeration).Name}.");
+            .WithMessage($"'{{PropertyValue}}' is not a valid {typeof(TEnumeration).GetReadableName()}.");
     }
 }

@@ -51,8 +51,10 @@ public class EnumerationStructExtensionsTests
         var exception = Assert.Throws<BusinessRuleException>(() => enumeration.ToStructEnum<TestState>());
 
         // Assert
-        Assert.Contains(nameof(TestState), exception.Message, StringComparison.Ordinal);
-        Assert.Equal(nameof(TestState), Assert.Single(exception.DetailsDictionary["StructEnum"]));
+        // The enum is nested in this test class, so it is named with it
+        var structEnumName = $"{nameof(EnumerationStructExtensionsTests)}.{nameof(TestState)}";
+        Assert.Contains(structEnumName, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(structEnumName, Assert.Single(exception.DetailsDictionary["StructEnum"]));
         Assert.Equal(nameof(TestEnum.Unmapped), Assert.Single(exception.DetailsDictionary["Name"]));
     }
 

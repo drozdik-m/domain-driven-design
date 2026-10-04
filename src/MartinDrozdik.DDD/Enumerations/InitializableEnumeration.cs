@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using MartinDrozdik.DDD.Enumerations.Errors;
 using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Models.Enumerations.Statics;
 using MartinDrozdik.DDD.Results;
 
@@ -143,7 +144,7 @@ public abstract class InitializableEnumeration<TSelf> : Enumeration,
         if (!Initialized)
         {
             throw new InvalidOperationException(
-                $"The enumeration {typeof(TSelf).Name} has not been initialized. Call {nameof(Initialize)} method first.");
+                $"The enumeration {typeof(TSelf).GetReadableName()} has not been initialized. Call {nameof(Initialize)} method first.");
         }
     }
 }

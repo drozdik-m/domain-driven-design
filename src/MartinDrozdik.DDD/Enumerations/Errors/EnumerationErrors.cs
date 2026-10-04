@@ -1,4 +1,5 @@
 ﻿using MartinDrozdik.DDD.Errors;
+using MartinDrozdik.DDD.Extensions;
 
 namespace MartinDrozdik.DDD.Enumerations.Errors;
 
@@ -16,7 +17,7 @@ public static class EnumerationErrors
     public static Error EnumerationNameNotFound<TEnumeration>(EnumerationName name)
         where TEnumeration : Enumeration
     {
-        var enumName = typeof(TEnumeration).Name;
+        var enumName = typeof(TEnumeration).GetReadableName();
         return new ErrorBuilder()
             .WithCode(EnumerationErrorCodes.EnumerationNameNotFound)
             .WithMessage($"Enumeration value {name} not found for {enumName}.")
@@ -36,8 +37,8 @@ public static class EnumerationErrors
     {
         ArgumentNullException.ThrowIfNull(enumeration);
 
-        var enumerationName = enumeration.GetType().Name;
-        var structEnumName = typeof(TEnum).Name;
+        var enumerationName = enumeration.GetType().GetReadableName();
+        var structEnumName = typeof(TEnum).GetReadableName();
         return new ErrorBuilder()
             .WithCode(EnumerationErrorCodes.StructEnumMemberNotFound)
             .WithMessage($"Enumeration value {enumeration.Name} of {enumerationName} has no counterpart in {structEnumName}.")

@@ -1,6 +1,7 @@
 using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Blobs.Stores;
 using MartinDrozdik.DDD.Blobs.Sweepers;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Blobs;
 using MartinDrozdik.DDD.Web.Blobs.Options;
 using Microsoft.Extensions.DependencyInjection;
@@ -153,7 +154,7 @@ public abstract class BlobSmokeTests<TProgram> : IDisposable
             Assert.False(exists);
         }
 
-        App.TestOutputHelper.WriteLine($"Blob store: {store.GetType().Name}");
+        App.TestOutputHelper.WriteLine($"Blob store: {store.GetType().GetReadableName()}");
     }
 
     /// <summary>
