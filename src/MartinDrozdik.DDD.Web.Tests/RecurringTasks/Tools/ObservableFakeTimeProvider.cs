@@ -19,8 +19,9 @@ namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
 /// Every wait in the host goes through <c>new CancellationTokenSource(delay, timeProvider)</c>,
 /// which calls <see cref="TimeProvider.CreateTimer(TimerCallback, object, TimeSpan, TimeSpan)"/> exactly once.
 /// Counting those calls is therefore a precise signal for <i>the loop has arrived at a wait point</i>, which is what <see cref="WaitForTimerAsync(int)"/> blocks on.
-/// Timers are numbered cumulatively in creation order: timer 1 is the initial delay, timer 2 the gap after the first iteration, and so on.
-/// A configured per-iteration timeout arms a timer of its own, so it takes a number too.
+/// A timer is created by each wait with a positive delay: the initial delay (skipped when it is zero), the period after each iteration,
+/// and the timeout of each iteration when one is configured.
+/// Timers are numbered cumulatively in creation order, so which number is which wait depends on the schedule. Each test spells that out.
 /// </para>
 /// <para>
 /// <b>Why the wait cannot itself go wrong.</b>
@@ -30,8 +31,10 @@ namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
 /// Only advancing too early can hang, and that is exactly the case this class rules out.
 /// </para>
 /// <para>
-/// It doubles as an assertion. Reaching timer <c>n</c> proves iteration <c>n - 1</c> finished and the loop is parked again,
-/// so a test can assert that nothing <i>further</i> happened without the "it may simply not have happened yet" hole that a real-time <c>Task.Delay</c> would leave open.
+/// It doubles as an assertion, with a limit. Reaching the timer of a period wait proves the iteration before it finished and the loop entered its next wait.
+/// It does <b>not</b> prove the loop is idle: the wait arms its timer first and reads the trigger after,
+/// so a pending trigger request starts another run straight away, without a timer of its own.
+/// Asserting that nothing further happened is sound only when no trigger request can be pending at that point.
 /// </para>
 /// </remarks>
 internal sealed class ObservableFakeTimeProvider : FakeTimeProvider

@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Testing.RecurringTasks;
 public static class RecurringTaskTestExtensions
 {
     /// <summary>
-    /// Runs a single iteration of a recurring task, in a fresh dependency injection scope, exactly as the real loop would.
+    /// Runs a single iteration of a recurring task, resolved in a fresh dependency injection scope like the real loop does.
     /// </summary>
     /// <remarks>
     /// This is a direct invocation, not the loop. There is no waiting for schedule, error handling, or logging. It is meant for testing the task itself, not the loop.

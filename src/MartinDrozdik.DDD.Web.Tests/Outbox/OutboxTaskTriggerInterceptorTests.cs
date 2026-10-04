@@ -39,6 +39,121 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     }
 
     [Fact]
+    public async Task Committing_an_explicit_transaction_runs_the_dispatch_task_without_waiting_for_the_schedule()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithRecurringTasks()
+            .Build();
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("in-transaction"));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            // Whatever else the transaction does before it commits. Inside an explicit transaction SaveChanges is not the
+            // commit, so a dispatch woken by it reads before the row is visible, consumes the trigger, and the message is
+            // left for the next scheduled poll - an hour away here.
+            await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+            await transaction.CommitAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        await WaitForHandledAsync(state, TestContext.Current.CancellationToken);
+        Assert.Equal(["in-transaction"], state.Handled);
+    }
+
+    [Fact]
+    public async Task Saving_inside_an_explicit_transaction_triggers_only_once_it_commits()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("in-transaction"));
+
+        // Act
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Not yet: the message is not visible to the dispatcher until the commit
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200)))
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                async () => await concrete.WaitAsync(timeout.Token));
+        }
+
+        await transaction.CommitAsync(TestContext.Current.CancellationToken);
+        await concrete.WaitAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Rolling_back_an_explicit_transaction_does_not_trigger_the_dispatch_task()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("rolled-back"));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await transaction.RollbackAsync(TestContext.Current.CancellationToken);
+
+            // A later transaction that commits without new messages must not pick up the dropped trigger either
+            await using var next = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
+            await next.CommitAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await concrete.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
+    public async Task Transaction_disposed_without_a_commit_does_not_trigger_a_later_one()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            await using (await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken))
+            {
+                scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("abandoned"));
+                await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            }
+
+            // The abandoned message is still tracked, so detach it before the next, empty transaction commits
+            context.ChangeTracker.Clear();
+            await using var next = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
+            await next.CommitAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await concrete.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
     public async Task A_save_without_messages_does_not_trigger_the_dispatch_task()
     {
         // Arrange

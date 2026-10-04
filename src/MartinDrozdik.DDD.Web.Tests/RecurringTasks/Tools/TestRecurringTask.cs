@@ -13,6 +13,7 @@ namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
 ///     <item><see cref="FailIteration(int, Exception)"/></item>
 ///     <item><see cref="HangUntilCancelled"/></item>
 ///     <item><see cref="ReturnWhenCancelled"/></item>
+///     <item><see cref="ThrowWhenCancelled(Exception)"/></item>
 /// </list>
 /// Each of those replaces whatever was asked for before, and all of them must be called before the host is started.
 /// </remarks>
@@ -31,6 +32,9 @@ internal sealed class TestRecurringTask : IRecurringTask
     /// <summary>
     /// Makes the given iteration hang until <see cref="ReleaseBlockedIteration"/> is called.
     /// </summary>
+    /// <remarks>
+    /// The iteration ignores its cancellation token entirely, as a task that ignores its timeout and the shutdown would.
+    /// </remarks>
     /// <param name="run">The one-based iteration to block.</param>
     public void BlockIteration(int run)
     {
@@ -59,8 +63,12 @@ internal sealed class TestRecurringTask : IRecurringTask
     }
 
     /// <summary>
-    /// Makes every iteration run until its own cancellation token stops it, as a task that ignores its timeout would.
+    /// Makes every iteration run until its own cancellation token is cancelled, and then throw <see cref="OperationCanceledException"/>,
+    /// as a long but well-behaved task honouring its timeout would.
     /// </summary>
+    /// <remarks>
+    /// For a task that ignores its token entirely, use <see cref="BlockIteration(int)"/>.
+    /// </remarks>
     public void HangUntilCancelled()
     {
         _behaviour = (_, cancellationToken) => Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -79,6 +87,25 @@ internal sealed class TestRecurringTask : IRecurringTask
             {
                 await cancelled.Task;
             }
+        };
+    }
+
+    /// <summary>
+    /// Makes every iteration run until its own cancellation token is cancelled, and then throw <paramref name="exception"/>.
+    /// Simulates f.e. a database driver reporting a cancelled command as its own exception would.
+    /// </summary>
+    /// <param name="exception">What the iteration throws once cancelled.</param>
+    public void ThrowWhenCancelled(Exception exception)
+    {
+        _behaviour = async (_, cancellationToken) =>
+        {
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using (cancellationToken.Register(() => cancelled.TrySetResult()))
+            {
+                await cancelled.Task;
+            }
+
+            throw exception;
         };
     }
 

@@ -326,6 +326,16 @@ All options are validated.
 
 A failing iteration is logged with its exception and the loop keeps going. **One bad run does not silently kill your job**.
 
+Each task logs under a category of its own, `MartinDrozdik.DDD.Web.RecurringTasks.RecurringTaskHost.{task namespace}.{task name}`. To quieten one chatty task without touching the others:
+
+```json
+"Logging": {
+  "LogLevel": {
+    "MartinDrozdik.DDD.Web.RecurringTasks.RecurringTaskHost.MartinDrozdik.DDD.Web.Outbox.OutboxDispatchRecurringTask": "Warning"
+  }
+}
+```
+
 The schedule lives in code and memory. **Light and simple on purpose**. For heavy-duty complex stuff with complex crons and distributed schedules, I would recommend:
 
 - [Quartz.NET](https://www.quartz-scheduler.net/)

@@ -16,11 +16,14 @@ internal static partial class RecurringTaskLogging
     [LoggerMessage(Level = LogLevel.Debug, Message = "Recurring task {TaskName} is starting an iteration. Triggered on demand: {Triggered}.")]
     internal static partial void LogIterationStarting(ILogger logger, string taskName, bool triggered);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Recurring task {TaskName} finished an iteration in {ElapsedMilliseconds} ms.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Recurring task {TaskName} finished an iteration in {ElapsedMilliseconds} ms.")]
     internal static partial void LogIterationCompleted(ILogger logger, string taskName, double elapsedMilliseconds);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Recurring task {TaskName} failed after {ElapsedMilliseconds} ms. The loop continues and will run again.")]
     internal static partial void LogIterationFailed(ILogger logger, Exception exception, string taskName, double elapsedMilliseconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recurring task {TaskName} threw while the application was stopping, {ElapsedMilliseconds} ms after the iteration started. Most likely the shutdown cancelled it, so the loop ends.")]
+    internal static partial void LogIterationFailedWhileStopping(ILogger logger, Exception exception, string taskName, double elapsedMilliseconds);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Recurring task {TaskName} exceeded its timeout of {Timeout}. Its cancellation token was cancelled and the next iteration waits until this one returns.")]
     internal static partial void LogTimeoutElapsed(ILogger logger, string taskName, TimeSpan timeout);

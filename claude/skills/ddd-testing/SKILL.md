@@ -117,7 +117,7 @@ logs.Last;                  // most recent LogEntry
 `RecurringTaskTestExtensions` has exactly one member, in two overloads — on `ITestedApp` and on `IServiceProvider`:
 
 ```csharp
-// Run one iteration on demand, in a fresh scope, exactly as the loop would.
+// Run one iteration on demand, resolved in a fresh scope like the loop does.
 // A direct invocation, not the loop: it rethrows what the task throws and ignores Enabled and Timeout.
 await app.RunRecurringTaskAsync<CleanupTask>(TestContext.Current.CancellationToken);
 ```

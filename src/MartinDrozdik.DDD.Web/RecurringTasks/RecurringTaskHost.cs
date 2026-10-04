@@ -15,16 +15,26 @@ namespace MartinDrozdik.DDD.Web.RecurringTasks;
 /// <param name="trigger">The on-demand trigger shared with the rest of the application.</param>
 /// <param name="scopeFactory">Creates a dependency injection scope per iteration.</param>
 /// <param name="timeProvider">Drives every delay, so tests can use a fake clock.</param>
-/// <param name="logger">Target logger.</param>
+/// <param name="loggerFactory">Creates the logger of this task, under <see cref="LogCategory"/>.</param>
 internal sealed class RecurringTaskHost<TTask>(
     IOptions<RecurringTaskOptions<TTask>> schedule,
     RecurringTaskTrigger<TTask> trigger,
     IServiceScopeFactory scopeFactory,
     TimeProvider timeProvider,
-    ILogger<RecurringTaskHost<TTask>> logger) : BackgroundService
+    ILoggerFactory loggerFactory) : BackgroundService
     where TTask : class, IRecurringTask
 {
     private static readonly string s_taskName = typeof(TTask).GetReadableName();
+
+    private readonly ILogger _logger = loggerFactory.CreateLogger(LogCategory);
+
+    /// <summary>
+    /// Gets the logging category of this task's loop, e.g. <c>MartinDrozdik.DDD.Web.RecurringTasks.RecurringTaskHost.MyApp.Tasks.CleanupTask</c>.
+    /// </summary>
+    /// <remarks>
+    /// Prevents multiple tasks from sharing the same category, which would make it impossible to filter them individually.
+    /// </remarks>
+    internal static string LogCategory => CreateLogCategory();
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,11 +44,11 @@ internal sealed class RecurringTaskHost<TTask>(
         // Check for disabled tasks
         if (!options.Enabled)
         {
-            RecurringTaskLogging.LogDisabled(logger, s_taskName);
+            RecurringTaskLogging.LogDisabled(_logger, s_taskName);
             return;
         }
 
-        RecurringTaskLogging.LogScheduled(logger, s_taskName, options.InitialDelay, options.Period);
+        RecurringTaskLogging.LogScheduled(_logger, s_taskName, options.InitialDelay, options.Period);
 
         // Run the loop until the application is shutting down
         try
@@ -56,20 +66,30 @@ internal sealed class RecurringTaskHost<TTask>(
             // The application is shutting down...
         }
 
-        RecurringTaskLogging.LogStopping(logger, s_taskName);
+        RecurringTaskLogging.LogStopping(_logger, s_taskName);
+    }
+
+    private static string CreateLogCategory()
+    {
+        var taskNamespace = typeof(TTask).Namespace;
+        var prefix = $"{typeof(RecurringTaskHost<>).Namespace}.{nameof(RecurringTaskHost<>)}";
+        return string.IsNullOrEmpty(taskNamespace)
+            ? $"{prefix}.{s_taskName}"
+            : $"{prefix}.{taskNamespace}.{s_taskName}";
     }
 
     /// <summary>
     /// Waits for the given delay, or until the task is triggered on demand — whichever happens first.
     /// </summary>
-    /// <param name="delay">How long to wait. Non-positive means do not wait at all.</param>
+    /// <param name="delay">How long to wait. Non-positive means do not wait at all, only consume a pending trigger.</param>
     /// <param name="stoppingToken">Cancelled when the application is shutting down.</param>
     /// <returns><see langword="true"/> when the wait ended because of a trigger.</returns>
     private async Task<bool> WaitAsync(TimeSpan delay, CancellationToken stoppingToken)
     {
         if (delay <= TimeSpan.Zero)
         {
-            return false;
+            // The next iteration starts right away, so it already serves any pending request
+            return trigger.TryConsume();
         }
 
         // Delay via cancellation rather than a Task.Delay
@@ -100,7 +120,7 @@ internal sealed class RecurringTaskHost<TTask>(
     /// <returns>A <see cref="Task"/> that completes when the iteration is over.</returns>
     private async Task RunIterationAsync(TimeSpan? timeout, bool triggered, CancellationToken stoppingToken)
     {
-        RecurringTaskLogging.LogIterationStarting(logger, s_taskName, triggered);
+        RecurringTaskLogging.LogIterationStarting(_logger, s_taskName, triggered);
 
         var startedAt = timeProvider.GetTimestamp();
 
@@ -112,7 +132,7 @@ internal sealed class RecurringTaskHost<TTask>(
         using var iterationCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, stoppingToken);
 
         // Warn the moment the timeout elapses, so even a task that ignores its token and never returns gets reported
-        await using var timeoutWarning = timeoutCts.Token.Register(() => RecurringTaskLogging.LogTimeoutElapsed(logger, s_taskName, limit));
+        await using var timeoutWarning = timeoutCts.Token.Register(() => RecurringTaskLogging.LogTimeoutElapsed(_logger, s_taskName, limit));
 
         try
         {
@@ -124,11 +144,11 @@ internal sealed class RecurringTaskHost<TTask>(
             // A task honouring its timeout by returning early did not finish its work
             if (timeoutCts.IsCancellationRequested)
             {
-                RecurringTaskLogging.LogIterationEndedAfterTimeout(logger, s_taskName, limit, Elapsed(startedAt));
+                RecurringTaskLogging.LogIterationEndedAfterTimeout(_logger, s_taskName, limit, Elapsed(startedAt));
             }
             else
             {
-                RecurringTaskLogging.LogIterationCompleted(logger, s_taskName, Elapsed(startedAt));
+                RecurringTaskLogging.LogIterationCompleted(_logger, s_taskName, Elapsed(startedAt));
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -138,11 +158,17 @@ internal sealed class RecurringTaskHost<TTask>(
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            RecurringTaskLogging.LogIterationEndedAfterTimeout(logger, s_taskName, limit, Elapsed(startedAt));
+            RecurringTaskLogging.LogIterationEndedAfterTimeout(_logger, s_taskName, limit, Elapsed(startedAt));
+        }
+        catch (Exception exception) when (stoppingToken.IsCancellationRequested)
+        {
+            // Drivers may report the shutdown cancellation as their own exception (SqlException, DbUpdateException, ...)
+            RecurringTaskLogging.LogIterationFailedWhileStopping(_logger, exception, s_taskName, Elapsed(startedAt));
+            stoppingToken.ThrowIfCancellationRequested();
         }
         catch (Exception exception)
         {
-            RecurringTaskLogging.LogIterationFailed(logger, exception, s_taskName, Elapsed(startedAt));
+            RecurringTaskLogging.LogIterationFailed(_logger, exception, s_taskName, Elapsed(startedAt));
         }
     }
 

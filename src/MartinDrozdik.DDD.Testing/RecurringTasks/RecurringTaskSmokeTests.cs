@@ -36,8 +36,12 @@ public abstract class RecurringTaskSmokeTests<TProgram, TTask> : IDisposable
     protected TestedApp<TProgram> App { get; }
 
     /// <summary>
-    /// Verifies the task has a trigger. It also confirms its registered.
+    /// Verifies the task has a trigger, so the application can request a run on demand.
     /// </summary>
+    /// <remarks>
+    /// Only resolves the trigger and never calls <see cref="IRecurringTaskTrigger{TTask}.Trigger"/>.
+    /// We don't want to actually run the task.
+    /// </remarks>
     [Fact]
     public void Task_has_a_registered_trigger()
     {
@@ -46,7 +50,6 @@ public abstract class RecurringTaskSmokeTests<TProgram, TTask> : IDisposable
 
         // Assert
         Assert.NotNull(trigger);
-        trigger.Trigger();
     }
 
     /// <summary>

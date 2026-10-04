@@ -1,5 +1,5 @@
 ﻿---
-description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, the CQRS Mediator with Commands, Queries, and Pipelines, or outbox message contracts (IOutbox<TContext>, IOutboxMessage, IOutboxMessageHandler, OutboxMessageType).
+description: Use when implementing DDD building blocks with MartinDrozdik.DDD — ValueObject, Entity, AggregateRoot, strongly-typed IDs, Enumerations, Specifications, error handling with ErrorBuilder/Result<T>, the CQRS Mediator with Commands, Queries, and Pipelines, outbox message contracts (IOutbox<TContext>, IOutboxMessage, IOutboxMessageHandler, OutboxMessageType), or printing a type name in a log, exception or validation message (GetReadableName).
 ---
 
 You are an expert in the **MartinDrozdik.DDD** library. Generate correct, idiomatic code using its specific APIs and patterns.
@@ -22,6 +22,7 @@ If the domain model is ambiguous (unclear whether something is an Entity or Valu
 - **Never** send a command from inside another command handler — extract the shared work into a service both handlers call. See [Handlers never call handlers](#handlers-never-call-handlers).
 - **Never** hand-write equality on a `ValueObject` subclass — the base already provides all of it. See [Value Object equality](#value-object-equality-is-already-implemented).
 - **Always** inject `IOutbox<TContext>` over the **same** context whose `SaveChangesAsync` saves the aggregate — `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext`, both from the handler's own scope. See [Same context as the aggregate](#same-context-as-the-aggregate--always-check).
+- **Use** `type.GetReadableName()` instead of `type.Name` whenever a type name ends up in a log, exception or validation message — `Name` prints ``List`1``. See [Readable type names](#readable-type-names).
 
 Install: `dotnet add package MartinDrozdik.DDD`
 
@@ -540,6 +541,36 @@ if (new YourValidator().Validate(obj).TryGetError(out var error))
 
 new YourValidator().ValidateAndThrowBusiness(obj);
 ```
+
+### Readable type names
+
+`GetReadableName()` (`MartinDrozdik.DDD.Extensions`) is `Type.Name` with the generic arguments spelled out instead of
+the arity suffix, and nested types prefixed with their declaring types. Use it for every type name a person reads —
+log, exception and validation messages — and never `Type.Name`, which prints ``List`1`` or a bare `Request`:
+
+```csharp
+using MartinDrozdik.DDD.Extensions;
+
+typeof(Dictionary<string, List<int>>).GetReadableName();       // Dictionary<String, List<Int32>>
+typeof(List<int>[]).GetReadableName();                         // List<Int32>[]
+typeof(List<>).GetReadableName();                              // List<T>
+typeof(CreateInvoiceDraftCommand.Request).GetReadableName();   // CreateInvoiceDraftCommand.Request
+
+throw new InvalidOperationException($"No handler is registered for {typeof(TRequest).GetReadableName()}.");
+logger.LogInformation("Processing {RequestType}", typeof(TRequest).GetReadableName());
+```
+
+Behaviour worth knowing:
+
+- **CLR names, no namespaces** — `Int32`, `String`, `Nullable<Int32>` (not `int?`), `ValueTuple<Int32, String>`.
+- **Only the common cases are spelled out** — classes, structs, interfaces, delegates, generics, arrays and nested
+  types. Pointers, by-refs and generic parameters keep `Type.Name` (`Int32*`, ``List`1&``, `T`), and so does any type
+  the formatting fails on, such as a modified or signature type. Function pointers get `ToString()`, because their
+  `Name` is empty. A `null` type throws `ArgumentNullException`.
+- **Display only, never an identifier.** The name is not unique — two `Invoice` types in different namespaces read the
+  same. Persisted keys, cache keys, log categories and outbox `MessageType`s use `FullName` or an explicit key.
+- It is not the `TypeExtensions` in `MartinDrozdik.DDD.Templates` (`IsAggregateRoot` / `IsDomainEntity`) — two
+  classes with the same name, so the `using` decides which one you get.
 
 ### Mediator (CQRS)
 

@@ -2,6 +2,7 @@ using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
@@ -18,6 +19,7 @@ namespace MartinDrozdik.DDD.Web.Tests.RecurringTasks.Tools;
 internal sealed class RecurringTaskTestHarness : IDisposable
 {
     private readonly ServiceProvider _provider;
+    private readonly LoggerFactory _loggerFactory;
     private readonly RecurringTaskHost<TestRecurringTask> _host;
 
     /// <summary>
@@ -33,12 +35,15 @@ internal sealed class RecurringTaskTestHarness : IDisposable
         services.AddScoped(_ => Task);
         _provider = services.BuildServiceProvider();
 
+        // Records every level, so tests can assert on Debug entries too
+        _loggerFactory = new LoggerFactory([Logger], new LoggerFilterOptions { MinLevel = LogLevel.Trace });
+
         _host = new RecurringTaskHost<TestRecurringTask>(
             new OptionsWrapper<RecurringTaskOptions<TestRecurringTask>>(options),
             Trigger,
             _provider.GetRequiredService<IServiceScopeFactory>(),
             Time,
-            Logger.For<RecurringTaskHost<TestRecurringTask>>());
+            _loggerFactory);
     }
 
     /// <summary>
@@ -91,5 +96,6 @@ internal sealed class RecurringTaskTestHarness : IDisposable
     {
         _host.Dispose();
         _provider.Dispose();
+        _loggerFactory.Dispose();
     }
 }

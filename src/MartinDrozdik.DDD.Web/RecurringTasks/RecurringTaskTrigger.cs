@@ -36,4 +36,13 @@ internal sealed class RecurringTaskTrigger<TTask> : IRecurringTaskTrigger<TTask>
     {
         await _requests.Reader.ReadAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Consumes a pending trigger request without waiting.
+    /// </summary>
+    /// <returns><see langword="true"/> when a request was pending.</returns>
+    internal bool TryConsume()
+    {
+        return _requests.Reader.TryRead(out _);
+    }
 }
