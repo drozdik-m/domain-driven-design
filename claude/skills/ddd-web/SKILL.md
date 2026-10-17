@@ -388,7 +388,7 @@ config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()       
 Adding an optional member keeps the key (an old payload still deserializes). Anything a stored v1 payload cannot
 satisfy bumps it. **Write `.v1` on the very first version** — a key with no version segment has nowhere to go.
 
-Keys are `[A-Za-z0-9._-]`, at most 100 characters, and compared case-insensitively. **A key means one message type
+Keys are `[a-z0-9._-]` (lowercase only, an uppercase letter throws at startup), at most 100 characters. **A key means one message type
 within an outbox**, and a message type has one handler across the whole application: a duplicate key in one outbox, or a
 shared type with another handler, throws `OutboxException` while the container is being built.
 
@@ -410,12 +410,13 @@ Delivery semantics, worth stating in code review:
 - Claims use a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are safe.
 - Handler throws → retried on the backoff; retries exhausted → dead-lettered (`FailedAt` set), kept for inspection,
   never delivered again.
-- A processor delivers only the message types of its own outbox. An unregistered message type is retried, not
-  dead-lettered on sight (rolling deploys see each other's messages).
+- A processor reads, claims and delivers only the message types of its own outbox. A row of a type it does not
+  register is left untouched for an instance that does (rolling deploys, worker apps), and counts as `overdue` meanwhile.
 - `OperationCanceledException` on shutdown is not a failure: the lease simply expires.
 
-Health check per context, reporting `pending` / `overdue` / `deadLettered`, unhealthy on any dead-letter, degraded
-while more messages are overdue than the threshold (scheduled messages never count):
+Health check per context, reporting `pending` / `overdue` / `deadLettered`, degraded on any dead-letter or while more
+messages are overdue than the threshold (scheduled messages never count), unhealthy only when the table cannot be read.
+Never unhealthy over a dead letter: the table is shared, so it would pull every instance out of `/health/ready` at once.
 
 ```csharp
 builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>(degradedBacklogThreshold: 1000));

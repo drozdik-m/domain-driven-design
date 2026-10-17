@@ -489,7 +489,7 @@ builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContex
 // checks.AddOutboxHealthCheck<InvoiceDbContext>("invoice-outbox", ["ready"], degradedBacklogThreshold: 500)
 ```
 
-Unhealthy while any message is dead-lettered, degraded while more messages are *overdue* than the threshold.
+Degraded while any message is dead-lettered or more messages are *overdue* than the threshold, unhealthy only when the table cannot be read. Never unhealthy over a dead letter: the table is shared and dead letters are kept until you delete them, so one poison message would take every instance out of `/health/ready` for good. A degraded check still answers 200 there, so alert on the degraded status or the `deadLettered` count instead.
 
 #### Versioning – end the key with `.v1`
 

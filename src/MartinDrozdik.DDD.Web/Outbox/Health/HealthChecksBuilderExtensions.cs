@@ -20,11 +20,12 @@ public static class HealthChecksBuilderExtensions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Reported as <c>outbox-{context}</c>, e.g. <c>outbox-InvoiceDbContext</c>.
+    /// Reported as <c>outbox-{context}</c>, e.g. <c>outbox-InvoiceDbContext</c>, and tagged <c>ready</c>.
     /// </para>
     /// <para>
-    /// The check is unhealthy while any message is dead-lettered, degraded while more than
-    /// <paramref name="degradedBacklogThreshold"/> messages are overdue, and healthy otherwise.
+    /// The check is degraded while any message is dead-lettered or more than <paramref name="degradedBacklogThreshold"/> messages are overdue,
+    /// unhealthy only when the table cannot be read, and healthy otherwise.
+    /// Degraded keeps the instance ready, so one poison message never takes the instances sharing the table out of load balancing.
     /// </para>
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
@@ -50,8 +51,8 @@ public static class HealthChecksBuilderExtensions
     /// under a name and tags of your choice.
     /// </summary>
     /// <remarks>
-    /// The check is unhealthy while any message is dead-lettered, degraded while more than
-    /// <paramref name="degradedBacklogThreshold"/> messages are overdue, and healthy otherwise.
+    /// The check is degraded while any message is dead-lettered or more than <paramref name="degradedBacklogThreshold"/> messages are overdue,
+    /// unhealthy only when the table cannot be read, and healthy otherwise.
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
     /// <param name="builder">The <see cref="IHealthChecksBuilder"/> to extend.</param>

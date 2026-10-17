@@ -20,7 +20,7 @@ namespace MartinDrozdik.DDD.Outbox;
 /// It is how something that has to be undone when a transaction does <i>not</i> commit gets undone - e.g. a file written before the row that claims it.
 /// </para>
 /// <para>
-/// <typeparamref name="TContext"/>Every context has an outbox of its own.
+/// <typeparamref name="TContext"/> ties the outbox to the context whose save commits it - every context has an outbox of its own.
 /// It can be Entity Framework Context, a Dapper connection, or any other atomic-transaction store.
 /// It forces developers to check that the outbox is used with the right context, and not with some other context that happens to be in scope.
 /// An implementation registers it for exactly the context final class, never for a base class or interface.

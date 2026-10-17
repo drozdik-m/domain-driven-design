@@ -16,9 +16,6 @@ internal static partial class OutboxLogging
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox of {Outbox}: message {MessageId} of type {MessageType} failed on attempt {Attempts} and was dead-lettered. It will not be delivered again.")]
     internal static partial void LogDeadLettered(ILogger logger, Exception exception, string outbox, Guid messageId, string messageType, int attempts);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox of {Outbox}: message {MessageId} carries the message type {MessageType}, which is not registered with this outbox. It is retried in case a deployment is still rolling out, and dead-lettered once the retries run out.")]
-    internal static partial void LogUnknownMessageType(ILogger logger, string outbox, Guid messageId, string messageType);
-
     [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox}: message {MessageId} was claimed by another processor and is skipped.")]
     internal static partial void LogClaimLost(ILogger logger, string outbox, Guid messageId);
 

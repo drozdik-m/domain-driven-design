@@ -1,5 +1,4 @@
 using MartinDrozdik.DDD.Extensions;
-using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Outbox.Registries;
@@ -15,7 +14,7 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// </summary>
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
 /// <param name="context">The context the messages are read from and written back to.</param>
-/// <param name="registry">The message types of this outbox; nothing else is delivered.</param>
+/// <param name="registry">The message types of this outbox; nothing else is read, claimed or delivered.</param>
 /// <param name="scopeFactory">Creates the scope each handler is resolved from.</param>
 /// <param name="options">Options driving batching, leases, retries, retention and serialization.</param>
 /// <param name="timeProvider">Source of the current instant.</param>
@@ -48,13 +47,19 @@ internal sealed class OutboxProcessor<TDbContext>(
                 break;
             }
 
+            // Never claim what this instance cannot deliver
+            if (!registry.TryGet(message.MessageType, out var registration))
+            {
+                continue;
+            }
+
             if (!await TryClaimAsync(message, claimId, cancellationToken))
             {
                 continue;
             }
 
             claimed++;
-            if (await TryDeliverAsync(message, cancellationToken))
+            if (await TryDeliverAsync(message, registration, cancellationToken))
             {
                 dispatched++;
             }
@@ -73,11 +78,18 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// <summary>
     /// Reads the messages that may be delivered right now.
     /// </summary>
+    /// <remarks>
+    /// Ignores unknown message types.
+    /// </remarks>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>The messages to attempt, the longest waiting first.</returns>
     private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        var messageTypes = registry.Registrations
+            .Select(e => e.MessageType)
+            .ToList();
 
         // Ordered by the indexed AvailableAt - not every database sorts a v7 GUID by its time part
         // (SQL Server compares the last bytes first), and an order that ignores waiting time could starve old messages
@@ -85,7 +97,8 @@ internal sealed class OutboxProcessor<TDbContext>(
             .Where(m => m.ProcessedAt == null &&
                 m.FailedAt == null &&
                 m.AvailableAt <= now &&
-                (m.ClaimedUntil == null || m.ClaimedUntil < now))
+                (m.ClaimedUntil == null || m.ClaimedUntil < now) &&
+                messageTypes.Contains(m.MessageType))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id)
             .Take(options.Value.BatchSize)
@@ -114,23 +127,11 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// Once an attempt has happened, its outcome is saved even when <paramref name="cancellationToken"/> is cancelled (save it rather than double-deliver).
     /// </remarks>
     /// <param name="message">The claimed message.</param>
+    /// <param name="registration">The registration of the message type, which delivers it to its handler.</param>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>True when the message was delivered, else false.</returns>
-    private async Task<bool> TryDeliverAsync(OutboxMessage message, CancellationToken cancellationToken)
+    private async Task<bool> TryDeliverAsync(OutboxMessage message, OutboxRegistration registration, CancellationToken cancellationToken)
     {
-        // Only the message types of this outbox are delivered
-        if (!registry.TryGet(message.MessageType, out var registration))
-        {
-            // Not necessarily permanent - during a rolling deployment an instance may see new/old messages.
-            // Let them be retried...
-            OutboxLogging.LogUnknownMessageType(logger, s_outboxName, message.Id, message.MessageType.Key);
-            await RecordFailureAsync(
-                message,
-                new OutboxException($"Outbox message type '{message.MessageType}' is not registered with the outbox of {s_outboxName}. Register it with WithMessage<...>() when calling AddOutbox<{s_outboxName}>, or delete the stored rows."));
-
-            return false;
-        }
-
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();

@@ -9,8 +9,14 @@ namespace MartinDrozdik.DDD.Web.Outbox.Health;
 /// Reports whether the outbox of <typeparamref name="TDbContext"/> is draining.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Dead-lettered messages are the interesting signal: they are work the application accepted and then gave up on.
-/// A growing backlog of overdue messages is reported as degraded rather than unhealthy.
+/// They and a growing backlog of overdue messages are reported as degraded.
+/// The table is shared and dead letters are kept until somebody deletes them, so an unhealthy outbox would take every instance out of load balancing at once, and keep it out.
+/// </para>
+/// <para>
+/// Unhealthy is left to a check that fails outright, e.g. a table that cannot be read.
+/// </para>
 /// </remarks>
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
 /// <param name="dbContext">The context the counts are read from.</param>
@@ -43,14 +49,21 @@ internal sealed class OutboxHealthCheck<TDbContext>(
             ["overdue"] = overdue,
         };
 
+        var problems = new List<string>(2);
+
         if (deadLettered > 0)
         {
-            return HealthCheckResult.Unhealthy($"The outbox of {s_outboxName} holds {deadLettered} dead-lettered message(s) that will never be delivered.", data: data);
+            problems.Add($"{deadLettered} dead-lettered message(s) that will never be delivered");
         }
 
         if (overdue > degradedBacklogThreshold)
         {
-            return HealthCheckResult.Degraded($"The outbox of {s_outboxName} has {overdue} overdue message(s), above the threshold of {degradedBacklogThreshold}.", data: data);
+            problems.Add($"{overdue} overdue message(s), above the threshold of {degradedBacklogThreshold}");
+        }
+
+        if (problems.Count > 0)
+        {
+            return HealthCheckResult.Degraded($"The outbox of {s_outboxName} holds {string.Join(" and ", problems)}.", data: data);
         }
 
         return HealthCheckResult.Healthy($"The outbox of {s_outboxName} holds {pending} pending message(s), {overdue} of them overdue.", data);

@@ -11,10 +11,11 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// Applications that already run a scheduler - Quartz.NET, Hangfire, an external cron hitting an endpoint - simply create a job calling <see cref="ProcessPendingAsync"/>.
 /// </para>
 /// <para>
-/// It only ever reads the table of <typeparamref name="TDbContext"/>, and only delivers the message types registered with its outbox.
+/// It only ever reads the table of <typeparamref name="TDbContext"/>, and only reads, claims and delivers the message types registered with its outbox.
+/// A row of any other type is left untouched.
 /// </para>
 /// <para>
-/// Calling this concurrently is safe (optimistic concurrency).
+/// Processors in separate scopes or application instances may run at the same time: a lease and an optimistic concurrency token ensure single delivery.
 /// </para>
 /// </remarks>
 /// <example>

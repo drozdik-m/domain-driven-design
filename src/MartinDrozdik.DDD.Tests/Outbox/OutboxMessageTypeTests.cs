@@ -6,7 +6,7 @@ public class OutboxMessageTypeTests
 {
     [Theory]
     [InlineData("email.send.v1")]
-    [InlineData("Email_Send_v1")]
+    [InlineData("email_send_v1")]
     [InlineData("email-send.v2")]
     [InlineData("a")]
     public void Constructor_accepts_a_supported_key(string key)
@@ -78,6 +78,20 @@ public class OutboxMessageTypeTests
         // Act
         // Assert
         Assert.Throws<ArgumentException>(() => new OutboxMessageType(key));
+    }
+
+    [Theory]
+    [InlineData("Email.send.v1")]
+    [InlineData("email.send.V1")]
+    [InlineData("EMAIL.SEND.V1")]
+    public void Constructor_rejects_a_key_with_uppercase_letters(string key)
+    {
+        // Arrange
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => new OutboxMessageType(key));
+
+        // Assert
+        Assert.Contains("lowercase", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

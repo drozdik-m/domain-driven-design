@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Registries;
 
 /// <summary>
 /// The message types registered with the outbox of <typeparamref name="TDbContext"/>, captured at startup.
-/// Case insensitive - more portable, allows case-insensitive collations etc.
+/// Keys are always lowercase (<see cref="OutboxMessageType.Key"/>), so they compare ordinally.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -23,7 +23,7 @@ public sealed class OutboxRegistry<TDbContext>
 {
     private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
 
-    private readonly Dictionary<string, OutboxRegistration> _registrations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, OutboxRegistration> _registrations = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OutboxRegistry{TDbContext}"/> class.
@@ -33,13 +33,12 @@ public sealed class OutboxRegistry<TDbContext>
     }
 
     /// <summary>
-    /// Gets every registered message type, in registration order.
+    /// Gets every registered message type, in no particular order.
     /// </summary>
     public IReadOnlyCollection<OutboxRegistration> Registrations => _registrations.Values;
 
     /// <summary>
     /// Decides whether a message type is registered.
-    /// Case insensitive.
     /// </summary>
     /// <param name="messageType">The message type to look for.</param>
     /// <returns>True when the type is registered with this outbox, else false.</returns>
@@ -52,10 +51,9 @@ public sealed class OutboxRegistry<TDbContext>
 
     /// <summary>
     /// Finds the registration of a message type.
-    /// Case insensitive.
     /// </summary>
     /// <param name="messageType">The message type to look for, e.g. as read from a stored row.</param>
-    /// <param name="registration">The registration, carrying the key exactly as it was registered.</param>
+    /// <param name="registration">The registration of the message type.</param>
     /// <returns>True when the type is registered with this outbox, else false.</returns>
     public bool TryGet(OutboxMessageType messageType, [NotNullWhen(true)] out OutboxRegistration? registration)
     {
@@ -85,7 +83,6 @@ public sealed class OutboxRegistry<TDbContext>
 
     /// <summary>
     /// Records a message type and the dispatch code that delivers it to its handler.
-    /// Case insensitive.
     /// </summary>
     /// <param name="registration">The registration to record.</param>
     /// <exception cref="OutboxException">The message type is already registered with this outbox.</exception>

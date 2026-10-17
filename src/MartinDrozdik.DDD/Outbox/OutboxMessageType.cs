@@ -8,7 +8,7 @@ namespace MartinDrozdik.DDD.Outbox;
 /// </summary>
 /// <remarks>
 /// Each outbox maps it back to the registered message type and its handler.
-/// The key must never change once rows carrying it exist or the messages will be dead-lettered.
+/// The key must never change once rows carrying it exist or the messages will never be delivered.
 /// Prefer a deliberate, storage-facing name such as <c>email.send.v1</c> over anything derived from a type name, which a rename would break.
 /// <para>
 /// End the key with a version segment such as <c>.v1</c>. It will help with a contract change. Trust me bro.
@@ -31,7 +31,7 @@ public sealed class OutboxMessageType : ValueObject
     /// Initializes a new instance of the <see cref="OutboxMessageType"/> class.
     /// </summary>
     /// <param name="key">The storage key of the message type.</param>
-    /// <exception cref="ArgumentException">The key is empty, too long, or contains unsupported characters.</exception>
+    /// <exception cref="ArgumentException">The key is empty, too long, or contains unsupported characters (uppercase letters included).</exception>
     public OutboxMessageType(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -43,7 +43,7 @@ public sealed class OutboxMessageType : ValueObject
 
         if (!key.All(IsSupported))
         {
-            throw new ArgumentException($"An outbox message type may only contain letters, digits, '.', '_' and '-', but '{key}' does not.", nameof(key));
+            throw new ArgumentException($"An outbox message type may only contain lowercase letters, digits, '.', '_' and '-', but '{key}' does not.", nameof(key));
         }
 
         Key = key;
@@ -59,7 +59,7 @@ public sealed class OutboxMessageType : ValueObject
 
     /// <summary>
     /// Gets the storage key of the message type.
-    /// Case insensitive.
+    /// Always lowercase, so it compares the same in code as under any database collation.
     /// It identifies exactly one message type, and so one handler, within an outbox.
     /// </summary>
     public string Key { get; }
@@ -81,10 +81,10 @@ public sealed class OutboxMessageType : ValueObject
 
     /// <summary>
     /// Decides whether a character may appear in a <see cref="Key"/>.
-    /// The set is deliberately narrow so a key is always safe as both a column value and a service key.
+    /// The set is deliberately narrow so a key is always safe as a column value, and lowercase so no collation can tell two spellings apart.
     /// </summary>
     /// <param name="character">The character to test.</param>
     /// <returns>True when the character is supported, else false.</returns>
     private static bool IsSupported(char character)
-        => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-';
+        => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '.' or '_' or '-';
 }

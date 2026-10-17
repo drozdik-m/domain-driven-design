@@ -47,7 +47,7 @@ public sealed class OutboxConfig
     /// <typeparam name="THandler">The handler delivering the message.</typeparam>
     /// <returns>This for chaining.</returns>
     /// <exception cref="OutboxException">
-    /// The message type, or another one using its <see cref="OutboxMessageType"/> (ignoring case), is already registered with this outbox,
+    /// The message type, or another one using its <see cref="OutboxMessageType"/>, is already registered with this outbox,
     /// or another handler already delivers <typeparamref name="TMessage"/>.
     /// </exception>
     public OutboxConfig WithMessage<TMessage, THandler>()
