@@ -171,24 +171,22 @@ public class OutboxRegistrationTests
     }
 
     [Fact]
-    public void A_key_differing_only_in_case_is_the_same_key_within_an_outbox()
+    public void Registering_a_message_type_with_an_uppercase_key_fails_at_startup()
     {
         // Arrange
         var builder = CreateBuilder();
 
         // Act
-        var exception = Assert.Throws<OutboxException>(() =>
-            builder.AddOutbox<RegistrationDbContext>(config => config
-                .WithMessage<FirstMessage, FirstMessageHandler>()
-                .WithMessage<ShoutingMessage, ShoutingMessageHandler>()));
+        // Fails while the outbox is being added, long before a row carrying the key could exist
+        var exception = Assert.Throws<ArgumentException>(() =>
+            builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<ShoutingMessage, ShoutingMessageHandler>()));
 
         // Assert
-        Assert.Contains(nameof(FirstMessage), exception.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(ShoutingMessage), exception.Message, StringComparison.Ordinal);
+        Assert.Contains("lowercase", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void The_registry_finds_a_message_type_ignoring_case_and_returns_the_key_as_registered()
+    public void The_registry_finds_a_registered_message_type()
     {
         // Arrange
         var builder = CreateBuilder();
@@ -197,11 +195,11 @@ public class OutboxRegistrationTests
         var registry = host.Services.GetRequiredService<OutboxRegistry<RegistrationDbContext>>();
 
         // Act
-        var found = registry.TryGet("REGISTRATION.First.V1", out var registration);
+        var found = registry.TryGet("registration.first.v1", out var registration);
 
         // Assert
         Assert.True(found);
-        Assert.Equal("registration.first.v1", registration!.MessageType.Key);
+        Assert.Equal(typeof(FirstMessage), registration!.MessageClrType);
         Assert.False(registry.TryGet("registration.unknown.v1", out _));
     }
 
@@ -435,7 +433,7 @@ public class OutboxRegistrationTests
 
     private sealed record ShoutingMessage : IOutboxMessage
     {
-        // Deliberately the key of FirstMessage in another case
+        // Deliberately not lowercase
         public static OutboxMessageType MessageType => "REGISTRATION.FIRST.V1";
     }
 

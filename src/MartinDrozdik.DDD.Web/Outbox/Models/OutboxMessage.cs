@@ -74,8 +74,11 @@ public sealed class OutboxMessage
     public DateTime? FailedAt { get; private set; }
 
     /// <summary>
-    /// Gets the number of delivery attempts made so far.
+    /// Gets the number of delivery attempts started so far.
     /// </summary>
+    /// <remarks>
+    /// Counted when the message is claimed -> unfinished runs (cancelled, timed out, or its process stopped) also count.
+    /// </remarks>
     public int Attempts { get; private set; }
 
     /// <summary>
@@ -135,7 +138,7 @@ public sealed class OutboxMessage
     public OutboxTicket ToTicket() => new(Id, ConcurrencyStamp);
 
     /// <summary>
-    /// Takes a lease on the message so no other processor delivers it concurrently.
+    /// Takes a lease on the message so no other processor delivers it concurrently, and increments the attempt count.
     /// </summary>
     /// <param name="claimId">The identity of the claiming processor.</param>
     /// <param name="nowUtc">The current UTC time.</param>
@@ -144,6 +147,7 @@ public sealed class OutboxMessage
     {
         EnsurePending(nameof(Claim));
 
+        Attempts++;
         ClaimedBy = claimId;
         ClaimedUntil = nowUtc + leaseDuration;
         RotateConcurrencyStamp();
@@ -157,7 +161,6 @@ public sealed class OutboxMessage
     {
         EnsurePending(nameof(MarkProcessed));
 
-        Attempts++;
         ProcessedAt = nowUtc;
         LastError = null;
         ReleaseClaim();
@@ -174,7 +177,6 @@ public sealed class OutboxMessage
     {
         EnsurePending(nameof(MarkRetrying));
 
-        Attempts++;
         AvailableAt = nowUtc + delay;
         LastError = Truncate(error);
         ReleaseClaim();
@@ -190,11 +192,26 @@ public sealed class OutboxMessage
     {
         EnsurePending(nameof(MarkFailed));
 
-        Attempts++;
         FailedAt = nowUtc;
         LastError = Truncate(error);
         ReleaseClaim();
         RotateConcurrencyStamp();
+    }
+
+    /// <summary>
+    /// Tells whether the last attempt was cut short and was the last one the retries allow.
+    /// </summary>
+    /// <remarks>
+    /// A special situation where we need to clean up the abandoned message.
+    /// </remarks>
+    /// <param name="nowUtc">The current UTC time.</param>
+    /// <param name="retryCount">How many attempts may follow the first one.</param>
+    /// <returns>True when the message must not be attempted again, else false.</returns>
+    internal bool IsAbandonedWithoutRetry(DateTime nowUtc, int retryCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(retryCount);
+
+        return ClaimedUntil < nowUtc && Attempts > retryCount;
     }
 
     /// <summary>

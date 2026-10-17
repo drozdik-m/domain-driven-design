@@ -64,11 +64,12 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
         Assert.Equal(0, dispatched);
         Assert.Empty(state.Handled);
 
+        // Not even claimed - it is left for an outbox that registers the type
         var message = await GetSingleMessageAsync<TestDbContext>(app);
         Assert.Null(message.ProcessedAt);
-        Assert.Equal(1, message.Attempts);
-        Assert.Contains("is not registered with the outbox of", message.LastError, StringComparison.Ordinal);
-        Assert.Contains(nameof(TestDbContext), message.LastError, StringComparison.Ordinal);
+        Assert.Null(message.FailedAt);
+        Assert.Equal(0, message.Attempts);
+        Assert.Null(message.ClaimedUntil);
     }
 
     [Fact]

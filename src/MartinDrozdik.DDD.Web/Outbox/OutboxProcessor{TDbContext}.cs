@@ -53,6 +53,12 @@ internal sealed class OutboxProcessor<TDbContext>(
                 continue;
             }
 
+            if (message.IsAbandonedWithoutRetry(timeProvider.GetUtcNow().UtcDateTime, options.Value.RetryDelays.Count))
+            {
+                await DeadLetterAbandonedAsync(message, cancellationToken);
+                continue;
+            }
+
             if (!await TryClaimAsync(message, claimId, cancellationToken))
             {
                 continue;
@@ -106,6 +112,23 @@ internal sealed class OutboxProcessor<TDbContext>(
     }
 
     /// <summary>
+    /// Dead-letters a message whose last attempts' lease expired, without attempting it again.
+    /// </summary>
+    /// <param name="message">The message whose attempts have run out.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>A <see cref="Task"/> that completes when the outcome has been stored.</returns>
+    private async Task DeadLetterAbandonedAsync(OutboxMessage message, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        message.MarkFailed(now, $"Attempt {message.Attempts} recorded no outcome before its lease expired: it was cut short (cancelled, e.g. by the timeout of the dispatch task, or its process stopped) or outlived the lease. No retry is left.");
+
+        if (await TrySaveAsync(message, cancellationToken))
+        {
+            OutboxLogging.LogAbandonedDeadLettered(logger, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
+        }
+    }
+
+    /// <summary>
     /// Takes a lease on a message so no other processor delivers it at the same time.
     /// </summary>
     /// <param name="message">The message to claim.</param>
@@ -139,7 +162,8 @@ internal sealed class OutboxProcessor<TDbContext>(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Shutting down... The lease is left in place and expires on its own.
+            // Shutting down, or over the timeout of the run... The attempt was counted by the claim.
+            // The lease is left in place and expires on its own; the message is attempted again, or dead-lettered when no retry is left.
             throw;
         }
 #pragma warning disable CA1031 // Do not catch general exception types - any handler failure is a retryable delivery failure
@@ -173,7 +197,9 @@ internal sealed class OutboxProcessor<TDbContext>(
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var retryDelays = options.Value.RetryDelays;
-        var attemptIndex = message.Attempts;
+
+        // The failed attempt was counted by its claim
+        var attemptIndex = message.Attempts - 1;
 
         if (attemptIndex < retryDelays.Count)
         {

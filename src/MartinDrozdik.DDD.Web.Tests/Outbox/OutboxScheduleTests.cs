@@ -28,7 +28,7 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Deferred, because SQLite has a single writer and an immediate transaction would hold the write lock the
-        // schedule needs - see the remarks of AddOutbox
+        // schedule needs - see the SQLite note on *NowAsync in the outbox section of the Web README
         await context.Database.OpenConnectionAsync(TestContext.Current.CancellationToken);
         var connection = (SqliteConnection)context.Database.GetDbConnection();
 

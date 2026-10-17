@@ -188,61 +188,63 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task A_message_of_an_unregistered_type_is_retried_rather_than_dead_lettered_at_once()
+    public async Task A_message_of_an_unregistered_type_is_left_untouched_however_long_the_outbox_runs()
     {
-        // A rolling deployment lets an old instance see a message type only the new one registers.
-        // Dead-lettering on the spot would lose it, so an unknown type is retried like any other failure.
+        // A rolling deployment, or a separate worker app, lets an instance see a message type only another one registers.
+        // Claiming it could only burn its retries and dead-letter it, so it is left for an instance that knows it.
 
         // Arrange
-        using var app = Build(out _, options => options.RetryDelays = [TimeSpan.FromMinutes(5)], out var logger);
-        await AddRawMessageAsync(app, OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime));
+        using var app = Build(out var time, options => options.RetryDelays = [TimeSpan.FromMinutes(5)], out var logger);
+        var stored = OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime);
+        await AddRawMessageAsync(app, stored);
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        // Well past every retry delay
+        var dispatched = 0;
+        for (var run = 0; run < 3; run++)
+        {
+            dispatched += await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+            time.Advance(TimeSpan.FromMinutes(10));
+        }
 
         // Assert
         Assert.Equal(0, dispatched);
 
         var message = await GetSingleMessageAsync(app);
+        Assert.Null(message.ProcessedAt);
         Assert.Null(message.FailedAt);
-        Assert.Equal(1, message.Attempts);
-        Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(5), message.AvailableAt);
-        Assert.Contains("is not registered with the outbox of", message.LastError, StringComparison.Ordinal);
+        Assert.Equal(0, message.Attempts);
+        Assert.Null(message.LastError);
+        Assert.Null(message.ClaimedBy);
+        Assert.Null(message.ClaimedUntil);
+        Assert.Equal(stored.AvailableAt, message.AvailableAt);
+        Assert.Equal(stored.ConcurrencyStamp, message.ConcurrencyStamp);
 
-        Assert.DoesNotContain(logger.At(LogLevel.Error), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
-
-        // The unhandled type is called out on its own, so it stays distinguishable from a handler that threw
-        Assert.Single(
-            logger.At(LogLevel.Warning),
-            e => e.Message.Contains("is not registered with this outbox", StringComparison.Ordinal));
-        Assert.Single(
-            logger.At(LogLevel.Warning),
-            e => e.Exception?.Message.Contains("is not registered with the outbox of", StringComparison.Ordinal) == true);
+        // Nothing was attempted, so nothing failed
+        Assert.DoesNotContain(logger.At(LogLevel.Warning), e => e.Message.StartsWith("Outbox of", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.At(LogLevel.Error), e => e.Message.StartsWith("Outbox of", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task A_message_of_an_unregistered_type_is_dead_lettered_once_the_retries_run_out()
+    public async Task Messages_of_an_unregistered_type_waiting_the_longest_do_not_hold_back_a_registered_one()
     {
         // Arrange
-        using var app = Build(out var time, options => options.RetryDelays = [TimeSpan.FromMinutes(5)], out var logger);
-        await AddRawMessageAsync(app, OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        // A whole batch of them at the head of the queue
+        using var app = Build(out _, options => options.BatchSize = 2);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        for (var minutes = 3; minutes > 0; minutes--)
+        {
+            await AddRawMessageAsync(app, OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime.AddMinutes(-minutes)));
+        }
+
+        await EnqueueAsync(app, new TestOutboxMessage("behind them"));
 
         // Act
-        time.Advance(TimeSpan.FromMinutes(5));
         var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(0, dispatched);
-
-        var message = await GetSingleMessageAsync(app);
-        Assert.NotNull(message.FailedAt);
-        Assert.Equal(2, message.Attempts);
-        Assert.Contains("is not registered with the outbox of", message.LastError, StringComparison.Ordinal);
-
-        Assert.Single(
-            logger.At(LogLevel.Error),
-            e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
+        Assert.Equal(1, dispatched);
+        Assert.Equal(["behind them"], state.Handled);
     }
 
     [Fact]
@@ -418,24 +420,6 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task A_stored_message_type_differing_only_in_case_is_delivered()
-    {
-        // Arrange
-        // A case-insensitive collation, or a hand-written row, may hand the key back in another case
-        using var app = Build(out _);
-        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        var shouting = TestOutboxMessage.MessageType.Key.ToUpperInvariant();
-        await AddRawMessageAsync(app, OutboxMessage.Create(shouting, """{"text":"shouting"}""", s_initialTime.UtcDateTime));
-
-        // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(1, dispatched);
-        Assert.Equal(["shouting"], state.Handled);
-    }
-
-    [Fact]
     public async Task The_message_waiting_the_longest_is_delivered_first()
     {
         // Arrange
@@ -486,6 +470,183 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var untouched = Assert.Single(messages, m => m.ProcessedAt is null);
         Assert.Equal(0, untouched.Attempts);
         Assert.Null(untouched.ClaimedBy);
+    }
+
+    [Fact]
+    public async Task A_run_cancelled_after_a_handler_finished_returns_its_count_with_retention_configured_too()
+    {
+        // Arrange
+        // The same cancellation as above, with the only difference that retention is switched on
+        using var app = Build(out _, options => options.Retention = TimeSpan.FromDays(7));
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("one"));
+        await EnqueueAsync(app, new TestOutboxMessage("two"));
+
+        using var run = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        state.OnHandled = _ => run.Cancel();
+
+        // Act
+        // Today the loop breaks and then runs the retention delete with the cancelled token, which throws
+        var dispatched = await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token);
+
+        // Assert
+        Assert.Equal(1, dispatched);
+    }
+
+    [Fact]
+    public async Task An_attempt_cut_short_by_its_run_being_cancelled_still_counts_towards_dead_lettering()
+    {
+        // Arrange
+        // E.g. a handler slower than the Timeout of the dispatch task: the processor cannot tell that from a shutdown,
+        // so it records no outcome and leaves the lease - the attempt was counted when it was claimed
+        using var app = Build(
+            out var time,
+            options =>
+            {
+                options.RetryDelays = [];
+                options.LeaseDuration = TimeSpan.FromMinutes(5);
+            },
+            out var logger);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("too slow"));
+
+        // Act
+        for (var run = 0; run < 3; run++)
+        {
+            using var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            state.OnHandled = _ =>
+            {
+                iteration.Cancel();
+                iteration.Token.ThrowIfCancellationRequested();
+            };
+
+            try
+            {
+                await app.Services.ProcessOutboxAsync<TestDbContext>(iteration.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cut short
+            }
+
+            // The abandoned lease expires before the next run
+            time.Advance(TimeSpan.FromMinutes(6));
+        }
+
+        // Assert
+        // With no retries configured the message gets one attempt, not one per run forever
+        Assert.Single(state.Handled);
+        var message = await GetSingleMessageAsync(app);
+        Assert.NotNull(message.FailedAt);
+        Assert.Null(message.ProcessedAt);
+        Assert.Equal(1, message.Attempts);
+        Assert.Contains("no outcome", message.LastError, StringComparison.Ordinal);
+        Assert.Null(message.ClaimedBy);
+        Assert.Null(message.ClaimedUntil);
+        Assert.Contains(logger.At(LogLevel.Error), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_attempt_cut_short_is_attempted_again_once_its_lease_expires_while_a_retry_is_left()
+    {
+        // Arrange
+        using var app = Build(
+            out var time,
+            options =>
+            {
+                options.RetryDelays = [TimeSpan.FromSeconds(10)];
+                options.LeaseDuration = TimeSpan.FromMinutes(5);
+            });
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("cut short"));
+
+        using (var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken))
+        {
+            state.OnHandled = _ =>
+            {
+                iteration.Cancel();
+                iteration.Token.ThrowIfCancellationRequested();
+            };
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => app.Services.ProcessOutboxAsync<TestDbContext>(iteration.Token));
+        }
+
+        state.OnHandled = static _ => { };
+
+        // Act
+        // The lease still holds, then it expires
+        var whileLeased = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromMinutes(6));
+        var afterLease = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, whileLeased);
+        Assert.Equal(1, afterLease);
+        Assert.Equal(["cut short", "cut short"], state.Handled);
+
+        var message = await GetSingleMessageAsync(app);
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Null(message.FailedAt);
+        Assert.Equal(2, message.Attempts);
+    }
+
+    [Fact]
+    public async Task A_message_that_failed_more_often_than_the_retry_delays_now_allow_still_gets_its_next_attempt()
+    {
+        // Only an attempt cut short is dead-lettered without trying again. One whose failure was recorded is waiting
+        // for its next attempt, whatever the retry delays were shortened to meanwhile.
+
+        // Arrange
+        using var app = Build(out _, options => options.RetryDelays = []);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        var stored = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"retried"}""", s_initialTime.UtcDateTime.AddMinutes(-2));
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            stored.Claim(Guid.CreateVersion7(), s_initialTime.UtcDateTime.AddMinutes(-2), TimeSpan.FromMinutes(5));
+            stored.MarkRetrying(s_initialTime.UtcDateTime.AddMinutes(-1), TimeSpan.Zero, "Boom");
+        }
+
+        await AddRawMessageAsync(app, stored);
+
+        // Act
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, dispatched);
+        Assert.Equal(["retried"], state.Handled);
+
+        var message = await GetSingleMessageAsync(app);
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(3, message.Attempts);
+    }
+
+    [Fact]
+    public async Task A_stored_row_with_an_unreadable_message_type_does_not_block_the_rest_of_the_outbox()
+    {
+        // Arrange
+        // A row written by hand, by another writer, or under older key rules - one the current OutboxMessageType rejects
+        using var app = Build(out _);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            var id = Guid.CreateVersion7().ToString().ToUpperInvariant();
+            var stamp = Guid.CreateVersion7().ToString().ToUpperInvariant();
+            var availableAt = s_initialTime.UtcDateTime.AddMinutes(-1);
+            await context.Database.ExecuteSqlAsync(
+                $"""INSERT INTO "OutboxMessage" ("Id", "MessageType", "Payload", "OccurredAt", "AvailableAt", "Attempts", "ConcurrencyStamp") VALUES ({id}, {"legacy key"}, {"{}"}, {availableAt}, {availableAt}, {0}, {stamp})""",
+                TestContext.Current.CancellationToken);
+        }
+
+        await EnqueueAsync(app, new TestOutboxMessage("healthy"));
+
+        // Act
+        // Materializing the row would throw an ArgumentException. It is never read, as no registered key matches it
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, dispatched);
+        Assert.Equal(["healthy"], state.Handled);
     }
 
     /// <summary>

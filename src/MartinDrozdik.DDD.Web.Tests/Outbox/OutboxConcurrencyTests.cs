@@ -13,7 +13,6 @@ namespace MartinDrozdik.DDD.Web.Tests.Outbox;
 /// </summary>
 /// <remarks>
 /// Two processors can read the same free message before either writes. The token is what prevents both from claiming it, leaving exactly one winner.
-/// duplicate.
 /// </remarks>
 public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
 {

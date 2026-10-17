@@ -44,6 +44,54 @@ public class OutboxMessageTests
     }
 
     [Fact]
+    public void Claim_counts_the_attempt_before_its_outcome_is_known()
+    {
+        // An attempt cut short never records an outcome, so it is counted by its claim
+
+        // Arrange
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+
+        // Act
+        message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
+        message.Claim(Guid.CreateVersion7(), s_now.AddMinutes(6), TimeSpan.FromMinutes(5));
+
+        // Assert
+        Assert.Equal(2, message.Attempts);
+    }
+
+    [Theory]
+    [InlineData(6, 0, true)] // Lease expired, no retry left
+    [InlineData(6, 1, false)] // Lease expired, a retry left
+    [InlineData(1, 0, false)] // Lease still held - the attempt may yet finish
+    public void IsAbandonedWithoutRetry_holds_only_for_an_expired_lease_with_no_retry_left(int minutesLater, int retryCount, bool expected)
+    {
+        // Arrange
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+        message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
+
+        // Act
+        var abandoned = message.IsAbandonedWithoutRetry(s_now.AddMinutes(minutesLater), retryCount);
+
+        // Assert
+        Assert.Equal(expected, abandoned);
+    }
+
+    [Fact]
+    public void IsAbandonedWithoutRetry_is_false_once_the_attempt_recorded_its_failure()
+    {
+        // Arrange
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+        message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
+        message.MarkRetrying(s_now.AddSeconds(1), TimeSpan.Zero, "Boom");
+
+        // Act
+        var abandoned = message.IsAbandonedWithoutRetry(s_now.AddMinutes(6), 0);
+
+        // Assert
+        Assert.False(abandoned);
+    }
+
+    [Fact]
     public void MarkProcessed_completes_the_message_and_releases_the_claim()
     {
         // Arrange
@@ -86,6 +134,7 @@ public class OutboxMessageTests
     {
         // Arrange
         var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+        message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
 
         // Act
         message.MarkFailed(s_now.AddSeconds(1), "Boom");
@@ -95,6 +144,8 @@ public class OutboxMessageTests
         Assert.Equal(1, message.Attempts);
         Assert.Equal("Boom", message.LastError);
         Assert.Null(message.ProcessedAt);
+        Assert.Null(message.ClaimedBy);
+        Assert.Null(message.ClaimedUntil);
     }
 
     [Fact]

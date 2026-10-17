@@ -1,9 +1,11 @@
+using System.Net;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Health;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Tests.App;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Time.Testing;
@@ -69,22 +71,74 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task A_dead_lettered_message_makes_the_outbox_unhealthy()
+    public async Task A_dead_lettered_message_degrades_the_outbox_but_never_makes_it_unhealthy()
     {
         // Arrange
         using var app = Build();
-        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        await EnqueueAsync(app, "doomed");
-        state.ShouldFail = true;
+        await DeadLetterAsync(app, "doomed");
 
         // Act
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var report = await CheckAsync(app, FirstName);
+
+        // Assert
+        Assert.Equal(HealthStatus.Degraded, report.Status);
+        Assert.Equal(1, report.Data["deadLettered"]);
+        Assert.Contains(nameof(TestDbContext), report.Description, StringComparison.Ordinal);
+        Assert.Contains("dead-lettered", report.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_dead_lettered_message_keeps_the_instance_ready_for_traffic()
+    {
+        // Arrange
+        // The table is shared, so a not-ready outbox would take every instance out of load balancing at once,
+        // and keep them out for as long as the dead letter is kept - which is until somebody deletes it
+        using var app = Build();
+        await DeadLetterAsync(app, "doomed");
+
+        // Act
+        var response = await app.CreateClient().GetAsync("/health/ready", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(nameof(HealthStatus.Degraded), await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Dead_letters_and_a_backlog_are_both_named_in_the_description()
+    {
+        // Arrange
+        using var app = Build(degradedBacklogThreshold: 1);
+        await DeadLetterAsync(app, "doomed");
+        await EnqueueAsync(app, "one");
+        await EnqueueAsync(app, "two");
+
+        // Act
+        var report = await CheckAsync(app, FirstName);
+
+        // Assert
+        Assert.Equal(HealthStatus.Degraded, report.Status);
+        Assert.Contains("1 dead-lettered", report.Description, StringComparison.Ordinal);
+        Assert.Contains("2 overdue", report.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_outbox_whose_table_cannot_be_read_is_unhealthy()
+    {
+        // Arrange
+        using var app = Build();
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            await context.Database.ExecuteSqlRawAsync("DROP TABLE \"OutboxMessage\"", TestContext.Current.CancellationToken);
+        }
+
+        // Act
         var report = await CheckAsync(app, FirstName);
 
         // Assert
         Assert.Equal(HealthStatus.Unhealthy, report.Status);
-        Assert.Equal(1, report.Data["deadLettered"]);
-        Assert.Contains(nameof(TestDbContext), report.Description, StringComparison.Ordinal);
+        Assert.NotNull(report.Exception);
     }
 
     [Fact]
@@ -92,17 +146,14 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
     {
         // Arrange
         using var app = Build();
-        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        await EnqueueAsync(app, "doomed");
-        state.ShouldFail = true;
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        await DeadLetterAsync(app, "doomed");
 
         // Act
         var first = await CheckAsync(app, FirstName);
         var second = await CheckAsync(app, SecondName);
 
         // Assert
-        Assert.Equal(HealthStatus.Unhealthy, first.Status);
+        Assert.Equal(HealthStatus.Degraded, first.Status);
         Assert.Equal(HealthStatus.Healthy, second.Status);
         Assert.Equal(0, second.Data["deadLettered"]);
         Assert.Contains("ready", first.Tags);
@@ -142,6 +193,14 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage(text));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task DeadLetterAsync(TestedApp<Program> app, string text)
+    {
+        // No retries are configured, so the first failure dead-letters it
+        await EnqueueAsync(app, text);
+        app.Services.GetRequiredService<TestOutboxHandlerState>().ShouldFail = true;
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
     }
 
     private static async Task ScheduleAsync(TestedApp<Program> app, string text, DateTimeOffset availableAt)

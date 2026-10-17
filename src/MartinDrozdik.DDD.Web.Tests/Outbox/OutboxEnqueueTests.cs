@@ -141,6 +141,29 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public void Adding_a_message_with_a_reference_cycle_throws_an_outbox_exception()
+    {
+        // Arrange
+        var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
+        builder.Services.AddDbContext<SerializationDbContext>(options => options.UseSqlite("Data Source=:memory:"));
+        builder.AddOutbox<SerializationDbContext>(config => config.WithMessage<CyclicMessage, CyclicMessageHandler>());
+        using var host = builder.Build();
+        using var scope = host.Services.CreateScope();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<SerializationDbContext>>();
+
+        var items = new List<object>();
+        items.Add(items);
+
+        // Act
+        // Documented as an OutboxException. Today System.Text.Json's JsonException escapes unwrapped,
+        // because only NotSupportedException is caught.
+        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new CyclicMessage(items)));
+
+        // Assert
+        Assert.Contains(CyclicMessage.MessageType.Key, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Adding_a_message_with_settings_on_save_stores_them_with_the_callers_commit()
     {
         // Arrange
@@ -194,6 +217,16 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
     private sealed class UnserializableMessageHandler : IOutboxMessageHandler<UnserializableMessage>
     {
         public Task HandleAsync(UnserializableMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed record CyclicMessage(List<object> Items) : IOutboxMessage
+    {
+        public static OutboxMessageType MessageType => "test.cyclic.v1";
+    }
+
+    private sealed class CyclicMessageHandler : IOutboxMessageHandler<CyclicMessage>
+    {
+        public Task HandleAsync(CyclicMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class SerializationDbContext(DbContextOptions<SerializationDbContext> options) : DbContext(options)
