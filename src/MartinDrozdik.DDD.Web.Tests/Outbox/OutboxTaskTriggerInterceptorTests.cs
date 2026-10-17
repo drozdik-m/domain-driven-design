@@ -1,8 +1,10 @@
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
+using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.Tests.App;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -72,8 +74,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     {
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
@@ -100,8 +102,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     {
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         // Act
         using (var scope = app.Services.CreateScope())
@@ -128,8 +130,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     {
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         // Act
         using (var scope = app.Services.CreateScope())
@@ -158,8 +160,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     {
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         // Act
         using (var scope = app.Services.CreateScope())
@@ -182,8 +184,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         // Arrange
         // Every upload schedules one - waking the dispatcher for each would find nothing to deliver yet
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         // Act
         using (var scope = app.Services.CreateScope())
@@ -205,8 +207,8 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     {
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask>>();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask>>(trigger);
+        var trigger = app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(trigger);
 
         // Act
         using (var scope = app.Services.CreateScope())
@@ -242,11 +244,92 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         var secondAttached = GetAttachedInterceptors(secondScope.ServiceProvider.GetRequiredService<TestDbContext>());
 
         // Assert
-        var first = Assert.Single(firstAttached.OfType<OutboxTaskTriggerInterceptor>());
-        var second = Assert.Single(secondAttached.OfType<OutboxTaskTriggerInterceptor>());
-        Assert.Same(firstScope.ServiceProvider.GetRequiredService<OutboxTaskTriggerInterceptor>(), first);
-        Assert.Same(secondScope.ServiceProvider.GetRequiredService<OutboxTaskTriggerInterceptor>(), second);
+        var first = Assert.Single(firstAttached.OfType<OutboxTaskTriggerInterceptor<TestDbContext>>());
+        var second = Assert.Single(secondAttached.OfType<OutboxTaskTriggerInterceptor<TestDbContext>>());
+        Assert.Same(firstScope.ServiceProvider.GetRequiredService<OutboxTaskTriggerInterceptor<TestDbContext>>(), first);
+        Assert.Same(secondScope.ServiceProvider.GetRequiredService<OutboxTaskTriggerInterceptor<TestDbContext>>(), second);
         Assert.NotSame(first, second);
+    }
+
+    [Fact]
+    public async Task A_synchronous_save_triggers_the_dispatch_task_too()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(
+            app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>());
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("sync"));
+#pragma warning disable S6966 // Await SaveChangesAsync instead - the synchronous path is what is under test
+            context.SaveChanges();
+#pragma warning restore S6966
+        }
+
+        // Assert
+        await concrete.WaitAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_save_that_fails_does_not_trigger_the_dispatch_task()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(
+            app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>());
+
+        var message = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"twice"}""", DateTime.UtcNow);
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            context.Set<OutboxMessage>().Add(message);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await concrete.WaitAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        // Inserting the same message again violates its primary key
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            context.Set<OutboxMessage>().Add(message);
+            await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
+        }
+
+        // Assert
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await concrete.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
+    public async Task An_interceptor_attached_to_another_context_never_triggers()
+    {
+        // Arrange
+        // Every context has an outbox and an interceptor of its own; one attached to the wrong context must not wake the wrong loop
+        var trigger = new RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>();
+        var interceptor = new OutboxTaskTriggerInterceptor<TestDbContext>(trigger);
+
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var options = new DbContextOptionsBuilder<SecondTestDbContext>()
+            .UseSqlite(connection)
+            .AddInterceptors(interceptor)
+            .Options;
+
+        await using var context = new SecondTestDbContext(options);
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"elsewhere"}""", DateTime.UtcNow));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(trigger.TryConsume());
     }
 
     /// <summary>

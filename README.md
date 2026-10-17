@@ -73,7 +73,7 @@ Built on top of `MartinDrozdik.DDD`, this package provides all the web plumbing 
 - **HTTP resilience**
 - **OpenAPI**
 - **Recurring background tasks** – on a schedule, or right now when you say so
-- **Transactional outbox** – DDD operations and messages commit together, or not at all – with retries, dead-lettering and a health check
+- **Transactional outbox** – DDD operations and messages commit together, or not at all, with retries, dead-lettering and a health check
 
 *Everything is optional and composable.* Use what helps, ignore the rest. I won't tell.
 

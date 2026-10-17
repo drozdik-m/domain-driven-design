@@ -449,7 +449,7 @@ public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageH
 }
 ```
 
-`IOutbox<TContext>.AddOnSave()` enqueues it into the current transaction of `TContext`.
+`IOutbox<TContext>.AddOnSave()` enqueues it into the current transaction of `TContext`. **Every context has its own outbox.**
 
 ``` csharp
 // DDD aggregate changes...

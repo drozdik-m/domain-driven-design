@@ -1,3 +1,4 @@
+using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox.Configurations;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,40 +10,36 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 public static class ModelBuilderExtensions
 {
     /// <summary>
-    /// The default name of the table holding outbox messages.
-    /// </summary>
-    public const string DefaultTableName = "OutboxMessage";
-
-    /// <summary>
     /// Maps the outbox message table into the model.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Call this from the <see cref="DbContext.OnModelCreating(ModelBuilder)"/> of the context that owns your aggregates.
     /// The outbox only works when messages are written by the same transaction as the change that produced them.
     /// No <see cref="DbSet{TEntity}"/> is needed; the engine reaches the table through <see cref="DbContext.Set{TEntity}()"/>.
+    /// </para>
+    /// <para>
+    /// Every context has an outbox and a table of its own.
+    /// </para>
     /// </remarks>
     /// <param name="modelBuilder">The <see cref="ModelBuilder"/> to extend.</param>
-    /// <param name="tableName">Name of the table holding the messages.</param>
-    /// <param name="schema">Schema of the table, or null for the default schema of the provider.</param>
+    /// <param name="table">The table holding the messages.</param>
     /// <returns>The <see cref="ModelBuilder"/> for chaining.</returns>
     /// <example>
     /// <code>
     /// protected override void OnModelCreating(ModelBuilder modelBuilder)
     /// {
     ///     modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
-    ///     modelBuilder.AddOutbox();
+    ///     modelBuilder.AddOutbox("InvoiceOutbox"); // or new TableName("Outbox", "invoicing")
     /// }
     /// </code>
     /// </example>
-    public static ModelBuilder AddOutbox(
-        this ModelBuilder modelBuilder,
-        string tableName = DefaultTableName,
-        string? schema = null)
+    public static ModelBuilder AddOutbox(this ModelBuilder modelBuilder, TableName table)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
+        ArgumentNullException.ThrowIfNull(table);
 
-        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration(tableName, schema));
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration(table));
 
         return modelBuilder;
     }

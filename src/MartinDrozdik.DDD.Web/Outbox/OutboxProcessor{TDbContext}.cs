@@ -1,7 +1,8 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox.Exceptions;
-using MartinDrozdik.DDD.Web.Outbox.Dispatch;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,18 +15,22 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// </summary>
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
 /// <param name="context">The context the messages are read from and written back to.</param>
+/// <param name="registry">The message types of this outbox; nothing else is delivered.</param>
 /// <param name="scopeFactory">Creates the scope each handler is resolved from.</param>
-/// <param name="options">Options driving batching, leases, retries and retention.</param>
+/// <param name="options">Options driving batching, leases, retries, retention and serialization.</param>
 /// <param name="timeProvider">Source of the current instant.</param>
 /// <param name="logger">Logger for delivery outcomes.</param>
 internal sealed class OutboxProcessor<TDbContext>(
     TDbContext context,
+    OutboxRegistry<TDbContext> registry,
     IServiceScopeFactory scopeFactory,
-    IOptions<OutboxOptions> options,
+    IOptions<OutboxOptions<TDbContext>> options,
     TimeProvider timeProvider,
-    ILogger<OutboxProcessor<TDbContext>> logger) : IOutboxProcessor
+    ILogger<OutboxProcessor<TDbContext>> logger) : IOutboxProcessor<TDbContext>
     where TDbContext : DbContext
 {
+    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+
     /// <inheritdoc />
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
     {
@@ -57,7 +62,7 @@ internal sealed class OutboxProcessor<TDbContext>(
 
         if (claimed > 0)
         {
-            OutboxLogging.LogBatchCompleted(logger, dispatched, claimed);
+            OutboxLogging.LogBatchCompleted(logger, s_outboxName, dispatched, claimed);
         }
 
         await ApplyRetentionAsync(cancellationToken);
@@ -69,17 +74,20 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// Reads the messages that may be delivered right now.
     /// </summary>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
-    /// <returns>The messages to attempt, oldest first.</returns>
+    /// <returns>The messages to attempt, the longest waiting first.</returns>
     private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
+        // Ordered by the indexed AvailableAt - not every database sorts a v7 GUID by its time part
+        // (SQL Server compares the last bytes first), and an order that ignores waiting time could starve old messages
         return await context.Set<OutboxMessage>()
             .Where(m => m.ProcessedAt == null &&
                 m.FailedAt == null &&
                 m.AvailableAt <= now &&
                 (m.ClaimedUntil == null || m.ClaimedUntil < now))
-            .OrderBy(m => m.Id) // GUID v7 sorts by creation time, so this is oldest first
+            .OrderBy(m => m.AvailableAt)
+            .ThenBy(m => m.Id)
             .Take(options.Value.BatchSize)
             .ToListAsync(cancellationToken);
     }
@@ -102,30 +110,31 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// <summary>
     /// Delivers a claimed message and records the outcome.
     /// </summary>
+    /// <remarks>
+    /// Once an attempt has happened, its outcome is saved even when <paramref name="cancellationToken"/> is cancelled (save it rather than double-deliver).
+    /// </remarks>
     /// <param name="message">The claimed message.</param>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>True when the message was delivered, else false.</returns>
     private async Task<bool> TryDeliverAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var dispatcher = scope.ServiceProvider.GetKeyedService<IOutboxDispatcher>(message.MessageType.Key);
-
-        if (dispatcher is null)
+        // Only the message types of this outbox are delivered
+        if (!registry.TryGet(message.MessageType, out var registration))
         {
             // Not necessarily permanent - during a rolling deployment an instance may see new/old messages.
             // Let them be retried...
-            OutboxLogging.LogUnknownMessageType(logger, message.Id, message.MessageType.Key);
+            OutboxLogging.LogUnknownMessageType(logger, s_outboxName, message.Id, message.MessageType.Key);
             await RecordFailureAsync(
                 message,
-                new OutboxException($"No handler is registered for outbox message type '{message.MessageType}'. Register one with WithMessage<...>() when calling AddOutbox, or delete the stored rows."),
-                cancellationToken);
+                new OutboxException($"Outbox message type '{message.MessageType}' is not registered with the outbox of {s_outboxName}. Register it with WithMessage<...>() when calling AddOutbox<{s_outboxName}>, or delete the stored rows."));
 
             return false;
         }
 
         try
         {
-            await dispatcher.DispatchAsync(message.Payload, cancellationToken);
+            await using var scope = scopeFactory.CreateAsyncScope();
+            await registration.Dispatch(scope.ServiceProvider, message.Payload, options.Value.SerializerOptions, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -136,28 +145,30 @@ internal sealed class OutboxProcessor<TDbContext>(
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            await RecordFailureAsync(message, exception, cancellationToken);
+            await RecordFailureAsync(message, exception);
             return false;
         }
 
         message.MarkProcessed(timeProvider.GetUtcNow().UtcDateTime);
-        if (!await TrySaveAsync(message, cancellationToken))
+        if (!await TrySaveAsync(message, CancellationToken.None))
         {
             return false;
         }
 
-        OutboxLogging.LogDispatched(logger, message.Id, message.MessageType.Key, message.Attempts);
+        OutboxLogging.LogDispatched(logger, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
         return true;
     }
 
     /// <summary>
     /// Schedules the next attempt, or dead-letters the message when the retry delays run out.
     /// </summary>
+    /// <remarks>
+    /// Saved regardless of any cancellation.
+    /// </remarks>
     /// <param name="message">The message that failed.</param>
     /// <param name="exception">The failure that prevented delivery.</param>
-    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>A <see cref="Task"/> that completes when the outcome has been stored.</returns>
-    private Task<bool> RecordFailureAsync(OutboxMessage message, Exception exception, CancellationToken cancellationToken)
+    private Task<bool> RecordFailureAsync(OutboxMessage message, Exception exception)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var retryDelays = options.Value.RetryDelays;
@@ -167,15 +178,15 @@ internal sealed class OutboxProcessor<TDbContext>(
         {
             var delay = retryDelays[attemptIndex];
             message.MarkRetrying(now, delay, exception.ToString());
-            OutboxLogging.LogRetrying(logger, exception, message.Id, message.MessageType.Key, message.Attempts, delay);
+            OutboxLogging.LogRetrying(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts, delay);
         }
         else
         {
             message.MarkFailed(now, exception.ToString());
-            OutboxLogging.LogDeadLettered(logger, exception, message.Id, message.MessageType.Key, message.Attempts);
+            OutboxLogging.LogDeadLettered(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
         }
 
-        return TrySaveAsync(message, cancellationToken);
+        return TrySaveAsync(message, CancellationToken.None);
     }
 
     /// <summary>
@@ -195,7 +206,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         {
             // Another processor changed the row first.
             // Stop tracking our stale copy so the rest of the batch can still be saved, and leave the message to whoever owns it now.
-            OutboxLogging.LogClaimLost(logger, message.Id);
+            OutboxLogging.LogClaimLost(logger, s_outboxName, message.Id);
             context.Entry(message).State = EntityState.Detached;
             return false;
         }
@@ -221,7 +232,7 @@ internal sealed class OutboxProcessor<TDbContext>(
 
         if (deleted > 0)
         {
-            OutboxLogging.LogRetentionApplied(logger, deleted, retention);
+            OutboxLogging.LogRetentionApplied(logger, s_outboxName, deleted, retention);
         }
     }
 }

@@ -1,7 +1,9 @@
 using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Blobs.Exceptions;
+using MartinDrozdik.DDD.Blobs.Outbox;
 using MartinDrozdik.DDD.Blobs.Stores;
 using MartinDrozdik.DDD.Blobs.Sweepers;
+using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing.Blobs;
 using MartinDrozdik.DDD.Web.Blobs;
 using MartinDrozdik.DDD.Web.Blobs.Outbox;
@@ -26,7 +28,7 @@ public class BlobRegistrationTests
     {
         // Arrange
         var builder = CreateBuilder();
-        builder.AddOutbox<CatalogueDbContext>(configureOptions: null, config => config.WithBlobs());
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
 
         // Act
         builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices));
@@ -39,21 +41,72 @@ public class BlobRegistrationTests
     }
 
     [Fact]
-    public void Blobs_over_another_context_than_the_outbox_fail_to_resolve()
+    public void Adding_blobs_without_the_outbox_of_their_context_throws_naming_it()
     {
         // Arrange
         var builder = CreateBuilder();
-        builder.AddOutbox<OtherDbContext>(configureOptions: null, config => config.WithBlobs());
+        builder.AddOutbox<OtherDbContext>(config => config.WithBlobs());
 
         // Act
         // The removals would be tracked in a context that the sweep never saves
-        builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices));
-        using var host = builder.Build();
+        var exception = Assert.Throws<BlobException>(() =>
+            builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices)));
 
         // Assert
-        using var scope = host.Services.CreateScope();
-        Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<IBlobStorage>());
-        Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<IBlobSweeper>());
+        Assert.Contains(nameof(CatalogueDbContext), exception.Message, StringComparison.Ordinal);
+        Assert.Contains("AddOutbox", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Adding_blobs_over_an_outbox_that_does_not_deliver_the_blob_messages_throws()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<CatalogueDbContext>(_ => { });
+
+        // Act
+        // Nothing would ever delete the content of a removed blob
+        var exception = Assert.Throws<BlobException>(() =>
+            builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices)));
+
+        // Assert
+        Assert.Contains("WithBlobs()", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Adding_blobs_a_second_time_throws()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
+        builder.AddOutbox<OtherDbContext>(config => config.WithBlobs());
+        builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices));
+
+        // Act
+        // The second registry would be dropped, and its containers with it
+        var overAnotherContext = Assert.Throws<BlobException>(() =>
+            builder.AddBlobs<OtherDbContext>(blobs => blobs.WithContainer(s_avatars)));
+        var overTheSameContext = Assert.Throws<BlobException>(() =>
+            builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_avatars)));
+
+        // Assert
+        Assert.Contains("already added", overAnotherContext.Message, StringComparison.Ordinal);
+        Assert.Contains("already added", overTheSameContext.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_blob_messages_may_ride_on_several_outboxes_with_one_handler()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
+        builder.AddOutbox<OtherDbContext>(config => config.WithBlobs());
+        builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices));
+
+        // Assert
+        Assert.Single(builder.Services, d => d.ServiceType == typeof(IOutboxMessageHandler<DeleteBlobMessage>));
     }
 
     [Theory]
@@ -63,7 +116,7 @@ public class BlobRegistrationTests
     {
         // Arrange
         var builder = CreateBuilder();
-        builder.AddOutbox<CatalogueDbContext>(configureOptions: null, config => config.WithBlobs());
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
         builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithSweep(options => options.MaxPasses = maxSweepPasses));
         using var host = builder.Build();
 
@@ -79,7 +132,7 @@ public class BlobRegistrationTests
     {
         // Arrange
         var builder = CreateBuilder();
-        builder.AddOutbox<CatalogueDbContext>(configureOptions: null, config => config.WithBlobs());
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
         builder.AddBlobs<CatalogueDbContext>(blobs => blobs
             .WithContainer(s_invoices)
             .WithContainer(s_avatars, options => options.MaxSize = 0));
@@ -98,6 +151,7 @@ public class BlobRegistrationTests
     {
         // Arrange
         var builder = CreateBuilder();
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
 
         // Act
         var register = () => builder.AddBlobs<CatalogueDbContext>(blobs => blobs
@@ -105,7 +159,8 @@ public class BlobRegistrationTests
             .WithContainer(s_invoices));
 
         // Assert
-        Assert.Throws<BlobException>(register);
+        var exception = Assert.Throws<BlobException>(register);
+        Assert.Contains("registered twice", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -238,7 +293,7 @@ public class BlobRegistrationTests
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.Services.AddDbContext<CatalogueDbContext>(options => options.UseSqlite("Data Source=:memory:"));
-        builder.AddOutbox<CatalogueDbContext>(configureOptions: null, config => config.WithBlobs());
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithBlobs());
         return builder;
     }
 

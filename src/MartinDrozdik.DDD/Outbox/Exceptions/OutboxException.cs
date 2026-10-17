@@ -1,13 +1,7 @@
 namespace MartinDrozdik.DDD.Outbox.Exceptions;
 
 /// <summary>
-/// Represents an error in the outbox infrastructure itself, such as:
-/// <list type="bullet">
-///     <item>a duplicate message type registration</item>
-///     <item>a message type with no registered handler</item>
-///     <item>a payload that cannot be stored</item>
-///     <item>a payload that cannot be deserialized</item>
-/// </list>
+/// Represents an error in the outbox infrastructure itself.
 /// </summary>
 /// <remarks>
 /// A failure raised by a message handler is <b>not</b> an <see cref="OutboxException"/>.

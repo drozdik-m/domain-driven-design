@@ -65,7 +65,7 @@ public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
 
         using var processorScope = app.Services.CreateScope();
         var processorContext = processorScope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var processor = processorScope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+        var processor = processorScope.ServiceProvider.GetRequiredService<IOutboxProcessor<TestDbContext>>();
 
         // The processor loads both messages into its change tracker before anything is claimed
         var loaded = await processorContext.Set<OutboxMessage>()

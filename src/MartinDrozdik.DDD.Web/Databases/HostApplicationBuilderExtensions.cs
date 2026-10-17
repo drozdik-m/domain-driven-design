@@ -62,7 +62,7 @@ public static class HostApplicationBuilderExtensions
     /// builder.AddAppDbContext&lt;InvoiceDbContext&gt;((options, provider, dbBuilder) =&gt;
     /// {
     ///     dbBuilder.UseSqlite(options.ConnectionString);
-    ///     dbBuilder.AddInterceptors(provider.GetRequiredService&lt;OutboxTaskTriggerInterceptor&gt;());
+    ///     dbBuilder.AddInterceptors(provider.GetRequiredService&lt;OutboxTaskTriggerInterceptor&lt;InvoiceDbContext&gt;&gt;());
     /// });
     /// </code>
     /// </example>

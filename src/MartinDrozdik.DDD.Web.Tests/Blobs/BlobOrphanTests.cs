@@ -43,7 +43,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(GracePeriod(scope) + TimeSpan.FromMinutes(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(await store.ExistsAsync(added.Value.Key, TestContext.Current.CancellationToken));
@@ -64,7 +64,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromMinutes(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(await store.ExistsAsync(added.Value.Key, TestContext.Current.CancellationToken));
@@ -86,7 +86,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         // Act
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         time.Advance(TimeSpan.FromDays(30));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, await CountMessagesAsync(context));
@@ -111,7 +111,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
             TestContext.Current.CancellationToken);
 
         // Act
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(await store.ExistsAsync(added.Value.Key, TestContext.Current.CancellationToken));
@@ -136,7 +136,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
 
         var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
         time.Advance(TimeSpan.FromHours(3));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
         var commit = () => context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -166,7 +166,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
             Content = new InterruptedStream(Encoding.UTF8.GetBytes("hello"), async () =>
             {
                 time.Advance(gracePeriod + TimeSpan.FromMinutes(1));
-                await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+                await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
             }),
         };
 
@@ -177,7 +177,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         await Assert.ThrowsAsync<BlobUploadReclaimedException>(upload);
 
         // The content that did arrive is not lost track of - a second removal, due at once, takes it away
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         Assert.Equal(0, store.Count);
         Assert.Equal(0, await CountMessagesAsync(context));
     }
@@ -201,7 +201,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(GracePeriod(scope) + TimeSpan.FromMinutes(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, store.Count);
@@ -226,12 +226,12 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         store.FailOn(added.Value.Key, new IOException("The file is locked."));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
         store.Heal(added.Value.Key);
         time.Advance(TimeSpan.FromDays(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, await context.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));

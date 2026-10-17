@@ -17,7 +17,14 @@ builder.AddAppServices();
 builder.AddAppDbContext<TestDbContext>((options, provider, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
-    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<TestDbContext>>());
+});
+
+// A second bounded context, in a database of its own
+builder.AddAppDbContext<SecondTestDbContext>((options, provider, dbBuilder) =>
+{
+    dbBuilder.UseSqlite(SecondTestDbContext.GetConnectionString(options.ConnectionString));
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<SecondTestDbContext>>());
 });
 
 // A recurring task scheduled far enough away that it only runs when a test triggers it
@@ -28,14 +35,18 @@ builder.AddRecurringTask<TestRecurringTask>(options =>
     options.Period = TimeSpan.FromHours(1);
 });
 
-// MessageOutbox
+// MessageOutbox - one per context
 builder.Services.AddSingleton<TestOutboxHandlerState>();
-builder.AddOutbox<TestDbContext>(
-    configureOptions: null,
+builder.AddOutbox<TestDbContext>(config => config
+    .WithMessage<TestOutboxMessage, TestOutboxMessageHandler>()
+    .WithMessage<OtherTestOutboxMessage, OtherTestOutboxMessageHandler>()
+    .WithBlobs());
+
+builder.AddOutbox<SecondTestDbContext>(
+    options => options.SerializerOptions = SecondTestDbContext.OutboxSerializerOptions,
     config => config
-        .WithMessage<TestOutboxMessage, TestOutboxMessageHandler>()
-        .WithMessage<OtherTestOutboxMessage, OtherTestOutboxMessageHandler>()
-        .WithBlobs());
+        .WithMessage<TestOutboxMessage, TestOutboxMessageHandler>() // Shared with the first outbox, as a shared infrastructure project would
+        .WithMessage<SecondContextOutboxMessage, SecondContextOutboxMessageHandler>());
 
 // Blob storage, in folders of this instance's own so parallel test apps cannot see each other
 var blobRoot = Path.Combine(Path.GetTempPath(), $"{Guid.CreateVersion7():N}_test_blobs");
@@ -53,7 +64,13 @@ builder.AddBlobSweepRecurringTask(options =>
     options.Period = TimeSpan.FromHours(1);
 });
 
-builder.AddOutboxDispatchRecurringTask(options =>
+builder.AddOutboxDispatchRecurringTask<TestDbContext>(options =>
+{
+    options.InitialDelay = TimeSpan.FromHours(1);
+    options.Period = TimeSpan.FromHours(1);
+});
+
+builder.AddOutboxDispatchRecurringTask<SecondTestDbContext>(options =>
 {
     options.InitialDelay = TimeSpan.FromHours(1);
     options.Period = TimeSpan.FromHours(1);
@@ -63,6 +80,7 @@ builder.AddOutboxDispatchRecurringTask(options =>
 var app = builder.Build();
 
 await app.EnsureCreatedDatabaseAsync<TestDbContext>();
+await app.EnsureCreatedDatabaseAsync<SecondTestDbContext>();
 
 app.UseAppMiddlewares();
 

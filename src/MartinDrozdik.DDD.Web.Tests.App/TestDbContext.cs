@@ -37,7 +37,7 @@ public class TestDbContext(DbContextOptions<TestDbContext> options, TimeProvider
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TestDbContext).Assembly);
-        modelBuilder.AddOutbox();
+        modelBuilder.AddOutbox("OutboxMessage");
         modelBuilder.AddBlobs();
 
         // Register audit shadow properties

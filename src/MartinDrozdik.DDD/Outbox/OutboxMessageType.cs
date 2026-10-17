@@ -7,7 +7,7 @@ namespace MartinDrozdik.DDD.Outbox;
 /// The stable storage key of an outbox message type.
 /// </summary>
 /// <remarks>
-/// It's used as the dependency injection key of the matching dispatcher.
+/// Each outbox maps it back to the registered message type and its handler.
 /// The key must never change once rows carrying it exist or the messages will be dead-lettered.
 /// Prefer a deliberate, storage-facing name such as <c>email.send.v1</c> over anything derived from a type name, which a rename would break.
 /// <para>
@@ -58,7 +58,9 @@ public sealed class OutboxMessageType : ValueObject
     }
 
     /// <summary>
-    /// Gets the storage key of the message type. Unique across all registered message types.
+    /// Gets the storage key of the message type.
+    /// Case insensitive.
+    /// It identifies exactly one message type, and so one handler, within an outbox.
     /// </summary>
     public string Key { get; }
 

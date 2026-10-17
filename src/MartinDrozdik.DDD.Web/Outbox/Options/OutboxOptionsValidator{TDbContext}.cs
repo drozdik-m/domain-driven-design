@@ -1,14 +1,17 @@
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace MartinDrozdik.DDD.Web.Outbox.Options;
 
 /// <summary>
-/// Validates <see cref="OutboxOptions"/>.
+/// Validates <see cref="OutboxOptions{TDbContext}"/>.
 /// </summary>
-internal sealed class OutboxOptionsValidator : AbstractValidator<OutboxOptions>
+/// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<OutboxOptions<TDbContext>>
+    where TDbContext : DbContext
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="OutboxOptionsValidator"/> class.
+    /// Initializes a new instance of the <see cref="OutboxOptionsValidator{TDbContext}"/> class.
     /// </summary>
     public OutboxOptionsValidator()
     {

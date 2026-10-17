@@ -3,9 +3,8 @@ using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
-using MartinDrozdik.DDD.Web.Outbox.Options;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Web.Outbox.Dispatch;
 
@@ -13,25 +12,32 @@ namespace MartinDrozdik.DDD.Web.Outbox.Dispatch;
 /// Dispatches (resolves) one message type.
 /// </summary>
 /// <remarks>
-/// The message type is not statically known yet.
-/// One implementation is registered per message type, keyed by <see cref="OutboxMessageType.Key"/>,
-/// so the processor recovers the type by resolving a keyed service rather than by reflecting over the stored key.
+/// The message type is not statically known when a row is read.
+/// <see cref="DispatchAsync"/> is captured as the <see cref="OutboxDispatch"/> of the <see cref="OutboxRegistration"/> of <typeparamref name="TMessage"/>,
+/// so the processor recovers the type from its registry rather than by reflection.
 /// Deserialization and handler resolution then happen inside a closed generic, with no runtime type construction at all.
 /// </remarks>
 /// <typeparam name="TMessage">The message this dispatcher delivers.</typeparam>
-/// <param name="provider">The scope the handler is resolved from.</param>
-/// <param name="options">Options carrying the serializer configuration.</param>
-internal sealed class OutboxDispatcher<TMessage>(IServiceProvider provider, IOptions<OutboxOptions> options)
-    : IOutboxDispatcher
+internal static class OutboxDispatcher<TMessage>
     where TMessage : IOutboxMessage
 {
-    /// <inheritdoc />
-    public Task DispatchAsync(OutboxPayload payload, CancellationToken cancellationToken)
+    /// <summary>
+    /// Deserializes a payload and hands it to the handler of <typeparamref name="TMessage"/>.
+    /// </summary>
+    /// <param name="services">The scope the handler is resolved from.</param>
+    /// <param name="payload">The stored payload.</param>
+    /// <param name="serializerOptions">The serializer options of the outbox the payload was read from.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>A <see cref="Task"/> that completes when the handler has finished.</returns>
+    /// <exception cref="OutboxException">The payload cannot be read as <typeparamref name="TMessage"/>.</exception>
+    public static Task DispatchAsync(IServiceProvider services, OutboxPayload payload, JsonSerializerOptions serializerOptions, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(payload);
+        ArgumentNullException.ThrowIfNull(serializerOptions);
 
-        var message = Deserialize(payload);
-        var handler = provider.GetRequiredService<IOutboxMessageHandler<TMessage>>();
+        var message = Deserialize(payload, serializerOptions);
+        var handler = services.GetRequiredService<IOutboxMessageHandler<TMessage>>();
 
         return handler.HandleAsync(message, cancellationToken);
     }
@@ -40,14 +46,15 @@ internal sealed class OutboxDispatcher<TMessage>(IServiceProvider provider, IOpt
     /// Reads a stored payload back into a message.
     /// </summary>
     /// <param name="payload">The stored payload.</param>
+    /// <param name="serializerOptions">The serializer options of the outbox the payload was read from.</param>
     /// <returns>The deserialized message.</returns>
     /// <exception cref="OutboxException">The payload cannot be read as <typeparamref name="TMessage"/>.</exception>
-    private TMessage Deserialize(OutboxPayload payload)
+    private static TMessage Deserialize(OutboxPayload payload, JsonSerializerOptions serializerOptions)
     {
         TMessage? message;
         try
         {
-            message = JsonSerializer.Deserialize<TMessage>(payload.Value, options.Value.SerializerOptions);
+            message = JsonSerializer.Deserialize<TMessage>(payload.Value, serializerOptions);
         }
         catch (JsonException exception)
         {

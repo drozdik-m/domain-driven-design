@@ -92,7 +92,7 @@ public class InvoiceScanTests
 
         Assert.True(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
 
-        await _factory.DrainOutboxAsync(TestContext.Current.CancellationToken);
+        await _factory.DrainOutboxAsync<InvoiceDbContext>(TestContext.Current.CancellationToken);
 
         Assert.False(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
     }
@@ -112,7 +112,7 @@ public class InvoiceScanTests
 
         // Act
         var deleted = await client.DeleteAsync(new Uri($"/v1/invoice/{invoiceId}/scan", UriKind.Relative), TestContext.Current.CancellationToken);
-        await _factory.DrainOutboxAsync(TestContext.Current.CancellationToken);
+        await _factory.DrainOutboxAsync<InvoiceDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
@@ -155,7 +155,7 @@ public class InvoiceScanTests
 
         // Act
         var secondId = await UploadAsync(client, invoiceId, "second.pdf", "second");
-        await _factory.DrainOutboxAsync(TestContext.Current.CancellationToken);
+        await _factory.DrainOutboxAsync<InvoiceDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(firstId, secondId);

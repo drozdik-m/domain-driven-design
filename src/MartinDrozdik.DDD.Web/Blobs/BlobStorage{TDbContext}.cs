@@ -81,7 +81,7 @@ internal sealed class BlobStorage<TDbContext>(
         if (postponedTicket is null)
         {
             // Schedule content removal to be absolutely sure about cleanup
-            await outbox.AddNowAsync(DeleteBlobMessage.For(key), OutboxMessageSettings.Default, cancellationToken);
+            await outbox.AddNowAsync(DeleteBlobMessage.For(key), cancellationToken);
             BlobLogging.LogUploadReclaimed(logger, key.Path);
             throw BlobUploadReclaimedException.For(key);
         }
@@ -106,7 +106,7 @@ internal sealed class BlobStorage<TDbContext>(
         if (!stopGraceRemovalScheduled)
         {
             // Schedule content removal to be absolutely sure about cleanup
-            await outbox.AddNowAsync(DeleteBlobMessage.For(key), OutboxMessageSettings.Default, cancellationToken);
+            await outbox.AddNowAsync(DeleteBlobMessage.For(key), cancellationToken);
             BlobLogging.LogUploadReclaimed(logger, key.Path);
             throw BlobUploadReclaimedException.For(key);
         }

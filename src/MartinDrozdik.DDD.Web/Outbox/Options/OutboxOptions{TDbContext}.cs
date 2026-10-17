@@ -1,16 +1,23 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace MartinDrozdik.DDD.Web.Outbox.Options;
 
 // TODO maybe make standalone IValidateAppOptions to remove duplicate validation logic in OutboxOptionsValidation
 
 /// <summary>
-/// Behaviour of the outbox engine, configured in code with <see cref="HostApplicationBuilderExtensions.AddOutbox{TDbContext}"/>.
+/// Behaviour of the outbox over <typeparamref name="TDbContext"/>, configured in code with
+/// <see cref="HostApplicationBuilderExtensions.AddOutbox{TDbContext}(IHostApplicationBuilder, Action{OutboxOptions{TDbContext}}, Action{OutboxConfig})"/>.
 /// </summary>
-public sealed class OutboxOptions
+/// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+#pragma warning disable S2326 // Unused type parameters - used to mark the outbox the options belong to
+public sealed class OutboxOptions<TDbContext>
+#pragma warning restore S2326
+    where TDbContext : DbContext
 {
     /// <summary>
-    /// Gets or sets how many messages a single call to <see cref="IOutboxProcessor.ProcessPendingAsync"/> may deliver.
+    /// Gets or sets how many messages a single call to <see cref="IOutboxProcessor{TDbContext}.ProcessPendingAsync"/> may deliver.
     /// </summary>
     public int BatchSize { get; set; } = 100;
 
@@ -31,7 +38,6 @@ public sealed class OutboxOptions
     ///     <item>second failure the second,</item>
     ///     <item>...</item>
     /// </list>
-    ///  the
     /// An empty list dead-letters on the first failure.
     /// </remarks>
     public IReadOnlyList<TimeSpan> RetryDelays { get; set; } =
@@ -61,7 +67,7 @@ public sealed class OutboxOptions
     public TimeSpan? Retention { get; set; }
 
     /// <summary>
-    /// Gets or sets the options used to serialize and deserialize payloads.
+    /// Gets or sets the options used to serialize and deserialize payloads of this outbox.
     /// </summary>
     /// <remarks>
     /// Changing this after rows exist can make stored payloads unreadable, which dead-letters them.

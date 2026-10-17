@@ -28,7 +28,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("hello"));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -50,7 +50,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new OtherTestOutboxMessage(42));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, dispatched);
@@ -64,10 +64,10 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         using var app = Build(out _);
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
         await EnqueueAsync(app, new TestOutboxMessage("once"));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -91,17 +91,17 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         // First attempt fails, so the message waits ten seconds
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         var afterFirst = await GetSingleMessageAsync(app);
 
         // Second attempt fails, so the message waits a minute
         time.Advance(TimeSpan.FromSeconds(10));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         var afterSecond = await GetSingleMessageAsync(app);
 
         // Third attempt has no delay left, so the message is dead-lettered
         time.Advance(TimeSpan.FromMinutes(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         var afterThird = await GetSingleMessageAsync(app);
 
         // Assert
@@ -130,15 +130,15 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
         await EnqueueAsync(app, new TestOutboxMessage("later"));
         state.ShouldFail = true;
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         state.ShouldFail = false;
 
         // Act
         time.Advance(TimeSpan.FromMinutes(4));
-        var tooEarly = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var tooEarly = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         time.Advance(TimeSpan.FromMinutes(1));
-        var onTime = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var onTime = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, tooEarly);
@@ -154,12 +154,12 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
         await EnqueueAsync(app, new TestOutboxMessage("doomed"));
         state.ShouldFail = true;
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         state.ShouldFail = false;
 
         // Act
         time.Advance(TimeSpan.FromDays(1));
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -179,7 +179,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         state.ShouldFail = true;
 
         // Act
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         var message = await GetSingleMessageAsync(app);
@@ -198,7 +198,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await AddRawMessageAsync(app, OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -207,17 +207,17 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         Assert.Null(message.FailedAt);
         Assert.Equal(1, message.Attempts);
         Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(5), message.AvailableAt);
-        Assert.Contains("No handler is registered", message.LastError, StringComparison.Ordinal);
+        Assert.Contains("is not registered with the outbox of", message.LastError, StringComparison.Ordinal);
 
         Assert.DoesNotContain(logger.At(LogLevel.Error), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
 
         // The unhandled type is called out on its own, so it stays distinguishable from a handler that threw
         Assert.Single(
             logger.At(LogLevel.Warning),
-            e => e.Message.Contains("no registered handler", StringComparison.Ordinal));
+            e => e.Message.Contains("is not registered with this outbox", StringComparison.Ordinal));
         Assert.Single(
             logger.At(LogLevel.Warning),
-            e => e.Exception?.Message.Contains("No handler is registered", StringComparison.Ordinal) == true);
+            e => e.Exception?.Message.Contains("is not registered with the outbox of", StringComparison.Ordinal) == true);
     }
 
     [Fact]
@@ -226,11 +226,11 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = Build(out var time, options => options.RetryDelays = [TimeSpan.FromMinutes(5)], out var logger);
         await AddRawMessageAsync(app, OutboxMessage.Create("test.not-registered.v1", "{}", s_initialTime.UtcDateTime));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
         time.Advance(TimeSpan.FromMinutes(5));
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -238,7 +238,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var message = await GetSingleMessageAsync(app);
         Assert.NotNull(message.FailedAt);
         Assert.Equal(2, message.Attempts);
-        Assert.Contains("No handler is registered", message.LastError, StringComparison.Ordinal);
+        Assert.Contains("is not registered with the outbox of", message.LastError, StringComparison.Ordinal);
 
         Assert.Single(
             logger.At(LogLevel.Error),
@@ -256,8 +256,8 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("c"));
 
         // Act
-        var first = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
-        var second = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var first = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var second = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, first);
@@ -283,7 +283,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -309,7 +309,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromMinutes(6));
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -330,18 +330,18 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
 
         await EnqueueAsync(app, new TestOutboxMessage("delivered"));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         state.ShouldFail = true;
         await EnqueueAsync(app, new TestOutboxMessage("dead"));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         state.ShouldFail = false;
 
         // Act
         // Old enough for the delivered message to fall out of retention
         time.Advance(TimeSpan.FromDays(8));
         await EnqueueAsync(app, new TestOutboxMessage("fresh"));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         using var scope = app.Services.CreateScope();
@@ -362,15 +362,130 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = Build(out var time);
         await EnqueueAsync(app, new TestOutboxMessage("kept"));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
         time.Advance(TimeSpan.FromDays(3650));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         var message = await GetSingleMessageAsync(app);
         Assert.NotNull(message.ProcessedAt);
+    }
+
+    [Fact]
+    public async Task A_payload_that_cannot_be_read_is_retried_and_then_dead_lettered()
+    {
+        // Arrange
+        using var app = Build(out var time, options => options.RetryDelays = [TimeSpan.FromMinutes(5)]);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, "not json at all", s_initialTime.UtcDateTime));
+
+        // Act
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var afterFirst = await GetSingleMessageAsync(app);
+
+        time.Advance(TimeSpan.FromMinutes(5));
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var afterSecond = await GetSingleMessageAsync(app);
+
+        // Assert
+        Assert.Empty(state.Handled);
+        Assert.Null(afterFirst.FailedAt);
+        Assert.Contains("could not be deserialized", afterFirst.LastError, StringComparison.Ordinal);
+        Assert.NotNull(afterSecond.FailedAt);
+        Assert.Equal(2, afterSecond.Attempts);
+    }
+
+    [Fact]
+    public async Task A_payload_that_reads_as_null_is_a_failed_delivery()
+    {
+        // Arrange
+        using var app = Build(out _, options => options.RetryDelays = []);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, "null", s_initialTime.UtcDateTime));
+
+        // Act
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, dispatched);
+        Assert.Empty(state.Handled);
+
+        var message = await GetSingleMessageAsync(app);
+        Assert.NotNull(message.FailedAt);
+        Assert.Contains("deserialized to null", message.LastError, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_stored_message_type_differing_only_in_case_is_delivered()
+    {
+        // Arrange
+        // A case-insensitive collation, or a hand-written row, may hand the key back in another case
+        using var app = Build(out _);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        var shouting = TestOutboxMessage.MessageType.Key.ToUpperInvariant();
+        await AddRawMessageAsync(app, OutboxMessage.Create(shouting, """{"text":"shouting"}""", s_initialTime.UtcDateTime));
+
+        // Act
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, dispatched);
+        Assert.Equal(["shouting"], state.Handled);
+    }
+
+    [Fact]
+    public async Task The_message_waiting_the_longest_is_delivered_first()
+    {
+        // Arrange
+        // The message created first, so with the smaller version 7 id, has been available for a shorter time
+        using var app = Build(out _, options => options.BatchSize = 1);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"waiting a minute"}""", s_initialTime.UtcDateTime.AddMinutes(-1)));
+
+        // A version 7 id only orders by the millisecond it was created in
+        await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.Current.CancellationToken);
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"waiting an hour"}""", s_initialTime.UtcDateTime.AddHours(-1)));
+
+        // Act
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, dispatched);
+        Assert.Equal(["waiting an hour"], state.Handled);
+    }
+
+    [Fact]
+    public async Task A_run_cancelled_after_a_handler_finished_still_records_the_delivery_and_stops()
+    {
+        // Arrange
+        // E.g. the application shutting down while a handler is running
+        using var app = Build(out _);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("one"));
+        await EnqueueAsync(app, new TestOutboxMessage("two"));
+
+        using var run = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        state.OnHandled = _ => run.Cancel();
+
+        // Act
+        var dispatched = await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token);
+
+        // Assert
+        // The delivered message is recorded, so it is not delivered again once its lease expires
+        Assert.Equal(1, dispatched);
+        var handled = Assert.Single(state.Handled);
+
+        var messages = await GetMessagesAsync(app);
+        var delivered = Assert.Single(messages, m => m.ProcessedAt is not null);
+        Assert.Contains(handled, delivered.Payload.Value, StringComparison.Ordinal);
+        Assert.Null(delivered.ClaimedBy);
+
+        // The rest of the batch is not even claimed
+        var untouched = Assert.Single(messages, m => m.ProcessedAt is null);
+        Assert.Equal(0, untouched.Attempts);
+        Assert.Null(untouched.ClaimedBy);
     }
 
     /// <summary>
@@ -404,6 +519,18 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     }
 
     /// <summary>
+    /// Reads every stored message, from a scope of its own so nothing is served from a change tracker.
+    /// </summary>
+    /// <param name="app">The application under test.</param>
+    /// <returns>The stored messages.</returns>
+    private static async Task<List<OutboxMessage>> GetMessagesAsync(TestedApp<Program> app)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        return await context.Set<OutboxMessage>().AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
     /// Reads the only stored message, from a scope of its own so nothing is served from a change tracker.
     /// </summary>
     /// <param name="app">The application under test.</param>
@@ -418,7 +545,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     private TestedApp<Program> Build(out FakeTimeProvider time)
         => Build(out time, configureOptions: null);
 
-    private TestedApp<Program> Build(out FakeTimeProvider time, Action<OutboxOptions>? configureOptions)
+    private TestedApp<Program> Build(out FakeTimeProvider time, Action<OutboxOptions<TestDbContext>>? configureOptions)
         => Build(out time, configureOptions, out _);
 
     /// <summary>
@@ -430,7 +557,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     /// <returns>The application under test.</returns>
     private TestedApp<Program> Build(
         out FakeTimeProvider time,
-        Action<OutboxOptions>? configureOptions,
+        Action<OutboxOptions<TestDbContext>>? configureOptions,
         out TestLogger logger)
     {
         var fakeTime = new FakeTimeProvider(s_initialTime);

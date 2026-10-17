@@ -697,7 +697,7 @@ idempotent — delivery is at-least-once.
 
 #### Versioning: end the key with `.v1`
 
-`MessageType` is the storage key written to every row and the key the dispatcher is resolved by. **Renaming it
+`MessageType` is the storage key written to every row and how the outbox finds the type and handler of a row. **Renaming it
 strands every stored row**, so never derive it from a type name and never rename it — bump it.
 
 ```csharp

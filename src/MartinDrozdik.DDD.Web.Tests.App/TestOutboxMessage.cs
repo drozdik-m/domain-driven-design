@@ -24,6 +24,16 @@ public sealed record OtherTestOutboxMessage(int Number) : IOutboxMessage
 }
 
 /// <summary>
+/// A message type registered only with the outbox of <see cref="SecondTestDbContext"/>.
+/// </summary>
+/// <param name="OrderNumber">Any payload content a test wants to assert on - two words, so the naming policy of the serializer shows.</param>
+public sealed record SecondContextOutboxMessage(int OrderNumber) : IOutboxMessage
+{
+    /// <inheritdoc />
+    public static OutboxMessageType MessageType => "test.second-context.v1";
+}
+
+/// <summary>
 /// Records what the outbox handlers received, and decides whether they should fail.
 /// Registered as a singleton so a test can read it after the handler ran in its own scope.
 /// </summary>
@@ -47,6 +57,11 @@ public sealed class TestOutboxHandlerState
     public string FailureMessage { get; set; } = "Delivery failed on purpose.";
 
     /// <summary>
+    /// Gets or sets what else a handler does once it has recorded a message, e.g. cancel the run it is part of.
+    /// </summary>
+    public Action<string> OnHandled { get; set; } = static _ => { };
+
+    /// <summary>
     /// Records a handled message, or throws when the handlers are set to fail.
     /// </summary>
     /// <param name="content">The payload content of the handled message.</param>
@@ -58,6 +73,7 @@ public sealed class TestOutboxHandlerState
         }
 
         _handled.Enqueue(content);
+        OnHandled(content);
     }
 }
 
@@ -91,6 +107,23 @@ public sealed class OtherTestOutboxMessageHandler(TestOutboxHandlerState state)
         ArgumentNullException.ThrowIfNull(message);
 
         state.Handle($"other:{message.Number}");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Delivers <see cref="SecondContextOutboxMessage"/> by recording it.
+/// </summary>
+/// <param name="state">The shared record of handled messages.</param>
+public sealed class SecondContextOutboxMessageHandler(TestOutboxHandlerState state)
+    : IOutboxMessageHandler<SecondContextOutboxMessage>
+{
+    /// <inheritdoc />
+    public Task HandleAsync(SecondContextOutboxMessage message, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+
+        state.Handle($"second:{message.OrderNumber}");
         return Task.CompletedTask;
     }
 }

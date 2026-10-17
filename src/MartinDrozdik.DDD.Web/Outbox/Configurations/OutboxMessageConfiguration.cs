@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Outbox;
+using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox.Configurations.Conversions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,11 +9,10 @@ namespace MartinDrozdik.DDD.Web.Outbox.Configurations;
 
 /// <summary>
 /// Maps <see cref="OutboxMessage"/>.
-/// Applied by <see cref="ModelBuilderExtensions.AddOutbox(ModelBuilder, string, string?)"/>.
+/// Applied by <see cref="ModelBuilderExtensions.AddOutbox(ModelBuilder, TableName)"/>.
 /// </summary>
-/// <param name="tableName">Name of the table holding the messages.</param>
-/// <param name="schema">Schema of the table, or null for the default schema of the provider.</param>
-internal sealed class OutboxMessageConfiguration(string tableName, string? schema)
+/// <param name="table">The table holding the messages.</param>
+internal sealed class OutboxMessageConfiguration(TableName table)
     : IEntityTypeConfiguration<OutboxMessage>
 {
     /// <inheritdoc />
@@ -20,7 +20,7 @@ internal sealed class OutboxMessageConfiguration(string tableName, string? schem
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.ToTable(tableName, schema);
+        builder.ToTable(table.Name, table.Schema);
 
         builder.HasKey(m => m.Id);
         builder.Property(m => m.Id)
@@ -60,8 +60,8 @@ internal sealed class OutboxMessageConfiguration(string tableName, string? schem
                .IsConcurrencyToken()
                .IsRequired();
 
-        // Hot path: the dispatcher looking for deliverable messages.
+        // Hot path: the dispatcher looking for deliverable messages, longest waiting first.
         builder.HasIndex(m => new { m.ProcessedAt, m.FailedAt, m.AvailableAt })
-               .HasDatabaseName($"IX_{tableName}_ProcessedAt_FailedAt_AvailableAt");
+               .HasDatabaseName($"IX_{table.Name}_ProcessedAt_FailedAt_AvailableAt");
     }
 }

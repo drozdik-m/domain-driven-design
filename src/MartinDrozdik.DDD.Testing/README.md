@@ -205,13 +205,13 @@ Extensions:
 
 ```csharp
 // One batch, in a fresh scope, exactly as the dispatch task would.
-var delivered = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+var delivered = await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 
 // Same but keep going until nothing is left...
-var total = await app.DrainOutboxAsync(TestContext.Current.CancellationToken);
+var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 ```
 
-Both are direct invocations of `IOutboxProcessor`, not the job – no dead-lettering, no retry delays, no scheduling.
+Both are direct invocations of `IOutboxProcessor<TContext>`, not the job – no scheduling, no waiting. A failing handler still becomes a retry or a dead-letter, exactly as in production.
 
 The messages themselves are ordinary rows in your context, which is how you check that enqueueing happened.
 
@@ -231,6 +231,8 @@ Free tests that verify the outbox is wired up correctly and can process messages
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
     : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
+
+Every context has an outbox of its own, so write one per context passed to `AddOutbox`.
 
 A handler missing a constructor dependency doesn't fail at startup. It fails at 3 AM, inside the processor, where the failure is swallowed into a retry and then a dead-letter.
 

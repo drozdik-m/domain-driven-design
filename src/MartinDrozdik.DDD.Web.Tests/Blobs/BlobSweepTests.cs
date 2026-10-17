@@ -44,7 +44,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Act
         time.Advance(TimeSpan.FromHours(2));
         var result = await sweeper.SweepAsync(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, result.Expired);
@@ -145,13 +145,13 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
 
         time.Advance(TimeSpan.FromHours(2));
         await sweeper.SweepAsync(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         var lockedStillThere = store.TryRead(added.Value.Key, out _);
 
         // Act
         store.Heal(added.Value.Key);
         time.Advance(TimeSpan.FromDays(1));
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(lockedStillThere);
@@ -186,7 +186,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Act
         time.Advance(TimeSpan.FromHours(2));
         var result = await sweeper.SweepAsync(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         // The content of every pass is removed, not only that of the first one
@@ -297,7 +297,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Act
         time.Advance(TimeSpan.FromHours(2));
         var result = await sweeper.SweepAsync(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         // Both the row and its content survive, the delete message was taken back with the row
@@ -332,7 +332,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Act
         time.Advance(TimeSpan.FromHours(2));
         var result = await sweeper.SweepAsync(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         // The first pass did lose the row, so it was a later pass that removed it
@@ -523,7 +523,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         }
 
         /// <inheritdoc />
-        public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings? settings = null)
+        public OutboxTicket AddOnSave<TMessage>(TMessage message)
+            where TMessage : IOutboxMessage
+            => AddOnSave(message, OutboxMessageSettings.Default);
+
+        /// <inheritdoc />
+        public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings settings)
             where TMessage : IOutboxMessage
         {
             if (!_competed && message is DeleteBlobMessage delete)
@@ -538,7 +543,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         }
 
         /// <inheritdoc />
-        public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings? settings, CancellationToken cancellationToken)
+        public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
+            where TMessage : IOutboxMessage
+            => inner.AddNowAsync(message, cancellationToken);
+
+        /// <inheritdoc />
+        public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings settings, CancellationToken cancellationToken)
             where TMessage : IOutboxMessage
             => inner.AddNowAsync(message, settings, cancellationToken);
 

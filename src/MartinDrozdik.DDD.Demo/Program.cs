@@ -41,7 +41,7 @@ builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
     dbBuilder.UseSqlite(options.ConnectionString);
 
     // Optional: without it an enqueued message simply waits for the next poll
-    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<InvoiceDbContext>>());
 });
 
 // A background job on a schedule, also triggerable on demand from a controller
@@ -51,9 +51,10 @@ builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
     taskOptions.Period = TimeSpan.FromMinutes(1);
 });
 
-// A transactional outbox over the same context
+// A transactional outbox of the same context - every context gets an outbox of its own
 // - AddOutbox is the engine
-// - AddOutboxDispatchRecurringTask is the schedule that drives it - drop to drive IOutboxProcessor from Quartz.NET or anything else instead.
+// - AddOutboxDispatchRecurringTask is the consumer. Drop it to drive IOutboxProcessor<InvoiceDbContext> from Quartz.NET instead,
+//   or to only enqueue here and deliver from a worker app making the identical AddOutbox call plus the schedule.
 builder.AddOutbox<InvoiceDbContext>(
     outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
     config => config
@@ -77,7 +78,7 @@ builder.AddBlobSweepRecurringTask(taskOptions =>
     taskOptions.Period = TimeSpan.FromHours(1);
 });
 
-builder.AddOutboxDispatchRecurringTask(taskOptions =>
+builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(taskOptions =>
 {
     taskOptions.InitialDelay = TimeSpan.FromSeconds(10);
     taskOptions.Period = TimeSpan.FromSeconds(30);

@@ -1,9 +1,14 @@
 using MartinDrozdik.DDD.Blobs;
+using MartinDrozdik.DDD.Blobs.Exceptions;
+using MartinDrozdik.DDD.Blobs.Outbox;
 using MartinDrozdik.DDD.Blobs.Stores;
 using MartinDrozdik.DDD.Blobs.Sweepers;
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Blobs.Options;
 using MartinDrozdik.DDD.Web.Blobs.Stores;
 using MartinDrozdik.DDD.Web.Blobs.Sweepers;
+using MartinDrozdik.DDD.Web.Databases;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.EntityFrameworkCore;
@@ -24,8 +29,12 @@ public static class HostApplicationBuilderExtensions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Requires the outbox</b> - <c>AddOutbox&lt;TDbContext&gt;</c> with <c>WithBlobs()</c>.
-    /// It's the only way to guarantee that the catalogue and the content are always in sync.
+    /// <b>Requires the outbox of the same context</b> - <c>AddOutbox&lt;TDbContext&gt;</c> with <c>WithBlobs()</c>, called before this.
+    /// It's the only way to guarantee that the catalogue and the content are always in sync:
+    /// every removal of content is a message of that outbox, committed together with the catalogue.
+    /// </para>
+    /// <para>
+    /// Blob storage is added once per application, over one context.
     /// </para>
     /// <para>
     /// <b>Every container is registered</b> with <see cref="BlobsConfig.WithContainer"/>.
@@ -35,7 +44,7 @@ public static class HostApplicationBuilderExtensions
     /// </para>
     /// <list type="bullet">
     ///     <item><see cref="AddFileBlobStore"/>, or your own <see cref="IBlobStore"/> (where the content is stored),</item>
-    ///     <item>map the blob DB table via <see cref="ModelBuilderExtensions.AddBlobs(ModelBuilder, string, string?)"/> in your <see cref="DbContext.OnModelCreating(ModelBuilder)"/>,</item>
+    ///     <item>map the blob DB table via <see cref="Blobs.ModelBuilderExtensions.AddBlobs(ModelBuilder)"/> or <see cref="Blobs.ModelBuilderExtensions.AddBlobs(ModelBuilder, TableName)"/> in your <see cref="DbContext.OnModelCreating(ModelBuilder)"/>,</item>
     ///     <item>register sweeper of expired blobs (<see cref="AddBlobSweepRecurringTask"/>).</item>
     /// </list>
     /// </remarks>
@@ -43,8 +52,13 @@ public static class HostApplicationBuilderExtensions
     /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
     /// <param name="config">Registers the containers and configures the sweep.</param>
     /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
+    /// <exception cref="BlobException">
+    /// The outbox of <typeparamref name="TDbContext"/> has not been added, it does not deliver the blob messages (<c>WithBlobs()</c>),
+    /// or blob storage is already added.
+    /// </exception>
     /// <example>
     /// <code>
+    /// builder.AddOutbox&lt;InvoiceDbContext&gt;(config =&gt; config.WithBlobs());
     /// builder.AddBlobs&lt;InvoiceDbContext&gt;(blobs =&gt; blobs
     ///     .WithContainer("invoice-scans", options =&gt; options.MaxSize = 20 * 1024 * 1024));
     /// builder.AddFileBlobStore(files =&gt; files
@@ -59,9 +73,17 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(config);
 
+        EnsureOutboxDeliversBlobs<TDbContext>(builder.Services);
+
+        // The registry, options and storage exist once per application, so a second call would be silently dropped
+        if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(BlobContainerRegistry)))
+        {
+            throw new BlobException($"Blob storage is already added, so it cannot be added over {typeof(TDbContext).GetReadableName()} too. Call AddBlobs once, registering every container in that call.");
+        }
+
         // Build the registry
         var registry = new BlobContainerRegistry();
-        builder.Services.TryAddSingleton(registry);
+        builder.Services.AddSingleton(registry);
 
         builder.Services.AddOptions<BlobSweepOptions>().ValidateOnStart();
 
@@ -145,5 +167,28 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
 
         return builder.AddRecurringTask(configure);
+    }
+
+    /// <summary>
+    /// Makes sure the outbox of <typeparamref name="TDbContext"/> is added and delivers the blob messages,
+    /// so every removal of content is committed together with the catalogue of that same context.
+    /// </summary>
+    /// <typeparam name="TDbContext">The context that owns the catalogue table.</typeparam>
+    /// <param name="services">The services the outbox should have been added to.</param>
+    /// <exception cref="BlobException">The outbox is missing, or it does not deliver <see cref="DeleteBlobMessage"/>.</exception>
+    private static void EnsureOutboxDeliversBlobs<TDbContext>(IServiceCollection services)
+        where TDbContext : DbContext
+    {
+        var contextName = typeof(TDbContext).GetReadableName();
+
+        if (!OutboxRegistry<TDbContext>.TryFind(services, out var outbox))
+        {
+            throw new BlobException($"Blob storage over {contextName} requires the outbox of {contextName}, which delivers every removal of content. Call AddOutbox<{contextName}>(..., config => config.WithBlobs()) before AddBlobs<{contextName}>.");
+        }
+
+        if (!outbox.Contains(DeleteBlobMessage.MessageType))
+        {
+            throw new BlobException($"The outbox of {contextName} does not deliver {nameof(DeleteBlobMessage)}, which every removal of blob content rides on. Add WithBlobs() to the configuration of AddOutbox<{contextName}>.");
+        }
     }
 }

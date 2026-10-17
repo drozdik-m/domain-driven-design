@@ -22,7 +22,7 @@ public class InvoiceDbContext(DbContextOptions<InvoiceDbContext> options, TimePr
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
 
-        modelBuilder.AddOutbox();
+        modelBuilder.AddOutbox("OutboxMessage");
         modelBuilder.AddBlobs();
 
         // Register audit shadow properties

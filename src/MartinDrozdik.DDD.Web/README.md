@@ -347,7 +347,7 @@ Each task logs under a category of its own, `MartinDrozdik.DDD.Web.RecurringTask
 ```json
 "Logging": {
   "LogLevel": {
-    "MartinDrozdik.DDD.Web.RecurringTasks.RecurringTaskHost.MartinDrozdik.DDD.Web.Outbox.OutboxDispatchRecurringTask": "Warning"
+    "MartinDrozdik.DDD.Web.RecurringTasks.RecurringTaskHost.MartinDrozdik.DDD.Web.Outbox.OutboxDispatchRecurringTask<InvoiceDbContext>": "Warning"
   }
 }
 ```
@@ -410,22 +410,22 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
 
-    modelBuilder.AddOutbox(); // table "OutboxMessage";
-    // modelBuilder.AddOutbox("Messages", "outbox") to move it
+    modelBuilder.AddOutbox("OutboxMessage");
+    // modelBuilder.AddOutbox(new TableName("Messages", "outbox")) to put it in a schema
 }
 ```
 
-Register the engine, the message types, and the schedule that drives it:
+Every context has a separate outbox table.
 
 ```csharp
 builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7), // or null for the defaults
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7), // or AddOutbox<InvoiceDbContext>(config => ...) for the defaults
     config => config
         .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
         .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
 
 // The message consumer invoking the dispatch loop
-builder.AddOutboxDispatchRecurringTask(schedule =>
+builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(schedule =>
 {
     schedule.InitialDelay = TimeSpan.FromSeconds(10);
     schedule.Period = TimeSpan.FromSeconds(30);
@@ -485,7 +485,11 @@ Use health check to monitor large backlogs or dead-lettered messages:
 
 ```csharp
 builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>());
+// reported as "outbox-InvoiceDbContext", tagged "ready" - or pick your own:
+// checks.AddOutboxHealthCheck<InvoiceDbContext>("invoice-outbox", ["ready"], degradedBacklogThreshold: 500)
 ```
+
+Unhealthy while any message is dead-lettered, degraded while more messages are *overdue* than the threshold.
 
 #### Versioning – end the key with `.v1`
 
@@ -515,30 +519,57 @@ Start at `.v1` on day one, even when you're sure it'll never change. It will.
 
 #### Deliver it now, not in 30 seconds (optional)
 
-Attach `OutboxTaskTriggerInterceptor` to your context and wake up the dispatch loop immediately to avoid waiting for the next poll.
+Attach `OutboxTaskTriggerInterceptor<TContext>` to your context and wake up the dispatch loop immediately to avoid waiting for the next poll.
 
 ```csharp
 builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
-    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<InvoiceDbContext>>());
 });
 ```
 
-You can also inject `IRecurringTaskTrigger<OutboxDispatchRecurringTask>` and call `Trigger()` from anywhere. It's **coalesced**.
+You can also inject `IRecurringTaskTrigger<OutboxDispatchRecurringTask<InvoiceDbContext>>` and call `Trigger()` from anywhere. It's **coalesced**.
 
 *Purely about responsiveness. Leave it out and the message simply waits for the next poll.*
 
 #### Bring your own scheduler
 
-`AddOutboxDispatchRecurringTask` is just a thin shell. Skip it and drive `IOutboxProcessor` from Quartz.NET, Hangfire, or a cron hitting an endpoint:
+`AddOutboxDispatchRecurringTask` is just a thin shell. Skip it and drive `IOutboxProcessor<TContext>` from Quartz.NET, Hangfire, or a cron hitting an endpoint:
 
 ```csharp
-public sealed class OutboxJob(IOutboxProcessor processor) : IJob
+public sealed class InvoiceOutboxJob(IOutboxProcessor<InvoiceDbContext> processor) : IJob
 {
     public Task Execute(IJobExecutionContext context)
         => processor.ProcessPendingAsync(context.CancellationToken);
 }
+```
+
+#### Several contexts – an outbox each
+
+**The unit of isolation is the `DbContext`.** Call `AddOutbox<TContext>` once per context.
+
+```csharp
+// Shared infrastructure project
+public static OutboxConfig WithEmails(this OutboxConfig config)
+    => config.WithMessage<SendEmailMessage, SendEmailHandler>();
+
+builder.AddOutbox<InvoiceDbContext>(config => config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>().WithEmails());
+builder.AddOutbox<ShippingDbContext>(config => config.WithEmails());
+```
+
+The handler is registered once.
+
+#### Worker app – plug the processing in and out
+
+Producing and consuming messages can be in separate apps.
+
+```csharp
+// Both apps, e.g. from a shared extension method of the bounded context
+builder.AddOutbox<InvoiceDbContext>(config => config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>());
+
+// Worker only
+builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(schedule => schedule.Period = TimeSpan.FromSeconds(30));
 ```
 
 ### Blob Storage
@@ -555,7 +586,7 @@ Three components:
 | Catalogue | the `Blob` table | the row, the metadata, the transaction |
 | Facade | `IBlobStorage` | coordinates both, applies policies, main interface for you |
 
-**Blob storage requires the outbox.** Every removal of content is an outbox message: after a delete commits, after a blob expires, and after an upload that never committed its row.
+**Blob storage requires the outbox of the same context.** Every removal of content is an outbox message: after a delete commits, after a blob expires, and after an upload that never committed its row.
 
 Map the catalogue in your `OnModelCreating`, next to the outbox:
 
@@ -563,14 +594,20 @@ Map the catalogue in your `OnModelCreating`, next to the outbox:
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
-    modelBuilder.AddOutbox();
-    modelBuilder.AddBlobs();
+    modelBuilder.AddOutbox("OutboxMessage");
+    modelBuilder.AddBlobs(); // table "Blob", or AddBlobs(new TableName("Blob", "files"))
 }
 ```
 
-Register the engine with its containers, pick a store, and register its messages into the outbox:
+Register its messages into the outbox of the context first, then the engine with its containers, and pick a store:
 
 ```csharp
+builder.AddOutbox<InvoiceDbContext>(
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
+    config => config
+        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+        .WithBlobs());   // required - every removal of content rides on the outbox
+
 builder.AddBlobs<InvoiceDbContext>(blobs => blobs
     .WithContainer("invoice-scans", containerOptions =>
     {
@@ -584,12 +621,6 @@ builder.AddBlobs<InvoiceDbContext>(blobs => blobs
 builder.AddFileBlobStore(files => files
     .WithContainer("invoice-scans", Path.Combine(builder.Environment.ContentRootPath, "blobs", "invoice-scans"))
     .WithContainer("avatars", "/mnt/shared/avatars"));
-
-builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
-    config => config
-        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
-        .WithBlobs());   // required - every removal of content rides on the outbox
 
 builder.AddBlobSweepRecurringTask(taskOptions =>
 {

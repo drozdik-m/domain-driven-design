@@ -3,6 +3,7 @@ using MartinDrozdik.DDD.Blobs.Checksums;
 using MartinDrozdik.DDD.Blobs.Models;
 using MartinDrozdik.DDD.Identities.Converters;
 using MartinDrozdik.DDD.Web.Blobs.Configurations.Conversions;
+using MartinDrozdik.DDD.Web.Databases;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -10,11 +11,10 @@ namespace MartinDrozdik.DDD.Web.Blobs.Configurations;
 
 /// <summary>
 /// Maps <see cref="Blob"/>.
-/// Applied by <see cref="ModelBuilderExtensions.AddBlobs(ModelBuilder, string, string?)"/>.
+/// Applied by <see cref="ModelBuilderExtensions.AddBlobs(ModelBuilder, TableName)"/>.
 /// </summary>
-/// <param name="tableName">Name of the table holding the catalogue.</param>
-/// <param name="schema">Schema of the table, or null for the default schema of the provider.</param>
-internal sealed class BlobConfiguration(string tableName, string? schema)
+/// <param name="table">The table holding the catalogue.</param>
+internal sealed class BlobConfiguration(TableName table)
     : IEntityTypeConfiguration<Blob>
 {
     private static readonly IdentityConverter<BlobId, Guid> s_idConverter = IdentityConverter.CreateGuid(key => new BlobId(key));
@@ -24,7 +24,7 @@ internal sealed class BlobConfiguration(string tableName, string? schema)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.ToTable(tableName, schema);
+        builder.ToTable(table.Name, table.Schema);
 
         builder.HasKey(b => b.Id);
         builder.Property(b => b.Id)
@@ -91,6 +91,6 @@ internal sealed class BlobConfiguration(string tableName, string? schema)
 
         // The expiry half of the sweep.
         builder.HasIndex(b => b.ExpiresAt)
-               .HasDatabaseName($"IX_{tableName}_ExpiresAt");
+               .HasDatabaseName($"IX_{table.Name}_ExpiresAt");
     }
 }

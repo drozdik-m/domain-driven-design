@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Web.Outbox;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Testing.Outbox;
@@ -9,44 +10,50 @@ namespace MartinDrozdik.DDD.Testing.Outbox;
 public static class OutboxTestExtensions
 {
     /// <summary>
-    /// Delivers one batch of pending outbox messages, in a fresh dependency injection scope, exactly as the dispatch task would.
+    /// Delivers one batch of pending messages of the outbox of <typeparamref name="TDbContext"/>, in a fresh dependency injection scope,
+    /// exactly as its dispatch task would.
     /// </summary>
     /// <remarks>
-    /// This is a direct invocation of <see cref="IOutboxProcessor"/>, not the loop.
+    /// This is a direct invocation of <see cref="IOutboxProcessor{TDbContext}"/>, not the loop.
     /// Handler failures are still swallowed into retries and dead-letters.
     /// </remarks>
+    /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
     /// <param name="services">The service provider of the application.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
     /// <returns>The number of messages delivered successfully.</returns>
-    public static async Task<int> ProcessOutboxAsync(this IServiceProvider services, CancellationToken cancellationToken)
+    public static async Task<int> ProcessOutboxAsync<TDbContext>(this IServiceProvider services, CancellationToken cancellationToken)
+        where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(services);
 
         await using var scope = services.CreateAsyncScope();
-        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor<TDbContext>>();
         return await processor.ProcessPendingAsync(cancellationToken);
     }
 
-    /// <inheritdoc cref="ProcessOutboxAsync(IServiceProvider, CancellationToken)"/>
+    /// <inheritdoc cref="ProcessOutboxAsync{TDbContext}(IServiceProvider, CancellationToken)"/>
     /// <param name="testedApp">The application under test.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
-    public static Task<int> ProcessOutboxAsync(this ITestedApp testedApp, CancellationToken cancellationToken)
+    public static Task<int> ProcessOutboxAsync<TDbContext>(this ITestedApp testedApp, CancellationToken cancellationToken)
+        where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(testedApp);
-        return testedApp.Services.ProcessOutboxAsync(cancellationToken);
+        return testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
     }
 
     /// <summary>
-    /// Delivers pending outbox messages repeatedly until nothing is left to deliver.
+    /// Delivers pending messages of the outbox of <typeparamref name="TDbContext"/> repeatedly until nothing is left to deliver.
     /// </summary>
     /// <remarks>
     /// Useful when a handler enqueues further messages, or when more messages are pending than one batch holds.
     /// Messages waiting on a retry delay are not delivered, so this terminates.
     /// </remarks>
+    /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
     /// <param name="testedApp">The application under test.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
     /// <returns>The total number of messages delivered successfully.</returns>
-    public static async Task<int> DrainOutboxAsync(this ITestedApp testedApp, CancellationToken cancellationToken)
+    public static async Task<int> DrainOutboxAsync<TDbContext>(this ITestedApp testedApp, CancellationToken cancellationToken)
+        where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(testedApp);
 
@@ -54,7 +61,7 @@ public static class OutboxTestExtensions
         int dispatched;
         do
         {
-            dispatched = await testedApp.Services.ProcessOutboxAsync(cancellationToken);
+            dispatched = await testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
             total += dispatched;
         }
         while (dispatched > 0);

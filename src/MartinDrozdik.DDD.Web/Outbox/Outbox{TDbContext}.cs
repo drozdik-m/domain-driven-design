@@ -5,6 +5,7 @@ using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,22 +19,31 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
 /// <param name="context">The caller's context, which the message is added to.</param>
 /// <param name="scopeFactory">Creates the scope a unit of work of its own is resolved from.</param>
-/// <param name="registry">The registered message types, used to reject unhandled messages early.</param>
+/// <param name="registry">The message types of this outbox, used to reject unregistered messages early.</param>
 /// <param name="options">Options carrying the serializer configuration and the payload limit.</param>
 /// <param name="timeProvider">Source of the enqueue time.</param>
 internal sealed class Outbox<TDbContext>(
     TDbContext context,
     IServiceScopeFactory scopeFactory,
-    OutboxRegistry registry,
-    IOptions<OutboxOptions> options,
+    OutboxRegistry<TDbContext> registry,
+    IOptions<OutboxOptions<TDbContext>> options,
     TimeProvider timeProvider) : IOutbox<TDbContext>
     where TDbContext : DbContext
 {
+    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+
     /// <inheritdoc />
-    public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings? settings = null)
+    public OutboxTicket AddOnSave<TMessage>(TMessage message)
+        where TMessage : IOutboxMessage
+        => AddOnSave(message, OutboxMessageSettings.Default);
+
+    /// <inheritdoc />
+    public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings settings)
         where TMessage : IOutboxMessage
     {
-        var outboxMessage = CreateOutboxMessage(message, settings ?? OutboxMessageSettings.Default);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var outboxMessage = CreateOutboxMessage(message, settings);
 
         // Only tracked - the caller's own SaveChanges commits the message together with whatever produced it.
         context.Set<OutboxMessage>().Add(outboxMessage);
@@ -42,10 +52,17 @@ internal sealed class Outbox<TDbContext>(
     }
 
     /// <inheritdoc />
-    public async Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings? settings, CancellationToken cancellationToken)
+    public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
+        where TMessage : IOutboxMessage
+        => AddNowAsync(message, OutboxMessageSettings.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings settings, CancellationToken cancellationToken)
         where TMessage : IOutboxMessage
     {
-        var outboxMessage = CreateOutboxMessage(message, settings ?? OutboxMessageSettings.Default);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var outboxMessage = CreateOutboxMessage(message, settings);
 
         // Committed on its own right now
         await InOwnUnitOfWorkAsync(async ownContext =>
@@ -169,7 +186,7 @@ internal sealed class Outbox<TDbContext>(
     /// <param name="message">The message to enqueue.</param>
     /// <param name="settings">How the message is enqueued.</param>
     /// <returns>The message, ready to be stored.</returns>
-    /// <exception cref="OutboxException">The message type has no registered handler, or the message cannot be stored.</exception>
+    /// <exception cref="OutboxException">The message type is not registered with this outbox, or the message cannot be stored.</exception>
     private OutboxMessage CreateOutboxMessage<TMessage>(TMessage message, OutboxMessageSettings settings)
         where TMessage : IOutboxMessage
     {
@@ -178,7 +195,7 @@ internal sealed class Outbox<TDbContext>(
         var messageType = TMessage.MessageType;
         if (!registry.Contains(messageType))
         {
-            throw new OutboxException($"Outbox message type '{messageType}' has no registered handler. Register it with WithMessage<{typeof(TMessage).GetReadableName()}, ...>() when calling AddOutbox.");
+            throw new OutboxException($"Outbox message type '{messageType}' is not registered with the outbox of {s_outboxName}. Register it with WithMessage<{typeof(TMessage).GetReadableName()}, ...>() when calling AddOutbox<{s_outboxName}>.");
         }
 
         var payload = SerializeMessage(message, messageType);

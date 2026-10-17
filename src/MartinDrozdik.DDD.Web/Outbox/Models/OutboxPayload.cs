@@ -8,13 +8,13 @@ namespace MartinDrozdik.DDD.Web.Outbox.Models;
 /// Written to and read from the message payload column.
 /// </summary>
 /// <remarks>
-/// Unbounded here but should be generally bounded by <see cref="Options.OutboxOptions.MaxPayloadLength"/> to avoid filling the database with large content.
+/// Unbounded here but should be generally bounded by <see cref="Options.OutboxOptions{TDbContext}.MaxPayloadLength"/> to avoid filling the database with large content.
 /// </remarks>
 [DebuggerDisplay("{Value}")]
 public sealed class OutboxPayload : ValueObject
 {
     /// <summary>
-    /// The placeholdernon-null default before Entity Framework materializes the real value.
+    /// The non-null placeholder used before Entity Framework materializes the real value.
     /// </summary>
     internal static readonly OutboxPayload s_empty = new();
 

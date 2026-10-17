@@ -42,7 +42,8 @@ public class TestedAppBuilderRecurringTaskTests(ITestOutputHelper testOutputHelp
 
         // Assert
         Assert.Single(hostedServices.OfType<RecurringTaskHost<TestRecurringTask>>());
-        Assert.Single(hostedServices.OfType<RecurringTaskHost<OutboxDispatchRecurringTask>>());
+        Assert.Single(hostedServices.OfType<RecurringTaskHost<OutboxDispatchRecurringTask<TestDbContext>>>());
+        Assert.Single(hostedServices.OfType<RecurringTaskHost<OutboxDispatchRecurringTask<SecondTestDbContext>>>());
         Assert.Single(hostedServices.OfType<RecurringTaskHost<BlobSweepRecurringTask>>());
     }
 

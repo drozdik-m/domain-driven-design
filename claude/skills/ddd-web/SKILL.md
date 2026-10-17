@@ -129,7 +129,7 @@ builder.AddAppDbContext<YourDbContext>(dbBuilder =>
 builder.AddAppDbContext<YourDbContext>((options, provider, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
-    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<YourDbContext>>());
 });
 ```
 
@@ -264,7 +264,8 @@ tasks themselves registered. Integration tests get this for free — see the `dd
 
 A transactional outbox over the same `DbContext` as your aggregates: the message row and the aggregate change
 are written by **one** `SaveChangesAsync`, so a side effect can never be half-done. A background loop delivers
-afterwards, at least once.
+afterwards, at least once. **Every context has an outbox of its own** — its own table, message types, options,
+processor, dispatch task, trigger and health check.
 
 Use it whenever a handler both changes state and causes something outside the database (email, webhook, another
 service). Not for work that is purely inside the same transaction.
@@ -291,22 +292,24 @@ public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageH
 Four pieces of wiring, all required except where noted:
 
 ```csharp
-// 1. Map the table into the context that owns the aggregates — same DB, same transaction
+// 1. Map the table into the context that owns the aggregates — same DB, same transaction.
+//    The table name is required: two contexts sharing a database need two names (or schemas).
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.ApplyConfigurationsFromAssembly(typeof(InvoiceDbContext).Assembly);
-    modelBuilder.AddOutbox();                       // table "OutboxMessage"; AddOutbox("Messages", "outbox") to move it
+    modelBuilder.AddOutbox("OutboxMessage");        // or AddOutbox(new TableName("Messages", "outbox"))
 }
 
-// 2. The engine + every message type. configureOptions is positional and NOT optional — pass null for defaults.
+// 2. The outbox of the context + every message type of it. Once per context.
 builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
+    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),   // drop this argument for the defaults
     config => config
         .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
         .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
 
-// 3. The schedule. Skip it only when driving IOutboxProcessor from Quartz.NET/Hangfire/cron yourself.
-builder.AddOutboxDispatchRecurringTask(schedule =>
+// 3. The schedule — what plugs the delivery in. Skip it in an app that only enqueues (a worker with the identical
+//    AddOutbox delivers), or when driving IOutboxProcessor<InvoiceDbContext> from Quartz.NET/Hangfire/cron yourself.
+builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(schedule =>
 {
     schedule.InitialDelay = TimeSpan.FromSeconds(10);
     schedule.Period = TimeSpan.FromSeconds(30);
@@ -316,7 +319,7 @@ builder.AddOutboxDispatchRecurringTask(schedule =>
 builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
 {
     dbBuilder.UseSqlite(options.ConnectionString);
-    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor>());
+    dbBuilder.AddInterceptors(provider.GetRequiredService<OutboxTaskTriggerInterceptor<InvoiceDbContext>>());
 });
 ```
 
@@ -339,25 +342,30 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<
 }
 ```
 
-`AddOnSave()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type has no registered
-handler or the payload exceeds `MaxPayloadLength`. Never call `SaveChangesAsync` just to flush a message.
+`AddOnSave()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type is not registered
+with the outbox of that context or the payload exceeds `MaxPayloadLength`. Never call `SaveChangesAsync` just to flush
+a message. `AddOnSave(message, new OutboxMessageSettings { AvailableAt = later })` delivers it later.
 
 #### Same context as the aggregate — always check
 
 The outbox only works if the message and the aggregate are saved by **one** `SaveChangesAsync` on **one** context
 instance. Getting this wrong loses messages silently. Check every time you wire or use it:
 
-- **Registration** — `AddOutbox<TDbContext>` names the context that owns the aggregates, and `modelBuilder.AddOutbox()`
+- **Registration** — `AddOutbox<TDbContext>` names the context that owns the aggregates, and `modelBuilder.AddOutbox(...)`
   is called in the `OnModelCreating` of that same context. Anything else riding on the outbox is registered over
-  it too: `AddBlobs<InvoiceDbContext>` pairs with `AddOutbox<InvoiceDbContext>` (a mismatch fails to resolve).
-- **One outbox per application** — call `AddOutbox` once, registering every message type in that call. A second
-  call throws, even over the same context.
+  it too: `AddBlobs<InvoiceDbContext>` requires `AddOutbox<InvoiceDbContext>` with `WithBlobs()` called *before* it
+  (otherwise it throws).
+- **One outbox per context** — call `AddOutbox<TDbContext>` once per context, registering every message type of that
+  context in that call. A second call for the same context throws; other contexts get outboxes of their own.
 - **Handlers** — inject `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext` and save with that context. Never pair
   it with a context from `IDbContextFactory`, a hand-rented pool instance or `new` — same type, different instance,
   and its save never sees the tracked message. Types cannot catch that one.
-- **Several contexts** — if the aggregate lives in a context without the outbox, the outbox cannot cover that change.
-  Move the aggregate (or the outbox) so they share a context; never add a second save on another context
-  "for the message".
+- **Several contexts** — each bounded context enqueues into its own outbox (`IOutbox<ShippingDbContext>` next to
+  `ShippingDbContext`). If the aggregate lives in a context without an outbox, add one to that context; never add a
+  second save on another context "for the message".
+- **Shared message types** — one message + handler in a shared project, offered as an `OutboxConfig` extension
+  (`config.WithEmails()`) and registered with every context that needs it. The handler is registered once; the same
+  type with another handler throws.
 
 #### Versioning the message type — always end the key with `.v1`
 
@@ -380,10 +388,11 @@ config.WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()       
 Adding an optional member keeps the key (an old payload still deserializes). Anything a stored v1 payload cannot
 satisfy bumps it. **Write `.v1` on the very first version** — a key with no version segment has nowhere to go.
 
-Keys are `[A-Za-z0-9._-]`, at most 100 characters, and compared case-insensitively; a duplicate key throws
-`OutboxException` while the container is being built.
+Keys are `[A-Za-z0-9._-]`, at most 100 characters, and compared case-insensitively. **A key means one message type
+within an outbox**, and a message type has one handler across the whole application: a duplicate key in one outbox, or a
+shared type with another handler, throws `OutboxException` while the container is being built.
 
-`OutboxOptions` — configured in code, validated on start:
+`OutboxOptions<TDbContext>` — configured in code per context, validated on start:
 
 | Property | Default | Meaning |
 |---|---|---|
@@ -401,17 +410,19 @@ Delivery semantics, worth stating in code review:
 - Claims use a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are safe.
 - Handler throws → retried on the backoff; retries exhausted → dead-lettered (`FailedAt` set), kept for inspection,
   never delivered again.
-- An unregistered message type is retried, not dead-lettered on sight (rolling deploys see each other's messages).
+- A processor delivers only the message types of its own outbox. An unregistered message type is retried, not
+  dead-lettered on sight (rolling deploys see each other's messages).
 - `OperationCanceledException` on shutdown is not a failure: the lease simply expires.
 
-Health check, reporting `pending` / `overdue` / `deadLettered`, unhealthy on any dead-letter, degraded above the
-backlog threshold:
+Health check per context, reporting `pending` / `overdue` / `deadLettered`, unhealthy on any dead-letter, degraded
+while more messages are overdue than the threshold (scheduled messages never count):
 
 ```csharp
 builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>(degradedBacklogThreshold: 1000));
+// named "outbox-InvoiceDbContext", tagged "ready"; AddOutboxHealthCheck<T>(name, tags, threshold) to choose
 ```
 
-Testing an outbox is in the `ddd-testing` skill — every app with an outbox gets an `OutboxSmokeTests<Program, TDbContext>`.
+Testing an outbox is in the `ddd-testing` skill — every outbox context gets an `OutboxSmokeTests<Program, TDbContext>`.
 
 ### OpenTelemetry
 

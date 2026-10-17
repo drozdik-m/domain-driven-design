@@ -7,12 +7,12 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace MartinDrozdik.DDD.Web.Outbox.Interceptors;
 
 /// <summary>
-/// Wakes the outbox dispatch recurring task as soon as a transaction that enqueued messages has committed.
+/// Wakes the dispatch recurring task of the outbox over <typeparamref name="TDbContext"/> as soon as a transaction that enqueued messages has committed.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Without it a message waits up to one polling period before anything looks at it.
-/// The trigger only shortens that wait, to this interceptor is not required for correctness, only for responsiveness.
+/// The trigger only shortens that wait, so this interceptor is not required for correctness, only for responsiveness.
 /// </para>
 /// <para>
 /// A plain <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> commits on its own, so the trigger fires right after it.
@@ -31,13 +31,15 @@ namespace MartinDrozdik.DDD.Web.Outbox.Interceptors;
 /// builder.AddAppDbContext&lt;InvoiceDbContext&gt;((options, provider, dbBuilder) =&gt;
 /// {
 ///     dbBuilder.UseSqlite(options.ConnectionString);
-///     dbBuilder.AddInterceptors(provider.GetRequiredService&lt;OutboxTaskTriggerInterceptor&gt;());
+///     dbBuilder.AddInterceptors(provider.GetRequiredService&lt;OutboxTaskTriggerInterceptor&lt;InvoiceDbContext&gt;&gt;());
 /// });
 /// </code>
 /// </example>
-/// <param name="trigger">The trigger of the built-in dispatch task.</param>
-public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDispatchRecurringTask> trigger)
+/// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+/// <param name="trigger">The trigger of the built-in dispatch task of the outbox.</param>
+public sealed class OutboxTaskTriggerInterceptor<TDbContext>(IRecurringTaskTrigger<OutboxDispatchRecurringTask<TDbContext>> trigger)
     : SaveChangesInterceptor, IDbTransactionInterceptor
+    where TDbContext : DbContext
 {
     /// <summary>
     /// Whether the save currently running is writing new messages.
@@ -177,14 +179,15 @@ public sealed class OutboxTaskTriggerInterceptor(IRecurringTaskTrigger<OutboxDis
     }
 
     /// <summary>
-    /// Decides whether the save is writing new messages.
+    /// Decides whether the save is writing new messages into the outbox of <typeparamref name="TDbContext"/>.
     /// </summary>
     /// <param name="context">The context being saved.</param>
-    /// <returns>True when the context has deliverable messages waiting to be inserted, else false.</returns>
+    /// <returns>True when the context is a <typeparamref name="TDbContext"/> with deliverable messages waiting to be inserted, else false.</returns>
     private static bool HasNewOutboxMessages(DbContext? context)
-        => context?.ChangeTracker
-            .Entries<OutboxMessage>()
-            .Any(entry => entry.State == EntityState.Added && entry.Entity.AvailableAt <= entry.Entity.OccurredAt) == true; // entry.Entity.OccurredAt is basically the current time
+        => context is TDbContext
+           && context.ChangeTracker
+               .Entries<OutboxMessage>()
+               .Any(entry => entry.State == EntityState.Added && entry.Entity.AvailableAt <= entry.Entity.OccurredAt); // entry.Entity.OccurredAt is basically the current time
 
     /// <summary>
     /// Wakes the dispatch task when the completed save wrote new messages,

@@ -42,11 +42,44 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, dispatched);
         Assert.False(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_removal_rides_on_the_outbox_of_the_context_holding_the_catalogue_only()
+    {
+        // Arrange
+        // The test app has a second context with an outbox of its own, which must never see blob removals
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+
+            var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        using var verification = app.Services.CreateScope();
+        var removalsInCatalogueContext = await verification.ServiceProvider.GetRequiredService<TestDbContext>()
+            .Set<OutboxMessage>()
+            .CountAsync(m => m.MessageType == DeleteBlobMessage.MessageType, TestContext.Current.CancellationToken);
+        var messagesInSecondContext = await verification.ServiceProvider.GetRequiredService<SecondTestDbContext>()
+            .Set<OutboxMessage>()
+            .CountAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, removalsInCatalogueContext);
+        Assert.Equal(0, messagesInSecondContext);
     }
 
     [Fact]
@@ -74,7 +107,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.DrainOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.DrainOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, dispatched);
@@ -104,7 +137,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -141,7 +174,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Assert
-        var dispatched = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         Assert.Equal(0, dispatched);
         Assert.True(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
 

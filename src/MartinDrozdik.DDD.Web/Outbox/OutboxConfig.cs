@@ -1,37 +1,88 @@
+using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
-using MartinDrozdik.DDD.Web.Outbox.Dispatch;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MartinDrozdik.DDD.Web.Outbox;
 
 /// <summary>
-/// Registers the message types the outbox knows how to deliver.
+/// Registers the message types for one outbox.
 /// </summary>
-/// <param name="services">Services to register handlers and dispatchers to.</param>
-/// <param name="registry">The registry recording every registered message type.</param>
-public sealed class OutboxConfig(IServiceCollection services, OutboxRegistry registry)
+/// <example>
+/// <code>
+/// public static OutboxConfig WithEmails(this OutboxConfig config)
+///     =&gt; config.WithMessage&lt;SendEmailMessage, SendEmailHandler&gt;();
+/// </code>
+/// </example>
+public sealed class OutboxConfig
 {
+    private readonly IServiceCollection _services;
+    private readonly Action<OutboxRegistration> _register;
+
     /// <summary>
-    /// Registers the handler that delivers <typeparamref name="TMessage"/>.
+    /// Initializes a new instance of the <see cref="OutboxConfig"/> class.
+    /// </summary>
+    /// <param name="services">Services to register handlers to.</param>
+    /// <param name="register">Records a message type in the registry of the outbox being configured.</param>
+    internal OutboxConfig(IServiceCollection services, Action<OutboxRegistration> register)
+    {
+        _services = services;
+        _register = register;
+    }
+
+    /// <summary>
+    /// Registers <typeparamref name="TMessage"/> with this outbox, together with the delivery handler.
     /// </summary>
     /// <remarks>
-    /// Both the handler and its dispatcher are scoped and resolved once per delivered message.
+    /// <para>
+    /// The handler is scoped and resolved once per delivered message.
+    /// </para>
+    /// <para>
+    /// A message type may be registered with several outboxes.
+    /// Its handler is then registered once for the whole application, so it is the same handler in every outbox.
+    /// </para>
     /// </remarks>
     /// <typeparam name="TMessage">The type of the message.</typeparam>
     /// <typeparam name="THandler">The handler delivering the message.</typeparam>
     /// <returns>This for chaining.</returns>
-    /// <exception cref="OutboxException">Another message type is already registered under the same <see cref="OutboxMessageType"/>.</exception>
+    /// <exception cref="OutboxException">
+    /// The message type, or another one using its <see cref="OutboxMessageType"/> (ignoring case), is already registered with this outbox,
+    /// or another handler already delivers <typeparamref name="TMessage"/>.
+    /// </exception>
     public OutboxConfig WithMessage<TMessage, THandler>()
         where TMessage : IOutboxMessage
         where THandler : class, IOutboxMessageHandler<TMessage>
     {
-        var outboxRegistration = new OutboxRegistration(TMessage.MessageType, typeof(TMessage), typeof(IOutboxMessageHandler<TMessage>));
-        registry.Add(outboxRegistration);
-
-        services.AddScoped<IOutboxMessageHandler<TMessage>, THandler>();
-        services.AddKeyedScoped<IOutboxDispatcher, OutboxDispatcher<TMessage>>(TMessage.MessageType.Key);
+        _register(OutboxRegistration.For<TMessage>());
+        AddHandlerOnce<TMessage, THandler>();
 
         return this;
+    }
+
+    /// <summary>
+    /// Registers the handler of <typeparamref name="TMessage"/>, unless an outbox already did.
+    /// </summary>
+    /// <typeparam name="TMessage">The type of the message.</typeparam>
+    /// <typeparam name="THandler">The handler delivering the message.</typeparam>
+    /// <exception cref="OutboxException">Another handler already delivers <typeparamref name="TMessage"/>.</exception>
+    private void AddHandlerOnce<TMessage, THandler>()
+        where TMessage : IOutboxMessage
+        where THandler : class, IOutboxMessageHandler<TMessage>
+    {
+        var existing = _services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IOutboxMessageHandler<TMessage>) && !descriptor.IsKeyedService);
+
+        if (existing is null)
+        {
+            _services.AddScoped<IOutboxMessageHandler<TMessage>, THandler>();
+            return;
+        }
+
+        if (existing.ImplementationType != typeof(THandler))
+        {
+            var existingName = existing.ImplementationType?.GetReadableName() ?? "a factory or an instance";
+            throw new OutboxException($"Outbox message type '{TMessage.MessageType}' ({typeof(TMessage).GetReadableName()}) is delivered by both {existingName} and {typeof(THandler).GetReadableName()}. A message type has one handler across every outbox of the application.");
+        }
     }
 }

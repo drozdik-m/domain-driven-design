@@ -1,7 +1,9 @@
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
+using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
+using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,12 +12,13 @@ using Xunit;
 namespace MartinDrozdik.DDD.Testing.Outbox;
 
 /// <summary>
-/// Base class for smoke tests of the outbox, verifying that it is wired into the application correctly.
+/// Base class for smoke tests of the outbox of one context, verifying that it is wired into the application correctly.
 /// </summary>
 /// <remarks>
+/// Every context has an outbox of its own, so write one derived class per context passed to <c>AddOutbox</c>.
 /// These are wiring checks only.
 /// They deliberately never deliver anything - dispatching an arbitrary application's messages could send real mail.
-/// To assert on delivery, write a test calling <see cref="OutboxTestExtensions.ProcessOutboxAsync(ITestedApp, CancellationToken)"/>.
+/// To assert on delivery, write a test calling <see cref="OutboxTestExtensions.ProcessOutboxAsync{TDbContext}(ITestedApp, CancellationToken)"/>.
 /// </remarks>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
 /// <typeparam name="TDbContext">The context the outbox is added over.</typeparam>
@@ -55,7 +58,7 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
     }
 
     /// <summary>
-    /// Verifies pending messages can be delivered.
+    /// Verifies pending messages of <typeparamref name="TDbContext"/> can be delivered.
     /// </summary>
     [Fact]
     public void Outbox_processor_resolves_with_all_its_dependencies()
@@ -64,10 +67,28 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
         using var scope = App.Services.CreateScope();
 
         // Act
-        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor<TDbContext>>();
 
         // Assert
         Assert.NotNull(processor);
+    }
+
+    /// <summary>
+    /// Verifies <typeparamref name="TDbContext"/> maps the outbox table.
+    /// </summary>
+    [Fact]
+    public void Outbox_table_is_mapped_by_the_context()
+    {
+        // Arrange
+        using var scope = App.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TDbContext>();
+
+        // Act
+        var entityType = context.Model.FindEntityType(typeof(OutboxMessage));
+
+        // Assert
+        Assert.True(entityType is not null, $"{typeof(TDbContext).GetReadableName()} does not map the outbox table. Call modelBuilder.AddOutbox(...) in its OnModelCreating.");
+        App.TestOutputHelper.WriteLine($"Outbox of {typeof(TDbContext).GetReadableName()}: table {entityType.GetSchemaQualifiedTableName()}");
     }
 
     /// <summary>
@@ -77,26 +98,26 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
     public void Outbox_options_are_valid()
     {
         // Arrange
-        var validations = App.Services.GetServices<IValidateOptions<OutboxOptions>>();
+        var validations = App.Services.GetServices<IValidateOptions<OutboxOptions<TDbContext>>>();
         Assert.NotEmpty(validations);
 
         // Act
         // Resolving the options runs every registered validation
-        var options = App.Services.GetRequiredService<IOptions<OutboxOptions>>().Value;
+        var options = App.Services.GetRequiredService<IOptions<OutboxOptions<TDbContext>>>().Value;
 
         // Assert
-        App.TestOutputHelper.WriteLine($"Outbox: batch size={options.BatchSize}, lease={options.LeaseDuration}, attempts={options.RetryDelays.Count + 1}, max payload={options.MaxPayloadLength?.ToString() ?? "unlimited"}, retention={options.Retention?.ToString() ?? "forever"}");
+        App.TestOutputHelper.WriteLine($"Outbox of {typeof(TDbContext).GetReadableName()}: batch size={options.BatchSize}, lease={options.LeaseDuration}, attempts={options.RetryDelays.Count + 1}, max payload={options.MaxPayloadLength?.ToString() ?? "unlimited"}, retention={options.Retention?.ToString() ?? "forever"}");
     }
 
     /// <summary>
-    /// Verifies every registered message type has a handler that can actually be constructed.
+    /// Verifies every message type registered with the outbox has a handler that can actually be constructed.
     /// A handler missing a dependency only fails once a real message is dispatched, where the failure is swallowed into a retry.
     /// </summary>
     [Fact]
     public void Every_registered_message_type_has_a_resolvable_handler()
     {
         // Arrange
-        var registry = App.Services.GetRequiredService<OutboxRegistry>();
+        var registry = App.Services.GetRequiredService<OutboxRegistry<TDbContext>>();
         using var scope = App.Services.CreateScope();
 
         // Act
@@ -106,9 +127,10 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
         Assert.NotEmpty(registrations);
         foreach (var registration in registrations)
         {
-            App.TestOutputHelper.WriteLine($"{registration.MessageType} -> {registration.HandlerServiceType.GetReadableName()}");
+            var handlerServiceType = typeof(IOutboxMessageHandler<>).MakeGenericType(registration.MessageClrType);
+            App.TestOutputHelper.WriteLine($"{registration.MessageType} -> {handlerServiceType.GetReadableName()}");
 
-            var handler = scope.ServiceProvider.GetService(registration.HandlerServiceType);
+            var handler = scope.ServiceProvider.GetService(handlerServiceType);
             Assert.True(handler is not null, $"Outbox message type '{registration.MessageType}' has no resolvable handler.");
         }
     }

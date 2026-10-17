@@ -17,7 +17,7 @@ $ARGUMENTS
     - Prefer direct build inside test cases: `using var app = new MyAppBuilder(output).Build();` to ensure proper disposal even if exceptions occur.
 - Tests run in the **"Testing" environment** by default. Keep test config in `appsettings.Testing.json`, separate from development config.
 - Test method names are `snake_case` sentences; test classes end in `Tests`.
-- **Take every free smoke test the app qualifies for** — `WebApplicationSmokeTests`, `OpenApiSmokeTests`, `ErrorHandlingTests`, one `RecurringTaskSmokeTests` per task, and `OutboxSmokeTests` whenever `AddOutbox` is called. They are a one-line class each and catch the wiring failures that only show up in production.
+- **Take every free smoke test the app qualifies for** — `WebApplicationSmokeTests`, `OpenApiSmokeTests`, `ErrorHandlingTests`, one `RecurringTaskSmokeTests` per task, and one `OutboxSmokeTests` per context passed to `AddOutbox`. They are a one-line class each and catch the wiring failures that only show up in production.
 
 Install:
 ```bash
@@ -162,7 +162,7 @@ public class MyOpenApiSmokeTests(ITestOutputHelper output)
 public class MyAppErrorHandlingTests(ITestOutputHelper output)
     : ErrorHandlingTests<Program>(new MyAppBuilder(output)) { }
 
-// Verifies the outbox is wired and every message type has a resolvable handler (see Outbox below)
+// Verifies the outbox of one context is wired and every message type has a resolvable handler (see Outbox below)
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
     : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
@@ -199,19 +199,20 @@ public class EndpointTests(ITestOutputHelper output) : IDisposable
 
 **The dispatch loop is a recurring task, so `Build()` removes it like every other one.** Nothing is delivered
 until the test asks. Two helpers in `OutboxTestExtensions` (`MartinDrozdik.DDD.Testing.Outbox`), both on
-`ITestedApp`, with `ProcessOutboxAsync` also taking a bare `IServiceProvider`:
+`ITestedApp`, with `ProcessOutboxAsync` also taking a bare `IServiceProvider`. Every context has an outbox of its
+own, so both name the context whose outbox they process:
 
 ```csharp
 // One batch, fresh scope, exactly what the dispatch task does. Returns the number delivered successfully.
-var delivered = await app.ProcessOutboxAsync(TestContext.Current.CancellationToken);
+var delivered = await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 
 // Repeat until nothing is left: handlers that enqueue further messages, or more messages than one batch
-var total = await app.DrainOutboxAsync(TestContext.Current.CancellationToken);
+var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 ```
 
-Both call `IOutboxProcessor` directly, not the loop, so a failing handler still becomes a retry or a dead-letter
-instead of a thrown exception. **Assert on the stored row, not on the return value alone.** Messages are ordinary
-rows reached through `Set<OutboxMessage>()` (there is no `DbSet`):
+Both call `IOutboxProcessor<TDbContext>` directly, not the loop, so a failing handler still becomes a retry or a
+dead-letter instead of a thrown exception. **Assert on the stored row, not on the return value alone.** Messages are
+ordinary rows reached through `Set<OutboxMessage>()` (there is no `DbSet`):
 
 ```csharp
 var message = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(cancellationToken);
@@ -236,22 +237,27 @@ aggregate — the types (`IOutbox<TContext>`) catch a wrong context, but not a s
 from `IDbContextFactory`). Assert the aggregate row and the message row appear together, and where a request can
 fail after enqueueing, that neither appears.
 
-### Outbox smoke tests — write one for every app with an outbox
+### Outbox smoke tests — write one for every outbox context
 
 ```csharp
 public class MyAppOutboxSmokeTests(ITestOutputHelper output)
     : OutboxSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output)) { }
 ```
 
-`TDbContext` is the context passed to `AddOutbox<TDbContext>` — the one that owns the aggregates.
+`TDbContext` is the context passed to `AddOutbox<TDbContext>` — the one that owns the aggregates. An app with two
+outbox contexts gets two smoke test classes.
 
-Four free tests, no body: `IOutbox<TDbContext>` resolves, `IOutboxProcessor` resolves, `OutboxOptions` passes the app's own
-validation, and **every registered message type has a handler that can be constructed**. That last one is the
-reason to bother — a handler missing a constructor dependency otherwise surfaces in production, inside the
-processor, where the failure is swallowed into a retry and then a dead-letter.
+Five free tests, no body: `IOutbox<TDbContext>` resolves, `IOutboxProcessor<TDbContext>` resolves, the context maps
+the outbox table (`modelBuilder.AddOutbox(...)`), `OutboxOptions<TDbContext>` passes the app's own validation, and
+**every registered message type has a handler that can be constructed**. That last one is the reason to bother — a
+handler missing a constructor dependency otherwise surfaces in production, inside the processor, where the failure
+is swallowed into a retry and then a dead-letter.
+
+The dispatch task is a recurring task like any other: add a
+`RecurringTaskSmokeTests<Program, OutboxDispatchRecurringTask<MyAppDbContext>>` for it too.
 
 It **never dispatches anything** on purpose (delivering a real app's messages could send real mail), and it fails
-when no message type is registered at all. For delivery, write your own test with `ProcessOutboxAsync`.
+when no message type is registered at all. For delivery, write your own test with `ProcessOutboxAsync<TDbContext>`.
 
 ## EF Core Integration Tests
 

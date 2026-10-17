@@ -8,7 +8,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Models;
 
 /// <summary>
 /// A message stored in the EF outbox table, written within a transaction along domain changes.
-/// Delivered afterwards by an <see cref="IOutboxProcessor"/>.
+/// Delivered afterwards by the <see cref="IOutboxProcessor{TDbContext}"/>.
 /// </summary>
 /// <remarks>
 /// <para>
