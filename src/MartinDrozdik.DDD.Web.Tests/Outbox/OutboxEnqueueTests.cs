@@ -155,8 +155,7 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         items.Add(items);
 
         // Act
-        // Documented as an OutboxException. Today System.Text.Json's JsonException escapes unwrapped,
-        // because only NotSupportedException is caught.
+        // System.Text.Json reports a reference cycle as a JsonException, which must arrive wrapped
         var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new CyclicMessage(items)));
 
         // Assert
