@@ -591,6 +591,91 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public async Task An_attempt_throwing_its_own_exception_after_its_run_was_cancelled_is_cut_short_not_failed()
+    {
+        // Arrange
+        // E.g. SqlClient reporting the cancellation as a SqlException, or a handler wrapping it in an exception of its own
+        using var app = Build(
+            out _,
+            options =>
+            {
+                options.RetryDelays = [];
+                options.LeaseDuration = TimeSpan.FromMinutes(5);
+            },
+            out var logger);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("interrupted"));
+
+        using var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        state.OnHandled = _ =>
+        {
+            iteration.Cancel();
+            throw new HttpRequestException("The connection was aborted.", new TaskCanceledException());
+        };
+
+        // Act
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => app.Services.ProcessOutboxAsync<TestDbContext>(iteration.Token));
+
+        // Assert
+        Assert.IsType<HttpRequestException>(exception.InnerException);
+
+        // Left like any other attempt cut short: no failure recorded, and the last attempt is not dead-lettered at once
+        var message = await GetSingleMessageAsync(app);
+        Assert.Null(message.FailedAt);
+        Assert.Null(message.ProcessedAt);
+        Assert.Null(message.LastError);
+        Assert.Equal(1, message.Attempts);
+        Assert.NotNull(message.ClaimedUntil);
+
+        Assert.Single(logger.At(LogLevel.Warning), e => e.Message.Contains("threw after its run was cancelled", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.At(LogLevel.Error), e => e.Message.StartsWith("Outbox of", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_attempt_throwing_its_own_exception_after_its_run_was_cancelled_is_attempted_again_once_its_lease_expires()
+    {
+        // Arrange
+        using var app = Build(
+            out var time,
+            options =>
+            {
+                options.RetryDelays = [TimeSpan.FromSeconds(10)];
+                options.LeaseDuration = TimeSpan.FromMinutes(5);
+            });
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("interrupted"));
+
+        using (var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken))
+        {
+            state.OnHandled = _ =>
+            {
+                iteration.Cancel();
+                throw new InvalidOperationException("Sending failed.", new OperationCanceledException(iteration.Token));
+            };
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => app.Services.ProcessOutboxAsync<TestDbContext>(iteration.Token));
+        }
+
+        state.OnHandled = static _ => { };
+
+        // Act
+        // No retry delay applies, only the lease: still held after the ten seconds of the retry delay, then expired
+        time.Advance(TimeSpan.FromSeconds(10));
+        var whileLeased = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromMinutes(6));
+        var afterLease = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, whileLeased);
+        Assert.Equal(1, afterLease);
+        Assert.Equal(["interrupted", "interrupted"], state.Handled);
+
+        var message = await GetSingleMessageAsync(app);
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(2, message.Attempts);
+    }
+
+    [Fact]
     public async Task A_message_that_failed_more_often_than_the_retry_delays_now_allow_still_gets_its_next_attempt()
     {
         // Only an attempt cut short is dead-lettered without trying again. One whose failure was recorded is waiting

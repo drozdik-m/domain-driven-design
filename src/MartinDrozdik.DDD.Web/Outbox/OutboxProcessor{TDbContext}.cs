@@ -243,6 +243,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// </summary>
     /// <remarks>
     /// Once an attempt has happened, its outcome is saved even when <paramref name="cancellationToken"/> is cancelled (save it rather than double-deliver).
+    /// An attempt that throws after <paramref name="cancellationToken"/> was cancelled is cut short, whatever the exception, and records no outcome.
     /// </remarks>
     /// <param name="message">The claimed message.</param>
     /// <param name="registration">The registration of the message type, which delivers it to its handler.</param>
@@ -260,6 +261,13 @@ internal sealed class OutboxProcessor<TDbContext>(
             // Shutting down, or over the timeout of the run... The attempt was counted by the claim.
             // The lease is left in place and expires on its own; the message is attempted again, or dead-lettered when no retry is left.
             throw;
+        }
+        catch (Exception exception) when (cancellationToken.IsCancellationRequested)
+        {
+            // Handlers may report the cancellation as their own exception (SqlException, DbUpdateException, a wrapping exception, ...).
+            // Rethrown as cancellation so callers can tell a timeout from a failure.
+            OutboxLogging.LogDeliveryInterrupted(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
+            throw new OperationCanceledException(exception.Message, exception, cancellationToken);
         }
 #pragma warning disable CA1031 // Do not catch general exception types - any handler failure is a retryable delivery failure
         catch (Exception exception)

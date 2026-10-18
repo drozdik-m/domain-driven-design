@@ -120,5 +120,5 @@ flowchart TD
     retrying --> next
     retryLeft -- "no" --> failed["Dead-lettered (14.)<br/><small>MarkFailed</small>"]
     failed --> next
-    dispatch -- "cancelled<br/><small>shutdown or Timeout</small>" --> cancelled(["Throw. The lease stays and expires on its own (15.)<br/><small>the rest of the batch stays Due, no retention this run</small>"])
+    dispatch -- "cancelled<br/><small>shutdown or Timeout, whatever it threw</small>" --> cancelled(["Throw. The lease stays and expires on its own (15.)<br/><small>the rest of the batch stays Due, no retention this run</small>"])
 ```

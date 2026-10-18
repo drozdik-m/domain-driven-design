@@ -16,6 +16,9 @@ internal static partial class OutboxLogging
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox of {Outbox}: message {MessageId} of type {MessageType} failed on attempt {Attempts} and was dead-lettered. It will not be delivered again.")]
     internal static partial void LogDeadLettered(ILogger logger, Exception exception, string outbox, Guid messageId, string messageType, int attempts);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox of {Outbox}: attempt {Attempts} of message {MessageId} of type {MessageType} threw after its run was cancelled. It is treated as cut short, not as failed: no outcome is recorded and its lease expires on its own.")]
+    internal static partial void LogDeliveryInterrupted(ILogger logger, Exception exception, string outbox, Guid messageId, string messageType, int attempts);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox of {Outbox}: message {MessageId} of type {MessageType} recorded no outcome of attempt {Attempts} before its lease expired and was dead-lettered. It will not be delivered again.")]
     internal static partial void LogAbandonedDeadLettered(ILogger logger, string outbox, Guid messageId, string messageType, int attempts);
 
