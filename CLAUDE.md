@@ -85,6 +85,10 @@ Two stateful modules sit on top of a consumer's `DbContext` and are mapped in it
 - Free base classes for smoke tests (health check, OpenAPI, error handling)
 - EF Core helpers: entity mapping, migration, connectivity, and model compilation assertions
 
+## Writing prose
+
+Follow the [stop-slop](.claude/stop-slop/SKILL.md) rules for all prose you write: READMEs, XML doc comments, Markdowns, commit messages and replies. Check the text against [phrases.md](.claude/stop-slop/references/phrases.md), [structures.md](.claude/stop-slop/references/structures.md) and [examples.md](.claude/stop-slop/references/examples.md) before you deliver it.
+
 ## Coding conventions
 
 - **File-scoped namespaces** everywhere.
