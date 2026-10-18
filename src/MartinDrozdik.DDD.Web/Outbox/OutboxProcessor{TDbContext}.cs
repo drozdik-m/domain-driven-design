@@ -76,6 +76,11 @@ internal sealed class OutboxProcessor<TDbContext>(
             OutboxLogging.LogBatchCompleted(logger, s_outboxName, dispatched, claimed);
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return dispatched;
+        }
+
         await ApplyRetentionAsync(cancellationToken);
 
         return dispatched;

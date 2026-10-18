@@ -486,7 +486,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         state.OnHandled = _ => run.Cancel();
 
         // Act
-        // Today the loop breaks and then runs the retention delete with the cancelled token, which throws
+        // The retention is left to the next run rather than started with the cancelled token
         var dispatched = await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token);
 
         // Assert

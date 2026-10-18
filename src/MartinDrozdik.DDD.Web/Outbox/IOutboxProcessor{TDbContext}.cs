@@ -36,6 +36,9 @@ public interface IOutboxProcessor<TDbContext>
     /// <summary>
     /// Claims and delivers a single batch of pending messages, then applies the retention policy.
     /// </summary>
+    /// <remarks>
+    /// A run cancelled between two messages stops there and returns the number delivered so far, without applying the retention policy.
+    /// </remarks>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>
     /// A task with the number of messages delivered successfully in this batch.
