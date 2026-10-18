@@ -383,6 +383,8 @@ It never blocks and never throws, so it's safe to call from anywhere.
 
 The outbox makes the side effect part of the same transaction: the message is written to a table in *your* database by *your* `SaveChangesAsync`. Both, or neither. A background loop delivers it afterwards and keeps retrying until it sticks or finally dies.
 
+> Every state a message goes through (retries, expired leases, cancelled runs, dead letters) is mapped in the [outbox message lifecycle](OutboxDiagram.md).
+
 A message is a plain serializable record with a stable storage key:
 
 ```csharp
@@ -489,7 +491,7 @@ builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContex
 // checks.AddOutboxHealthCheck<InvoiceDbContext>("invoice-outbox", ["ready"], degradedBacklogThreshold: 500)
 ```
 
-Degraded while any message is dead-lettered or more messages are *overdue* than the threshold, unhealthy only when the table cannot be read. Never unhealthy over a dead letter: the table is shared and dead letters are kept until you delete them, so one poison message would take every instance out of `/health/ready` for good. A degraded check still answers 200 there, so alert on the degraded status or the `deadLettered` count instead.
+Degraded while any message is dead-lettered or more messages are *overdue* than the threshold, unhealthy only when the table cannot be read. Never unhealthy over a dead letter: the table is shared and dead letters are kept until you delete them, so one poison message would take every instance out of `/health/ready` for good. A degraded check still answers 200 there, so alert on the degraded status or the `deadLettered` count instead. How a message becomes a dead letter, and what to do with one: [Dead letters](OutboxDiagram.md#dead-letters).
 
 #### Versioning – end the key with `.v1`
 
