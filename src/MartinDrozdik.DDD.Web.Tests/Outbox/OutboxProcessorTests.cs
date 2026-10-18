@@ -627,17 +627,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // A row written by hand, by another writer, or under older key rules - one the current OutboxMessageType rejects
         using var app = Build(out _);
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        using (var scope = app.Services.CreateScope())
-        {
-            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            var id = Guid.CreateVersion7().ToString().ToUpperInvariant();
-            var stamp = Guid.CreateVersion7().ToString().ToUpperInvariant();
-            var availableAt = s_initialTime.UtcDateTime.AddMinutes(-1);
-            await context.Database.ExecuteSqlAsync(
-                $"""INSERT INTO "OutboxMessage" ("Id", "MessageType", "Payload", "OccurredAt", "AvailableAt", "Attempts", "ConcurrencyStamp") VALUES ({id}, {"legacy key"}, {"{}"}, {availableAt}, {availableAt}, {0}, {stamp})""",
-                TestContext.Current.CancellationToken);
-        }
-
+        await AddRawRowAsync(app, "legacy key", "{}", s_initialTime.UtcDateTime.AddMinutes(-1));
         await EnqueueAsync(app, new TestOutboxMessage("healthy"));
 
         // Act
@@ -647,6 +637,49 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // Assert
         Assert.Equal(1, dispatched);
         Assert.Equal(["healthy"], state.Handled);
+    }
+
+    [Fact]
+    public async Task A_stored_row_with_a_blank_payload_is_dead_lettered_without_blocking_the_rest_of_the_outbox()
+    {
+        // A registered key matches the query, so the row is read - and materializing its payload throws.
+        // So does a spelling the database matches but the key rules reject (uppercase under a case-insensitive collation,
+        // trailing spaces on SQL Server), which SQLite cannot reproduce.
+
+        // Arrange
+        // Between two healthy messages, so what was read before it is delivered as well as what comes after it
+        using var app = Build(out var time, configureOptions: null, out var logger);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("before"));
+        time.Advance(TimeSpan.FromSeconds(1));
+        var unreadableId = await AddRawRowAsync(app, TestOutboxMessage.MessageType.Key, " ", time.GetUtcNow().UtcDateTime);
+        time.Advance(TimeSpan.FromSeconds(1));
+        await EnqueueAsync(app, new TestOutboxMessage("after"));
+
+        // Act
+        var firstRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var secondRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, firstRun);
+        Assert.Equal(0, secondRun);
+        Assert.Equal(["before", "after"], state.Handled);
+
+        // Read without materializing the payload, which still cannot be read
+        using var scope = app.Services.CreateScope();
+        var unreadable = await scope.ServiceProvider.GetRequiredService<TestDbContext>()
+            .Set<OutboxMessage>()
+            .Where(m => m.Id == unreadableId)
+            .Select(m => new { m.FailedAt, m.ProcessedAt, m.Attempts, m.LastError })
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(time.GetUtcNow().UtcDateTime, unreadable.FailedAt);
+        Assert.Null(unreadable.ProcessedAt);
+        Assert.Equal(0, unreadable.Attempts);
+        Assert.Contains("could not be read", unreadable.LastError, StringComparison.Ordinal);
+
+        // Entity Framework Core logs the failed query on its own
+        var error = Assert.Single(logger.At(LogLevel.Error), e => e.Message.StartsWith("Outbox of", StringComparison.Ordinal));
+        Assert.Contains(unreadableId.ToString(), error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -677,6 +710,30 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         context.Set<OutboxMessage>().Add(message);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Stores a row of raw column values, bypassing every rule of the model, as a hand-written statement or another writer would.
+    /// </summary>
+    /// <param name="app">The application under test.</param>
+    /// <param name="messageType">The stored message type key.</param>
+    /// <param name="payload">The stored payload.</param>
+    /// <param name="availableAtUtc">The UTC time the row was enqueued and becomes available.</param>
+    /// <returns>The identity of the stored row.</returns>
+    private static async Task<Guid> AddRawRowAsync(TestedApp<Program> app, string messageType, string payload, DateTime availableAtUtc)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var id = Guid.CreateVersion7();
+
+        // SQLite stores a GUID as uppercase text
+        var storedId = id.ToString().ToUpperInvariant();
+        var stamp = Guid.CreateVersion7().ToString().ToUpperInvariant();
+        await context.Database.ExecuteSqlAsync(
+            $"""INSERT INTO "OutboxMessage" ("Id", "MessageType", "Payload", "OccurredAt", "AvailableAt", "Attempts", "ConcurrencyStamp") VALUES ({storedId}, {messageType}, {payload}, {availableAtUtc}, {availableAtUtc}, {0}, {stamp})""",
+            TestContext.Current.CancellationToken);
+
+        return id;
     }
 
     /// <summary>

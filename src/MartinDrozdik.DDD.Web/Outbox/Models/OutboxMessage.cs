@@ -199,6 +199,20 @@ public sealed class OutboxMessage
     }
 
     /// <summary>
+    /// Shortens an error so it always fits the column.
+    /// </summary>
+    /// <param name="error">The error to shorten.</param>
+    /// <returns>The error, at most <see cref="LastErrorMaxLength"/> characters long.</returns>
+    internal static string Truncate(string error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        return error.Length <= LastErrorMaxLength
+            ? error
+            : error[..LastErrorMaxLength];
+    }
+
+    /// <summary>
     /// Tells whether the last attempt was cut short and was the last one the retries allow.
     /// </summary>
     /// <remarks>
@@ -222,20 +236,6 @@ public sealed class OutboxMessage
     {
         AvailableAt = availableAtUtc;
         RotateConcurrencyStamp();
-    }
-
-    /// <summary>
-    /// Shortens an error so it always fits the column.
-    /// </summary>
-    /// <param name="error">The error to shorten.</param>
-    /// <returns>The error, at most <see cref="LastErrorMaxLength"/> characters long.</returns>
-    private static string Truncate(string error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return error.Length <= LastErrorMaxLength
-            ? error
-            : error[..LastErrorMaxLength];
     }
 
     /// <summary>

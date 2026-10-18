@@ -5,7 +5,6 @@ using MartinDrozdik.DDD.Testing.Blobs;
 using MartinDrozdik.DDD.Web.Blobs.Options;
 using MartinDrozdik.DDD.Web.Blobs.Stores;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Time.Testing;
 
 namespace MartinDrozdik.DDD.Web.Tests.Blobs;
 

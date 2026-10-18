@@ -412,6 +412,8 @@ Delivery semantics, worth stating in code review:
   never delivered again.
 - A processor reads, claims and delivers only the message types of its own outbox. A row of a type it does not
   register is left untouched for an instance that does (rolling deploys, worker apps), and counts as `overdue` meanwhile.
+- A row that cannot be read (a blank payload, or a key spelling the database matches but the key rules reject, e.g.
+  uppercase under a case-insensitive collation) is dead-lettered on its own and never stops the rest of the outbox.
 - An attempt cut short (shutdown, the dispatch task's `Timeout`, a crash) records no outcome, but it counts: an attempt
   is counted when it is claimed. The lease simply expires, then the message is attempted again, or dead-lettered when
   that was its last attempt.

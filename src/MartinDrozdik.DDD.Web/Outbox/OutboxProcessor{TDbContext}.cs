@@ -86,10 +86,31 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// </summary>
     /// <remarks>
     /// Ignores unknown message types.
+    /// A row that cannot be read is dead-lettered, see <see cref="GetDeliverableRowByRowAsync"/>.
     /// </remarks>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>The messages to attempt, the longest waiting first.</returns>
     private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableAsync(CancellationToken cancellationToken)
+    {
+        var deliverable = CreateDeliverableMessagesQuery();
+
+        try
+        {
+            return await deliverable.ToListAsync(cancellationToken);
+        }
+
+        // A row is unreadable when the rules of the model reject a stored value, e.g. a blank payload
+        catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException)
+        {
+            return await GetDeliverableRowByRowAsync(deliverable, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Builds the query for the messages that may be delivered right now.
+    /// </summary>
+    /// <returns>The query of the batch, the longest waiting first.</returns>
+    private IQueryable<OutboxMessage> CreateDeliverableMessagesQuery()
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
@@ -99,7 +120,7 @@ internal sealed class OutboxProcessor<TDbContext>(
 
         // Ordered by the indexed AvailableAt - not every database sorts a v7 GUID by its time part
         // (SQL Server compares the last bytes first), and an order that ignores waiting time could starve old messages
-        return await context.Set<OutboxMessage>()
+        return context.Set<OutboxMessage>()
             .Where(m => m.ProcessedAt == null &&
                 m.FailedAt == null &&
                 m.AvailableAt <= now &&
@@ -107,8 +128,77 @@ internal sealed class OutboxProcessor<TDbContext>(
                 messageTypes.Contains(m.MessageType))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id)
-            .Take(options.Value.BatchSize)
+            .Take(options.Value.BatchSize);
+    }
+
+    /// <summary>
+    /// Fallback way of reading a batch if reading the whole batch failed.
+    /// Reads a batch one row at a time and dead-letters every row that cannot be read.
+    /// </summary>
+    /// <param name="deliverable">The query of the batch.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>The readable messages of the batch, the longest waiting first.</returns>
+    private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableRowByRowAsync(IQueryable<OutboxMessage> deliverable, CancellationToken cancellationToken)
+    {
+        // Query by ID - reading that won't fail invariants etc.
+        var ids = await deliverable
+            .Select(m => m.Id)
             .ToListAsync(cancellationToken);
+
+        var messages = new List<OutboxMessage>(ids.Count);
+        foreach (var id in ids)
+        {
+            try
+            {
+                // Rows read before the batch failed are tracked already and served from the change tracker
+                if (await context.Set<OutboxMessage>().FindAsync([id], cancellationToken) is { } message)
+                {
+                    messages.Add(message);
+                }
+            }
+            catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException rejected)
+            {
+                await DeadLetterUnreadableAsync(id, rejected, cancellationToken);
+            }
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Dead-letters a row that cannot be read, without attempting it.
+    /// </summary>
+    /// <remarks>
+    /// May be caused by broken invariants.
+    /// Written straight to the table.
+    /// </remarks>
+    /// <param name="id">The identity of the row.</param>
+    /// <param name="exception">Why the row cannot be read.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>A <see cref="Task"/> that completes when the outcome has been stored.</returns>
+    private async Task DeadLetterUnreadableAsync(Guid id, ArgumentException exception, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var error = OutboxMessage.Truncate($"The row could not be read, it can never be delivered: {exception.Message}");
+        var rotatedConcurrencyStamp = Guid.CreateVersion7();
+
+        // Multiple instances may try to dead-letter the same row, only one will succeed
+        var deadLettered = await context.Set<OutboxMessage>()
+            .Where(e => e.Id == id && e.ProcessedAt == null && e.FailedAt == null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(m => m.FailedAt, now)
+                    .SetProperty(m => m.LastError, error)
+                    .SetProperty(m => m.ClaimedBy, (Guid?)null)
+                    .SetProperty(m => m.ClaimedUntil, (DateTime?)null)
+                    .SetProperty(m => m.ConcurrencyStamp, rotatedConcurrencyStamp),
+                cancellationToken);
+
+        // Someone else may have already dead-lettered it
+        if (deadLettered > 0)
+        {
+            OutboxLogging.LogUnreadableDeadLettered(logger, exception, s_outboxName, id);
+        }
     }
 
     /// <summary>
