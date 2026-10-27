@@ -42,7 +42,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -137,7 +137,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -174,7 +174,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         }
 
         // Assert
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         Assert.Equal(0, dispatched);
         Assert.True(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
 

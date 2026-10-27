@@ -56,6 +56,8 @@ internal sealed class OutboxMessageConfiguration(TableName table)
 
         builder.Property(m => m.ClaimedUntil);
 
+        builder.Property(m => m.ReservedUntil);
+
         builder.Property(m => m.ConcurrencyStamp)
                .IsConcurrencyToken()
                .IsRequired();

@@ -303,6 +303,8 @@ public class OutboxRegistrationTests
     [Theory]
     [InlineData(nameof(OutboxOptions<>.BatchSize), "batch size")]
     [InlineData(nameof(OutboxOptions<>.LeaseDuration), "lease duration")]
+    [InlineData(nameof(OutboxOptions<>.ReservationDuration), "reservation duration must be greater than zero")]
+    [InlineData("ReservationOverLease", "reservation duration must not exceed the lease duration")]
     [InlineData(nameof(OutboxOptions<>.RetryDelays), "retry delays must not be null")]
     [InlineData("NegativeRetryDelay", "retry delay must not be negative")]
     [InlineData(nameof(OutboxOptions<>.MaxPayloadLength), "maximum payload length")]
@@ -375,6 +377,13 @@ public class OutboxRegistrationTests
                 break;
             case nameof(OutboxOptions<>.LeaseDuration):
                 options.LeaseDuration = TimeSpan.Zero;
+                break;
+            case nameof(OutboxOptions<>.ReservationDuration):
+                options.ReservationDuration = TimeSpan.Zero;
+                break;
+            case "ReservationOverLease":
+                options.LeaseDuration = TimeSpan.FromMinutes(1);
+                options.ReservationDuration = TimeSpan.FromMinutes(2);
                 break;
             case nameof(OutboxOptions<>.RetryDelays):
                 options.RetryDelays = null!;

@@ -15,15 +15,28 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// A row of any other type is left untouched.
 /// </para>
 /// <para>
-/// Processors in separate scopes or application instances may run at the same time: a lease and an optimistic concurrency token ensure single delivery.
+/// Processors in separate scopes or application instances may run at the same time.
+/// Each reserves a batch of its own up front, and a lease plus an optimistic concurrency token on every message ensure single delivery.
+/// </para>
+/// <para>
+/// The processor takes the <typeparamref name="TDbContext"/> of its scope for itself: resolve it from a scope of its own, not one that also serves other work.
+/// Every batch clears the change tracker of that context, so pending changes of other code in the scope would be dropped or committed with a claim.
 /// </para>
 /// </remarks>
 /// <example>
 /// <code>
 /// public sealed class InvoiceOutboxJob(IOutboxProcessor&lt;InvoiceDbContext&gt; processor) : IJob
 /// {
-///     public Task Execute(IJobExecutionContext context)
-///         =&gt; processor.ProcessPendingAsync(context.CancellationToken);
+///     public async Task Execute(IJobExecutionContext context)
+///     {
+///         // Keep going until a batch finds nothing, to drain a backlog
+///         OutboxBatchResult result;
+///         do
+///         {
+///             result = await processor.ProcessPendingAsync(context.CancellationToken);
+///         }
+///         while (result.MayHaveMore &amp;&amp; !context.CancellationToken.IsCancellationRequested);
+///     }
 /// }
 /// </code>
 /// </example>
@@ -34,15 +47,14 @@ public interface IOutboxProcessor<TDbContext>
     where TDbContext : DbContext
 {
     /// <summary>
-    /// Claims and delivers a single batch of pending messages, then applies the retention policy.
+    /// Reserves and delivers a single batch of pending messages, then applies the retention policy.
     /// </summary>
     /// <remarks>
-    /// A run cancelled between two messages stops there and returns the number delivered so far, without applying the retention policy.
+    /// A run cancelled between two messages stops there and returns what it delivered so far, without applying the retention policy.
+    /// The messages it reserved but did not start are released for other processors.
+    /// Clears the change tracker of <typeparamref name="TDbContext"/>.
     /// </remarks>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
-    /// <returns>
-    /// A task with the number of messages delivered successfully in this batch.
-    /// Messages that were retried, dead-lettered or claimed by another processor are not counted.
-    /// </returns>
-    Task<int> ProcessPendingAsync(CancellationToken cancellationToken);
+    /// <returns>A task with the outcome of the batch.</returns>
+    Task<OutboxBatchResult> ProcessPendingAsync(CancellationToken cancellationToken);
 }

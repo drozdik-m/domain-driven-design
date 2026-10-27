@@ -23,6 +23,15 @@ internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<Out
             .GreaterThan(TimeSpan.Zero)
             .WithMessage("Outbox lease duration must be greater than zero, otherwise a claim would expire the moment it is taken.");
 
+        RuleFor(x => x.ReservationDuration)
+            .GreaterThan(TimeSpan.Zero)
+            .WithMessage("Outbox reservation duration must be greater than zero, otherwise a batch would be released the moment it is reserved.");
+
+        RuleFor(x => x.ReservationDuration)
+            .LessThanOrEqualTo(x => x.LeaseDuration)
+            .When(x => x.LeaseDuration > TimeSpan.Zero)
+            .WithMessage("Outbox reservation duration must not exceed the lease duration, a message waiting in a batch is held no longer than one being delivered.");
+
         RuleFor(x => x.RetryDelays)
             .NotNull()
             .WithMessage("Outbox retry delays must not be null. Use an empty list to dead-letter on the first failure.");

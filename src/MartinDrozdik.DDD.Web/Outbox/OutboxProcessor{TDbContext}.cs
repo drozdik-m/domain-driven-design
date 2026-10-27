@@ -13,7 +13,7 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// Delivers pending messages held in <typeparamref name="TDbContext"/>.
 /// </summary>
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
-/// <param name="context">The context the messages are read from and written back to.</param>
+/// <param name="context">The context the messages are read from and written back to; the processor has it to itself and clears its change tracker before every batch.</param>
 /// <param name="registry">The message types of this outbox; nothing else is read, claimed or delivered.</param>
 /// <param name="scopeFactory">Creates the scope each handler is resolved from.</param>
 /// <param name="options">Options driving batching, leases, retries, retention and serialization.</param>
@@ -31,16 +31,52 @@ internal sealed class OutboxProcessor<TDbContext>(
     private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
 
     /// <inheritdoc />
-    public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
+    public async Task<OutboxBatchResult> ProcessPendingAsync(CancellationToken cancellationToken)
     {
-        var pending = await GetDeliverableAsync(cancellationToken);
+        // Start every batch from an empty change tracker
+        // Prevents stale entities fucking up the flow.
+        // Keeps the tracker small while the dispatch task drains batch after batch in one scope.
+        context.ChangeTracker.Clear();
 
-        // A distinct claim per batch, so a lease can be traced back to the run that took it.
-        var claimId = Guid.CreateVersion7();
-        var claimed = 0;
+        var claimId = Guid.CreateVersion7(); // A distinct claim id per batch
+        var (candidates, reserved) = await ReserveAsync(claimId, cancellationToken);
+
+        var released = 0;
         var dispatched = 0;
+        if (reserved > 0)
+        {
+            try
+            {
+                var batch = await GetReservedAsync(claimId, candidates, cancellationToken);
+                dispatched = await DeliverAsync(batch, claimId, cancellationToken);
+            }
+            finally
+            {
+                released = await ReleaseReservationsAsync(claimId, candidates);
+            }
 
-        foreach (var message in pending)
+            OutboxLogging.LogBatchCompleted(logger, s_outboxName, dispatched, reserved);
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            await ApplyRetentionAsync(cancellationToken);
+        }
+
+        return new OutboxBatchResult(candidates.Count, reserved, released, dispatched);
+    }
+
+    /// <summary>
+    /// Delivers the reserved messages of a batch one by one.
+    /// </summary>
+    /// <param name="batch">The reserved messages, the longest waiting first.</param>
+    /// <param name="claimId">The identity of this run.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>The number of messages delivered.</returns>
+    private async Task<int> DeliverAsync(IReadOnlyList<OutboxMessage> batch, Guid claimId, CancellationToken cancellationToken)
+    {
+        var dispatched = 0;
+        foreach (var message in batch)
         {
             if (cancellationToken.IsCancellationRequested)
             {
@@ -53,100 +89,130 @@ internal sealed class OutboxProcessor<TDbContext>(
                 continue;
             }
 
-            if (message.IsAbandonedWithoutRetry(timeProvider.GetUtcNow().UtcDateTime, options.Value.RetryDelays.Count))
+            // An earlier message of the batch may have outlasted the reservation, then this one belongs to whoever reserves it next
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            if (!message.IsReservedBy(claimId, now))
+            {
+                OutboxLogging.LogReservationExpired(logger, s_outboxName, message.Id);
+                continue;
+            }
+
+            // This message has been attempted too many times -> dead-letter
+            if (message.IsAbandonedWithoutRetry(now, options.Value.RetryDelays.Count))
             {
                 await DeadLetterAbandonedAsync(message, cancellationToken);
                 continue;
             }
 
+            // Take a lease on the message to process it
             if (!await TryClaimAsync(message, claimId, cancellationToken))
             {
                 continue;
             }
 
-            claimed++;
+            // Try to do the actual delivery and record the outcome
+            // The result is saved even when cancellation is requested, so the message is not double-delivered
             if (await TryDeliverAsync(message, registration, cancellationToken))
             {
                 dispatched++;
             }
         }
 
-        if (claimed > 0)
-        {
-            OutboxLogging.LogBatchCompleted(logger, s_outboxName, dispatched, claimed);
-        }
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return dispatched;
-        }
-
-        await ApplyRetentionAsync(cancellationToken);
-
         return dispatched;
     }
 
     /// <summary>
-    /// Reads the messages that may be delivered right now.
+    /// Reserves the next batch for this run.
+    /// Processors running at the same time read past these messages.
     /// </summary>
     /// <remarks>
-    /// Ignores unknown message types.
-    /// A row that cannot be read is dead-lettered, see <see cref="GetDeliverableRowByRowAsync"/>.
+    /// Reads the ids of the next batch, then reserves them in one conditional update.
+    /// Counts no attempt.
+    /// Does not rotate the concurrency stamp.
     /// </remarks>
+    /// <param name="claimId">The identity of this run.</param>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
-    /// <returns>The messages to attempt, the longest waiting first.</returns>
-    private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableAsync(CancellationToken cancellationToken)
-    {
-        var deliverable = CreateDeliverableMessagesQuery();
-
-        try
-        {
-            return await deliverable.ToListAsync(cancellationToken);
-        }
-
-        // A row is unreadable when the rules of the model reject a stored value, e.g. a blank payload
-        catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException)
-        {
-            return await GetDeliverableRowByRowAsync(deliverable, cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// Builds the query for the messages that may be delivered right now.
-    /// </summary>
-    /// <returns>The query of the batch, the longest waiting first.</returns>
-    private IQueryable<OutboxMessage> CreateDeliverableMessagesQuery()
+    /// <returns>The ids read for the batch, and how many of them this run reserved.</returns>
+    private async Task<(IReadOnlyList<Guid> Candidates, int Reserved)> ReserveAsync(Guid claimId, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
-
+        var reservedUntil = now + options.Value.ReservationDuration;
         var messageTypes = registry.Registrations
             .Select(e => e.MessageType)
             .ToList();
 
-        // Ordered by the indexed AvailableAt - not every database sorts a v7 GUID by its time part
-        // (SQL Server compares the last bytes first), and an order that ignores waiting time could starve old messages
-        return context.Set<OutboxMessage>()
-            .Where(m => m.ProcessedAt == null &&
-                m.FailedAt == null &&
-                m.AvailableAt <= now &&
-                (m.ClaimedUntil == null || m.ClaimedUntil < now) &&
-                messageTypes.Contains(m.MessageType))
+        // Ordered by the indexed AvailableAt - not every database sorts a v7 GUID by its time part.
+        // SQL Server compares the last bytes first so an order that ignores waiting time could starve old messages
+        // Ignores unknown message types
+        var candidates = await context.Set<OutboxMessage>()
+            .Where(OutboxMessage.IsDueAndFree(now))
+            .Where(m => messageTypes.Contains(m.MessageType))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id)
-            .Take(options.Value.BatchSize);
+            .Take(options.Value.BatchSize)
+            .Select(m => m.Id)
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count == 0)
+        {
+            return ([], 0);
+        }
+
+        // Another processor may have reserved, claimed or postponed a candidate since it was read.
+        // The database re-checks the IsDueAndFree condition on the locked row and does atomic update.
+        var reserved = await context.Set<OutboxMessage>()
+            .Where(OutboxMessage.IsDueAndFree(now)) // Re-check the condition on the locked row
+            .Where(m => candidates.Contains(m.Id))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(m => m.ClaimedBy, claimId)
+                    .SetProperty(m => m.ReservedUntil, reservedUntil),
+                cancellationToken);
+
+        return (candidates, reserved);
+    }
+
+    /// <summary>
+    /// Reads the messages this run reserved.
+    /// </summary>
+    /// <remarks>
+    /// A row that cannot be read is dead-lettered, see <see cref="GetRowByRowAsync"/>.
+    /// </remarks>
+    /// <param name="claimId">The identity of this run.</param>
+    /// <param name="candidates">The ids read for the batch; another processor may have reserved some of them first.</param>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>The messages to attempt, the longest waiting first.</returns>
+    private async Task<IReadOnlyList<OutboxMessage>> GetReservedAsync(Guid claimId, IReadOnlyList<Guid> candidates, CancellationToken cancellationToken)
+    {
+        // Get reserved by this batch
+        var reserved = context.Set<OutboxMessage>()
+            .Where(m => candidates.Contains(m.Id) && m.ClaimedBy == claimId && m.ReservedUntil != null)
+            .OrderBy(m => m.AvailableAt)
+            .ThenBy(m => m.Id);
+
+        try
+        {
+            return await reserved.ToListAsync(cancellationToken);
+        }
+        catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException)
+        {
+            // The content is unparsable, e.g. a broken invariant, and the whole batch cannot be read
+            // Read row by row and deadletter the broken messages
+            return await GetRowByRowAsync(reserved, cancellationToken);
+        }
     }
 
     /// <summary>
     /// Fallback way of reading a batch if reading the whole batch failed.
     /// Reads a batch one row at a time and dead-letters every row that cannot be read.
     /// </summary>
-    /// <param name="deliverable">The query of the batch.</param>
+    /// <param name="batchQuery">The query of the batch.</param>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
     /// <returns>The readable messages of the batch, the longest waiting first.</returns>
-    private async Task<IReadOnlyList<OutboxMessage>> GetDeliverableRowByRowAsync(IQueryable<OutboxMessage> deliverable, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<OutboxMessage>> GetRowByRowAsync(IQueryable<OutboxMessage> batchQuery, CancellationToken cancellationToken)
     {
         // Query by ID - reading that won't fail invariants etc.
-        var ids = await deliverable
+        var ids = await batchQuery
             .Select(m => m.Id)
             .ToListAsync(cancellationToken);
 
@@ -155,7 +221,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         {
             try
             {
-                // Rows read before the batch failed are tracked already and served from the change tracker
+                // Rows read before the batch failed are tracked and found from the change tracker
                 if (await context.Set<OutboxMessage>().FindAsync([id], cancellationToken) is { } message)
                 {
                     messages.Add(message);
@@ -163,11 +229,43 @@ internal sealed class OutboxProcessor<TDbContext>(
             }
             catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException rejected)
             {
+                // Found the invalid row, dead-letter it and continue
                 await DeadLetterUnreadableAsync(id, rejected, cancellationToken);
             }
         }
 
         return messages;
+    }
+
+    /// <summary>
+    /// Releases the messages this run reserved but did not claim, so other processors may take them at once.
+    /// </summary>
+    /// <remarks>
+    /// Runs however the batch ended, regardless of any cancellation.
+    /// A failure is only logged: an unreleased reservation expires on its own.
+    /// </remarks>
+    /// <param name="claimId">The identity of this run.</param>
+    /// <param name="candidates">The ids read for the batch.</param>
+    /// <returns>The number of messages released, zero when releasing failed.</returns>
+    private async Task<int> ReleaseReservationsAsync(Guid claimId, IReadOnlyList<Guid> candidates)
+    {
+        try
+        {
+            // A reservation that expired and was already taken by another run has that run's claim, and is left alone
+            return await context.Set<OutboxMessage>()
+                .Where(m => candidates.Contains(m.Id) && m.ClaimedBy == claimId && m.ReservedUntil != null)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(m => m.ClaimedBy, (Guid?)null)
+                        .SetProperty(m => m.ReservedUntil, (DateTime?)null),
+                    CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            // Reservations expire, just continue
+            OutboxLogging.LogReservationsNotReleased(logger, exception, s_outboxName, claimId);
+            return 0;
+        }
     }
 
     /// <summary>
@@ -196,6 +294,7 @@ internal sealed class OutboxProcessor<TDbContext>(
                     .SetProperty(m => m.LastError, error)
                     .SetProperty(m => m.ClaimedBy, (Guid?)null)
                     .SetProperty(m => m.ClaimedUntil, (DateTime?)null)
+                    .SetProperty(m => m.ReservedUntil, (DateTime?)null)
                     .SetProperty(m => m.ConcurrencyStamp, rotatedConcurrencyStamp),
                 cancellationToken);
 
@@ -242,8 +341,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// Delivers a claimed message and records the outcome.
     /// </summary>
     /// <remarks>
-    /// Once an attempt has happened, its outcome is saved even when <paramref name="cancellationToken"/> is cancelled (save it rather than double-deliver).
-    /// An attempt that throws after <paramref name="cancellationToken"/> was cancelled is cut short, whatever the exception, and records no outcome.
+    /// Once an attempt has happened (dispatch finished), its outcome is saved even when <paramref name="cancellationToken"/> is cancelled (save it rather than double-deliver).
     /// </remarks>
     /// <param name="message">The claimed message.</param>
     /// <param name="registration">The registration of the message type, which delivers it to its handler.</param>
@@ -258,7 +356,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Shutting down, or over the timeout of the run... The attempt was counted by the claim.
+            // Shutting down, or over the timeout of the run... The attempt counter was already increment.
             // The lease is left in place and expires on its own; the message is attempted again, or dead-lettered when no retry is left.
             throw;
         }
@@ -269,14 +367,16 @@ internal sealed class OutboxProcessor<TDbContext>(
             OutboxLogging.LogDeliveryInterrupted(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
             throw new OperationCanceledException(exception.Message, exception, cancellationToken);
         }
-#pragma warning disable CA1031 // Do not catch general exception types - any handler failure is a retryable delivery failure
         catch (Exception exception)
-#pragma warning restore CA1031
         {
+            // The delivery failed for any reason
+            // Record the failure and schedule a retry, or dead-letter when no retry is left
             await RecordFailureAsync(message, exception);
             return false;
         }
 
+        // Record the success
+        // Do it even when cancellation is requested, so the message is not double-delivered
         message.MarkProcessed(timeProvider.GetUtcNow().UtcDateTime);
         if (!await TrySaveAsync(message, CancellationToken.None))
         {
@@ -301,7 +401,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var retryDelays = options.Value.RetryDelays;
 
-        // The failed attempt was counted by its claim
+        // The attempt is already incremented at this time (at claim time)
         var attemptIndex = message.Attempts - 1;
 
         if (attemptIndex < retryDelays.Count)
@@ -320,7 +420,8 @@ internal sealed class OutboxProcessor<TDbContext>(
     }
 
     /// <summary>
-    /// Saves a change to a message, treating a lost concurrency race as an ordinary outcome.
+    /// Saves a change to a message.
+    /// Treats a lost concurrency race as an ordinary outcome.
     /// </summary>
     /// <param name="message">The message being written.</param>
     /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>

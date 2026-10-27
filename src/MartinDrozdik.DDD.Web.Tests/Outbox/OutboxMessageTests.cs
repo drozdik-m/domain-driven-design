@@ -91,6 +91,57 @@ public class OutboxMessageTests
         Assert.False(abandoned);
     }
 
+    [Theory]
+    [InlineData("fresh", 0, true)]
+    [InlineData("scheduled", 0, false)] // AvailableAt not reached yet
+    [InlineData("claimed", 1, false)] // Lease still held
+    [InlineData("claimed", 6, true)] // Lease expired
+    [InlineData("processed", 0, false)]
+    [InlineData("failed", 0, false)]
+    public void IsDueAndFree_holds_only_for_a_due_message_nobody_holds(string state, int minutesLater, bool expected)
+    {
+        // Arrange
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now, state == "scheduled" ? s_now.AddMinutes(10) : null);
+        switch (state)
+        {
+            case "claimed":
+                message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
+                break;
+            case "processed":
+                message.MarkProcessed(s_now);
+                break;
+            case "failed":
+                message.MarkFailed(s_now, "Boom");
+                break;
+        }
+
+        var isDueAndFree = OutboxMessage.IsDueAndFree(s_now.AddMinutes(minutesLater)).Compile();
+
+        // Act
+        var free = isDueAndFree(message);
+
+        // Assert
+        Assert.Equal(expected, free);
+    }
+
+    [Fact]
+    public void IsReservedBy_is_false_for_a_claim_without_a_reservation()
+    {
+        // A claim replaces the reservation, so a claimed message is never "reserved"
+
+        // Arrange
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+        var claimId = Guid.CreateVersion7();
+        message.Claim(claimId, s_now, TimeSpan.FromMinutes(5));
+
+        // Act
+        var reserved = message.IsReservedBy(claimId, s_now);
+
+        // Assert
+        Assert.False(reserved);
+        Assert.Null(message.ReservedUntil);
+    }
+
     [Fact]
     public void MarkProcessed_completes_the_message_and_releases_the_claim()
     {

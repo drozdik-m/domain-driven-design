@@ -76,9 +76,9 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
 
         // Act
-        var early = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var early = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         time.Advance(TimeSpan.FromHours(1));
-        var onTime = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var onTime = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, early);
@@ -98,7 +98,7 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         // Act
         var postponed = await outbox.PostponeNowAsync(ticket, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
         time.Advance(TimeSpan.FromHours(2));
-        var delivered = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var delivered = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.NotNull(postponed);
@@ -215,9 +215,9 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
-        var early = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var early = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         time.Advance(TimeSpan.FromHours(1));
-        var onTime = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var onTime = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, early);
@@ -277,9 +277,9 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         var postponed = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         time.Advance(TimeSpan.FromHours(2));
-        var early = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var early = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         time.Advance(TimeSpan.FromHours(1));
-        var onTime = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var onTime = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.NotNull(postponed);

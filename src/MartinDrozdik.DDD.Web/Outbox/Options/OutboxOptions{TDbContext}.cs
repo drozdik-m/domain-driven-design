@@ -17,16 +17,27 @@ public sealed class OutboxOptions<TDbContext>
     where TDbContext : DbContext
 {
     /// <summary>
-    /// Gets or sets how many messages a single call to <see cref="IOutboxProcessor{TDbContext}.ProcessPendingAsync"/> may deliver.
+    /// Gets or sets how many messages a single call to <see cref="IOutboxProcessor{TDbContext}.ProcessPendingAsync"/> reserves and may deliver.
     /// </summary>
     public int BatchSize { get; set; } = 100;
 
     /// <summary>
-    /// Gets or sets how long a lock on a message is honoured.
+    /// Gets or sets how long a lock on a message being delivered is honoured.
+    /// Starts when the delivery of that message starts.
     /// Once it elapses, another processor may take the message (processor failed).
     /// Set it comfortably above the slowest expected handler.
     /// </summary>
     public TimeSpan LeaseDuration { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Gets or sets how long a run holds the messages of its batch that it has not started yet.
+    /// Once it elapses, the rest of a slow batch goes to other processors, and the run skips those messages.
+    /// </summary>
+    /// <remarks>
+    /// A run reserves its whole batch up front, so processors running together deliver separate batches.
+    /// A message being delivered is held by <see cref="LeaseDuration"/> instead. Must not exceed it.
+    /// </remarks>
+    public TimeSpan ReservationDuration { get; set; } = TimeSpan.FromMinutes(1);
 
     /// <summary>
     /// Gets or sets the backoff schedule for failed deliveries.

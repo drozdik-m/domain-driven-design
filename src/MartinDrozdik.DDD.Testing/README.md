@@ -204,8 +204,8 @@ Tools and smoke tests for the transactional outbox. See the [web outbox README](
 Extensions:
 
 ```csharp
-// One batch, in a fresh scope, exactly as the dispatch task would.
-var delivered = await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
+// One batch, in a fresh scope. Returns an OutboxBatchResult: Found, Reserved, Released, Dispatched, MayHaveMore.
+var delivered = (await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
 // Same but keep going until nothing is left...
 var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);

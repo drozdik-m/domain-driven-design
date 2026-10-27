@@ -32,7 +32,7 @@ stateDiagram-v2
     Due --> Scheduled : (8.) Postpone…Async
     Scheduled --> Removed : (9.) Remove…Async
     Due --> Removed : (9.) Remove…Async
-    Due --> Delivery : (10.) a processor claims it
+    Due --> Delivery : (10.) a processor reserves it
 
     classDef gone stroke-dasharray:5 4
     class Discarded,Removed,Delivery gone
@@ -42,13 +42,14 @@ stateDiagram-v2
 
 [`OutboxProcessor<TDbContext>`](Outbox/OutboxProcessor%7BTDbContext%7D.cs)
 
-A reference to a message is called a *ticket* (id + concurrency stamp). Once anything claims a message, the messages' tickets become stale.
+A reference to a message is called a *ticket* (id + concurrency stamp). Once a processor claims the message, its tickets become stale (new concurrency token).
 
 ```mermaid
 stateDiagram-v2
     direction TB
 
-    state "Due<br/><small>AvailableAt reached, waits for a processor</small>" as Due
+    state "Due<br/><small>AvailableAt reached, nobody holds it</small>" as Due
+    state "Reserved<br/><small>in a batch, waits for its turn, no attempt yet</small>" as Reserved
     state "In flight<br/><small>claimed, lease running, handler busy</small>" as InFlight
     state "Backing off<br/><small>failed, waits for its retry delay</small>" as Backoff
     state "Abandoned<br/><small>lease expired, no outcome recorded</small>" as Abandoned
@@ -57,17 +58,19 @@ stateDiagram-v2
     state "row deleted" as Deleted
 
     [*] --> Due : from enqueueing (3., 5., 7.)
-    Due --> InFlight : (10.) claimed, Attempts + 1<br/><small>OutboxMessage.Claim</small>
-    Due --> DeadLettered : (11.) row cannot be read<br/><small>DeadLetterUnreadableAsync</small>
-    InFlight --> Processed : (12.) handler returned<br/><small>MarkProcessed</small>
-    InFlight --> Backoff : (13.) handler threw, retry left<br/><small>MarkRetrying</small>
-    InFlight --> DeadLettered : (14.) handler threw, no retry left<br/><small>MarkFailed</small>
-    InFlight --> Abandoned : (15.) no outcome before the lease expired
-    Backoff --> Due : (16.) retry delay elapsed
-    Abandoned --> InFlight : (17.) retry left, claimed again<br/><small>OutboxMessage.Claim</small>
-    Abandoned --> DeadLettered : (18.) no retry left<br/><small>DeadLetterAbandonedAsync</small>
-    Processed --> Deleted : (19.) older than Retention<br/><small>ApplyRetentionAsync</small>
-    DeadLettered --> Deleted : (20.) deleted by hand
+    Due --> Reserved : (10.) reserved with its batch<br/><small>ReserveAsync</small>
+    Reserved --> Due : (11.) reservation expired, or released at the end of the run<br/><small>ReleaseReservationsAsync</small>
+    Reserved --> DeadLettered : (12.) row cannot be read<br/><small>DeadLetterUnreadableAsync</small>
+    Reserved --> InFlight : (13.) claimed while the reservation stands, Attempts + 1<br/><small>OutboxMessage.Claim</small>
+    InFlight --> Processed : (14.) handler returned<br/><small>MarkProcessed</small>
+    InFlight --> Backoff : (15.) handler threw, retry left<br/><small>MarkRetrying</small>
+    InFlight --> DeadLettered : (16.) handler threw, no retry left<br/><small>MarkFailed</small>
+    InFlight --> Abandoned : (17.) no outcome before the lease expired
+    Backoff --> Due : (18.) retry delay elapsed
+    Abandoned --> Reserved : (19.) reserved with a later batch
+    Reserved --> DeadLettered : (20.) abandoned, no retry left<br/><small>DeadLetterAbandonedAsync</small>
+    Processed --> Deleted : (21.) older than Retention<br/><small>ApplyRetentionAsync</small>
+    DeadLettered --> Deleted : (22.) deleted by hand
     Deleted --> [*]
 
     classDef terminal stroke-width:3px
@@ -82,8 +85,9 @@ stateDiagram-v2
 |---|---|---|
 | **Tracked** | No row yet, only an `Added` entry in your context | `Outbox.AddOnSave` |
 | **Scheduled** | `AvailableAt` > now | `OutboxMessageSettings.AvailableAt`, `Outbox.Postpone…Async` |
-| **Due** | `AvailableAt` ≤ now, unclaimed | `OutboxProcessor.CreateDeliverableMessagesQuery` |
-| **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim` |
+| **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDueAndFree` |
+| **Reserved** | `ClaimedBy` set, `ReservedUntil` > now | `OutboxProcessor.ReserveAsync`, `OutboxOptions.ReservationDuration` |
+| **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim`, `OutboxOptions.LeaseDuration` |
 | **Backing off** | `AvailableAt` > now, `LastError` set | `OutboxMessage.MarkRetrying`, `OutboxOptions.RetryDelays` |
 | **Abandoned** | Claimed, `ClaimedUntil` < now | `OutboxMessage.IsAbandonedWithoutRetry` |
 | **Processed** | `ProcessedAt` set | `OutboxMessage.MarkProcessed`, `OutboxOptions.Retention` |
@@ -91,34 +95,41 @@ stateDiagram-v2
 
 ## One processor run
 
-`ProcessPendingAsync` handles one batch per call. The numbers in brackets refer to the transitions above.
+`ProcessPendingAsync` handles one batch per call. `OutboxDispatchRecurringTask` calls it again while `OutboxBatchResult.MayHaveMore`, so one iteration drains a backlog. The numbers in brackets refer to the transitions above.
 
 ```mermaid
 flowchart TD
-    start(["ProcessPendingAsync<br/><small>poll, trigger or your scheduler</small>"]) --> read["Read up to BatchSize due rows of registered types,<br/>oldest AvailableAt first<br/><small>GetDeliverableAsync</small>"]
+    start(["ProcessPendingAsync<br/><small>poll, trigger or your scheduler</small>"]) --> reserve["Reserve up to BatchSize due, free rows of registered types,<br/>oldest AvailableAt first (10.)<br/><small>ReserveAsync: read the ids, then one conditional update</small>"]
+    reserve --> read["Read back the rows this run reserved, by those ids<br/><small>GetReservedAsync</small>"]
     read --> readable{"Whole batch<br/>readable?"}
-    readable -- "no" --> rowByRow["Re-read the same batch row by row<br/><small>GetDeliverableRowByRowAsync</small>"]
-    rowByRow --> unreadable["Dead-letter each unreadable row (11.)<br/><small>DeadLetterUnreadableAsync</small>"]
+    readable -- "no" --> rowByRow["Re-read the same batch row by row<br/><small>GetRowByRowAsync</small>"]
+    rowByRow --> unreadable["Dead-letter each unreadable row (12.)<br/><small>DeadLetterUnreadableAsync</small>"]
     unreadable --> next
     readable -- "yes" --> next{"Next message?<br/><small>stops early when cancelled</small>"}
 
-    next -- "none left" --> retention["Delete Processed rows older than Retention (19.)<br/><small>ApplyRetentionAsync</small>"]
-    retention --> done(["Return the number delivered"])
+    next -- "none left" --> release["Release the reservations not claimed (11.)<br/><small>ReleaseReservationsAsync, however the run ended</small>"]
+    release --> retention["Delete Processed rows older than Retention (21.)<br/><small>ApplyRetentionAsync</small>"]
+    retention --> done(["Return OutboxBatchResult<br/><small>found, reserved, released, delivered, MayHaveMore</small>"])
 
-    next -- "message" --> abandoned{"Lease expired and<br/>Attempts > RetryDelays.Count?<br/><small>IsAbandonedWithoutRetry</small>"}
-    abandoned -- "yes" --> deadAbandoned["Dead-letter (18.)<br/><small>DeadLetterAbandonedAsync</small>"]
+    next -- "message" --> stands{"Reservation still stands?<br/><small>OutboxMessage.IsReservedBy</small>"}
+    stands -- "no, an earlier message outlasted it" --> skipped["Skip it, it belongs to whoever reserves it next (11.)"]
+    skipped --> next
+    stands -- "yes" --> abandoned{"Lease expired and<br/>Attempts > RetryDelays.Count?<br/><small>IsAbandonedWithoutRetry</small>"}
+    abandoned -- "yes" --> deadAbandoned["Dead-letter (20.)<br/><small>DeadLetterAbandonedAsync</small>"]
     deadAbandoned --> next
-    abandoned -- "no" --> claim["Claim: Attempts + 1, lease, new stamp (10., 17.)<br/><small>TryClaimAsync → OutboxMessage.Claim</small>"]
+    abandoned -- "no" --> claim["Claim: Attempts + 1, full lease, new stamp (13.)<br/><small>TryClaimAsync → OutboxMessage.Claim</small>"]
     claim --> won{"Claim saved?"}
-    won -- "no, another processor won<br/><small>DbUpdateConcurrencyException</small>" --> next
+    won -- "no, the stamp changed<br/><small>DbUpdateConcurrencyException</small>" --> next
     won -- "yes" --> dispatch["Deserialize and call the handler<br/><small>OutboxRegistration.Dispatch → IOutboxMessageHandler.HandleAsync</small>"]
 
-    dispatch -- "returned" --> processed["Processed (12.)<br/><small>MarkProcessed</small>"]
+    dispatch -- "returned" --> processed["Processed (14.)<br/><small>MarkProcessed</small>"]
     processed --> next
     dispatch -- "threw" --> retryLeft{"Attempts ≤<br/>RetryDelays.Count?"}
-    retryLeft -- "yes" --> retrying["Backing off (13.)<br/><small>MarkRetrying: AvailableAt = now + RetryDelays[Attempts - 1]</small>"]
+    retryLeft -- "yes" --> retrying["Backing off (15.)<br/><small>MarkRetrying: AvailableAt = now + RetryDelays[Attempts - 1]</small>"]
     retrying --> next
-    retryLeft -- "no" --> failed["Dead-lettered (14.)<br/><small>MarkFailed</small>"]
+    retryLeft -- "no" --> failed["Dead-lettered (16.)<br/><small>MarkFailed</small>"]
     failed --> next
-    dispatch -- "cancelled<br/><small>shutdown or Timeout, whatever it threw</small>" --> cancelled(["Throw. The lease stays and expires on its own (15.)<br/><small>the rest of the batch stays Due, no retention this run</small>"])
+    dispatch -- "cancelled<br/><small>shutdown or Timeout, whatever it threw</small>" --> cancelled(["Throw. The lease stays and expires on its own (17.)<br/><small>the reservations not claimed are released, no retention this run</small>"])
 ```
+
+Two checks prevent a double delivery. The update that reserves the batch repeats the "due and free" filter, and the database checks it again on each row it locks. A row another processor reserved, claimed or postponed after the ids were read is skipped. Without that check, the read-back would pick up the stamp of the other processor's claim, and this run's claim would succeed as well. The claim is saved against the concurrency stamp, so of two processors holding the same stamp, only one claims.

@@ -537,15 +537,28 @@ You can also inject `IRecurringTaskTrigger<OutboxDispatchRecurringTask<InvoiceDb
 
 #### Bring your own scheduler
 
-`AddOutboxDispatchRecurringTask` is just a thin shell. Skip it and drive `IOutboxProcessor<TContext>` from Quartz.NET, Hangfire, or a cron hitting an endpoint:
+`AddOutboxDispatchRecurringTask` is just a thin shell. Skip it and drive `IOutboxProcessor<TContext>` from Quartz.NET, Hangfire, or a cron hitting an endpoint.
 
 ```csharp
 public sealed class InvoiceOutboxJob(IOutboxProcessor<InvoiceDbContext> processor) : IJob
 {
-    public Task Execute(IJobExecutionContext context)
-        => processor.ProcessPendingAsync(context.CancellationToken);
+    public async Task Execute(IJobExecutionContext context)
+    {
+        OutboxBatchResult result;
+        do
+        {
+            result = await processor.ProcessPendingAsync(context.CancellationToken);
+        }
+        while (result.MayHaveMore && !context.CancellationToken.IsCancellationRequested);
+    }
 }
 ```
+
+#### Several instances
+
+Multiple instances may run the outbox processing, **safely!**. Each run reserves its batch up front (`BatchSize` messages for `ReservationDuration`), so instances polling together deliver separate batches. If one message of a batch takes longer than `ReservationDuration`, the rest of the batch goes to other instances and the slow run skips it.
+
+May be useful for high-throughput scenarios, or when you have like horizontal scaling and stuff...
 
 #### Several contexts – an outbox each
 

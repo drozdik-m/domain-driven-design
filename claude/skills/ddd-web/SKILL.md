@@ -396,8 +396,9 @@ shared type with another handler, throws `OutboxException` while the container i
 
 | Property | Default | Meaning |
 |---|---|---|
-| `BatchSize` | `100` | Messages delivered per `ProcessPendingAsync` call. |
-| `LeaseDuration` | `5 min` | How long a claim is honoured. Must exceed the slowest handler, or another processor takes the message mid-delivery. |
+| `BatchSize` | `100` | Messages reserved (and at most delivered) per `ProcessPendingAsync` call. |
+| `LeaseDuration` | `5 min` | How long the claim of a message being delivered is honoured, counted from the start of its attempt. Must exceed the slowest handler, or another processor takes the message mid-delivery. |
+| `ReservationDuration` | `1 min` | How long a run holds the messages of its batch it has not started. Once it passes, the rest of a slow batch goes to other processors. At most `LeaseDuration`. |
 | `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
 | `MaxPayloadLength` | `null` | Cap on serialized payload characters. `AddOnSave()` throws over it, before anything is saved. |
 | `Retention` | `null` | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
@@ -407,7 +408,11 @@ Delivery semantics, worth stating in code review:
 
 - **At-least-once — handlers must be idempotent.** A crash after the handler ran but before the row was marked
   redelivers the message.
-- Claims use a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are safe.
+- A run reserves its whole batch up front, so instances polling together deliver separate batches. Each message is
+  then claimed with a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are
+  safe. `ProcessPendingAsync` returns an `OutboxBatchResult` (`Found`, `Reserved`, `Released`, `Dispatched`,
+  `MayHaveMore`); the dispatch task keeps calling it while `MayHaveMore`, so one iteration drains a backlog. It stops
+  once a batch finds nothing, or releases everything it found untouched.
 - Handler throws → retried on the backoff; retries exhausted → dead-lettered (`FailedAt` set), kept for inspection,
   never delivered again.
 - A processor reads, claims and delivers only the message types of its own outbox. A row of a type it does not

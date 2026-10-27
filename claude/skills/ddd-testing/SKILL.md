@@ -203,8 +203,8 @@ until the test asks. Two helpers in `OutboxTestExtensions` (`MartinDrozdik.DDD.T
 own, so both name the context whose outbox they process:
 
 ```csharp
-// One batch, fresh scope, exactly what the dispatch task does. Returns the number delivered successfully.
-var delivered = await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
+// One batch, fresh scope. Returns an OutboxBatchResult: Found, Reserved, Released, Dispatched (delivered successfully), MayHaveMore.
+var delivered = (await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
 // Repeat until nothing is left: handlers that enqueue further messages, or more messages than one batch
 var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);

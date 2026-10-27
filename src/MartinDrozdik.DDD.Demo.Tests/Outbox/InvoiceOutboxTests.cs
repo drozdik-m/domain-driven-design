@@ -74,10 +74,10 @@ public class InvoiceOutboxTests
         await client.V1.Invoice.PostAsync(request, cancellationToken: CancellationToken.None);
 
         // Act
-        var dispatched = await _factory.ProcessOutboxAsync<InvoiceDbContext>(TestContext.Current.CancellationToken);
+        var result = await _factory.ProcessOutboxAsync<InvoiceDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(1, dispatched);
+        Assert.Equal(1, result.Dispatched);
         var message = await GetSingleMessageAsync();
         Assert.NotNull(message.ProcessedAt);
         Assert.Equal(1, message.Attempts);

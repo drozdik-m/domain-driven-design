@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq.Expressions;
 using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
@@ -78,6 +79,7 @@ public sealed class OutboxMessage
     /// </summary>
     /// <remarks>
     /// Counted when the message is claimed -> unfinished runs (cancelled, timed out, or its process stopped) also count.
+    /// A reservation alone does not count, see <see cref="ReservedUntil"/>.
     /// </remarks>
     public int Attempts { get; private set; }
 
@@ -87,7 +89,7 @@ public sealed class OutboxMessage
     public string? LastError { get; private set; }
 
     /// <summary>
-    /// Gets the identity of the processor currently holding the message, or null when it is free.
+    /// Gets the identity of the processor run currently holding the message (reserved or claimed), or null when it is free.
     /// </summary>
     public Guid? ClaimedBy { get; private set; }
 
@@ -99,10 +101,23 @@ public sealed class OutboxMessage
     public DateTime? ClaimedUntil { get; private set; }
 
     /// <summary>
+    /// Gets the UTC instant the reservation of the message expires, or null when it is not reserved.
+    /// </summary>
+    /// <remarks>
+    /// A processor run reserves its whole batch up front, so other processors read past it.
+    /// A reservation holds a slot in the batch, not an attempt: <see cref="Attempts"/>, <see cref="ClaimedUntil"/> and <see cref="ConcurrencyStamp"/> stay as they were until the run claims the message.
+    /// Once it passes, another processor may take the message, even tho its still in the batch being processed by the reserving run.
+    /// </remarks>
+    public DateTime? ReservedUntil { get; private set; }
+
+    /// <summary>
     /// Gets the optimistic concurrency token.
     /// It is what makes claiming safe - two processors racing for the same message both write a
     /// lease, and the loser is rejected with a <see cref="DbUpdateConcurrencyException"/>.
     /// </summary>
+    /// <remarks>
+    /// A reservation does not change it, so a ticket still removes or postpones a message until it is claimed.
+    /// </remarks>
     public Guid ConcurrencyStamp { get; private set; } = Guid.CreateVersion7();
 
     /// <summary>
@@ -140,6 +155,9 @@ public sealed class OutboxMessage
     /// <summary>
     /// Takes a lease on the message so no other processor delivers it concurrently, and increments the attempt count.
     /// </summary>
+    /// <remarks>
+    /// The lease replaces any reservation.
+    /// </remarks>
     /// <param name="claimId">The identity of the claiming processor.</param>
     /// <param name="nowUtc">The current UTC time.</param>
     /// <param name="leaseDuration">How long the claim is honoured before the message may be taken again.</param>
@@ -150,6 +168,7 @@ public sealed class OutboxMessage
         Attempts++;
         ClaimedBy = claimId;
         ClaimedUntil = nowUtc + leaseDuration;
+        ReservedUntil = null;
         RotateConcurrencyStamp();
     }
 
@@ -213,6 +232,28 @@ public sealed class OutboxMessage
     }
 
     /// <summary>
+    /// Builds the filter of the messages that are due and held by no processor, neither claimed nor reserved.
+    /// The one definition of "free".
+    /// </summary>
+    /// <param name="nowUtc">The current UTC time.</param>
+    /// <returns>The filter, translatable to SQL.</returns>
+    internal static Expression<Func<OutboxMessage, bool>> IsDueAndFree(DateTime nowUtc)
+        => m => m.ProcessedAt == null &&
+            m.FailedAt == null &&
+            m.AvailableAt <= nowUtc &&
+            (m.ClaimedUntil == null || m.ClaimedUntil < nowUtc) &&
+            (m.ReservedUntil == null || m.ReservedUntil < nowUtc);
+
+    /// <summary>
+    /// Tells whether a processor run still holds its reservation of the message.
+    /// </summary>
+    /// <param name="claimId">The identity of the processor run.</param>
+    /// <param name="nowUtc">The current UTC time.</param>
+    /// <returns>True when the reservation stands, false when it expired or belongs to another run.</returns>
+    internal bool IsReservedBy(Guid claimId, DateTime nowUtc)
+        => ClaimedBy == claimId && ReservedUntil > nowUtc;
+
+    /// <summary>
     /// Tells whether the last attempt was cut short and was the last one the retries allow.
     /// </summary>
     /// <remarks>
@@ -265,6 +306,7 @@ public sealed class OutboxMessage
     {
         ClaimedBy = null;
         ClaimedUntil = null;
+        ReservedUntil = null;
     }
 
     /// <summary>

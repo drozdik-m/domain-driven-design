@@ -1,5 +1,6 @@
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing;
+using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Tests.App;
@@ -59,6 +60,43 @@ public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         await EnqueueAsync(app);
         await EnqueueAsync(app);
+        await EnqueueAsync(app);
+
+        // While the first message is being delivered, another instance takes one of the reserved ones and bumps its stamp
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        var rivalHasStruck = false;
+        state.OnHandled = _ =>
+        {
+            if (rivalHasStruck)
+            {
+                return;
+            }
+
+            rivalHasStruck = true;
+            using var rivalScope = app.Services.CreateScope();
+            var rivalContext = rivalScope.ServiceProvider.GetRequiredService<TestDbContext>();
+            var contested = rivalContext.Set<OutboxMessage>().First(m => m.ReservedUntil != null);
+            contested.MarkProcessed(DateTime.UtcNow);
+            rivalContext.SaveChanges();
+        };
+
+        // Act
+        var result = await app.Services.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The claim of the contested message failed, but the batch still delivered the other two
+        Assert.Equal(3, result.Reserved);
+        Assert.Equal(2, result.Dispatched);
+        Assert.Equal(2, state.Handled.Count);
+    }
+
+    [Fact]
+    public async Task A_processor_whose_context_already_tracks_a_message_reads_its_reservation_fresh()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        await EnqueueAsync(app);
+        await EnqueueAsync(app);
 
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
 
@@ -66,12 +104,12 @@ public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
         var processorContext = processorScope.ServiceProvider.GetRequiredService<TestDbContext>();
         var processor = processorScope.ServiceProvider.GetRequiredService<IOutboxProcessor<TestDbContext>>();
 
-        // The processor loads both messages into its change tracker before anything is claimed
+        // The context of the processor tracks both messages before anything is reserved, e.g. left over from earlier work in the scope
         var loaded = await processorContext.Set<OutboxMessage>()
             .OrderBy(m => m.Id)
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        // Another instance takes the first one and bumps its stamp, invalidating the copy above
+        // Another instance delivers the first one meanwhile
         using (var rivalScope = app.Services.CreateScope())
         {
             var rivalContext = rivalScope.ServiceProvider.GetRequiredService<TestDbContext>();
@@ -82,11 +120,12 @@ public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await processor.ProcessPendingAsync(TestContext.Current.CancellationToken);
+        var result = await processor.ProcessPendingAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        // The contested message is gone, but the batch still delivered the other one
-        Assert.Equal(1, dispatched);
+        // The delivered one is not reserved again, and the tracked copy of the other one does not hide its reservation
+        Assert.Equal(1, result.Reserved);
+        Assert.Equal(1, result.Dispatched);
         Assert.Single(state.Handled);
     }
 

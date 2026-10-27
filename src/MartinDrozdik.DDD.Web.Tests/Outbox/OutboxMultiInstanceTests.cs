@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Data.Common;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
@@ -6,6 +7,7 @@ using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
@@ -36,7 +38,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         await EnqueueAsync(first, Enumerable.Range(0, 30).Select(i => new ReviewMessage($"message-{i}")));
 
-        // Both read the same batch, so they race for every message of it
+        // Both poll at once and race to reserve the same rows
         _hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
 
         // Act
@@ -45,7 +47,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
             Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken));
 
         // Assert
-        Assert.Equal(30, results.Sum());
+        Assert.Equal(30, results.Sum(r => r.Dispatched));
+        Assert.Equal(30, results.Sum(r => r.Reserved));
         Assert.Equal(30, _hooks.Handled.Count);
         Assert.Equal(30, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
 
@@ -75,16 +78,331 @@ public sealed class OutboxMultiInstanceTests : IDisposable
             }
 
             secondHasPolled = true;
-            secondDispatched = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+            secondDispatched = (await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken)).Dispatched;
         };
 
         // Act
-        var firstDispatched = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var firstDispatched = (await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
-        // Today both read the same ten rows, so the second instance mostly takes messages the first already holds in its batch:
-        // together they deliver 11, and the remaining 9 wait for the next poll
-        Assert.Equal(20, firstDispatched + secondDispatched);
+        // The first instance reserved its ten up front, so the second reads past them and takes the other ten
+        Assert.Equal(10, firstDispatched);
+        Assert.Equal(10, secondDispatched);
+        Assert.Equal(20, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public async Task An_instance_does_not_reserve_rows_another_instance_holds()
+    {
+        // Arrange
+        static void Options(OutboxOptions<ReviewDbContext> options) => options.BatchSize = 3;
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        await EnqueueAsync(first, Enumerable.Range(0, 4).Select(i => new ReviewMessage($"message-{i}")));
+
+        // While the first instance delivers its first message, look at the rows and let the second instance poll
+        List<OutboxMessage> duringFirstBatch = [];
+        OutboxBatchResult? secondResult = null;
+        var secondHasPolled = false;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (secondHasPolled)
+            {
+                return;
+            }
+
+            secondHasPolled = true;
+            duringFirstBatch = await GetMessagesAsync(first);
+            secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+        };
+
+        // Act
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Three rows held by the first run - one claimed, two reserved - and one left free
+        var held = duringFirstBatch.Where(m => m.ClaimedBy is not null).ToList();
+        Assert.Equal(3, held.Count);
+        Assert.Single(held.Select(m => m.ClaimedBy).Distinct());
+        Assert.Equal(2, held.Count(m => m.ReservedUntil is not null));
+        Assert.Single(duringFirstBatch, m => m.ClaimedBy is null);
+
+        // So the second instance only got the free one
+        Assert.NotNull(secondResult);
+        Assert.Equal(1, secondResult.Reserved);
+        Assert.Equal(1, secondResult.Dispatched);
+        Assert.Equal(3, firstResult.Dispatched);
+        Assert.Equal(4, _hooks.Handled.Count);
+        Assert.Equal(4, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public async Task A_slow_message_lets_the_rest_of_its_batch_expire_to_another_instance()
+    {
+        // Arrange
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.BatchSize = 3;
+            options.ReservationDuration = TimeSpan.FromMinutes(1);
+            options.LeaseDuration = TimeSpan.FromMinutes(10);
+        }
+
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        await EnqueueAsync(first, Enumerable.Range(0, 3).Select(i => new ReviewMessage($"message-{i}")));
+
+        // The first message outlasts the reservation of the batch, and the second instance polls meanwhile
+        OutboxBatchResult? secondResult = null;
+        var secondHasPolled = false;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (secondHasPolled)
+            {
+                return;
+            }
+
+            secondHasPolled = true;
+            _time.Advance(TimeSpan.FromMinutes(2));
+            secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+        };
+
+        // Act
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The slow message is still leased by the first instance, the other two went to the second
+        Assert.NotNull(secondResult);
+        Assert.Equal(2, secondResult.Reserved);
+        Assert.Equal(2, secondResult.Dispatched);
+        Assert.Equal(3, firstResult.Reserved);
+        Assert.Equal(1, firstResult.Dispatched);
+
+        // Each message delivered once, none attempted twice
+        Assert.Equal(3, _hooks.Handled.Count);
+        Assert.Equal(3, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        var messages = await GetMessagesAsync(first);
+        Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
+        Assert.All(messages, m => Assert.Equal(1, m.Attempts));
+        Assert.All(messages, m => Assert.Null(m.ReservedUntil));
+    }
+
+    [Fact]
+    public async Task An_instance_skips_a_message_whose_reservation_expired_even_when_nobody_took_it()
+    {
+        // Arrange
+        // The reservation is a promise to other processors: once it is over, the message is theirs, taken or not
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.BatchSize = 2;
+            options.ReservationDuration = TimeSpan.FromMinutes(1);
+        }
+
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        await EnqueueAsync(instance, [new ReviewMessage("first"), new ReviewMessage("second")]);
+
+        // Whichever message is delivered first outlasts the reservation
+        var slowHandled = false;
+        _hooks.OnHandleAsync = (_, _) =>
+        {
+            if (!slowHandled)
+            {
+                slowHandled = true;
+                _time.Advance(TimeSpan.FromMinutes(2));
+            }
+
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var firstRun = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var skipped = Assert.Single(await GetMessagesAsync(instance), m => m.ProcessedAt is null);
+        var secondRun = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Skipped without an attempt, and released for the next run
+        Assert.Equal(2, firstRun.Reserved);
+        Assert.Equal(1, firstRun.Dispatched);
+        Assert.Equal(0, skipped.Attempts);
+        Assert.Null(skipped.ClaimedBy);
+        Assert.Null(skipped.ReservedUntil);
+        Assert.Null(skipped.ClaimedUntil);
+
+        Assert.Equal(1, secondRun.Dispatched);
+        Assert.Equal(2, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(2, _hooks.Handled.Count);
+    }
+
+    [Fact]
+    public async Task An_instance_with_a_lagging_clock_cannot_claim_a_message_another_instance_already_claimed()
+    {
+        // Arrange
+        // The second instance runs two minutes ahead, so it sees the reservation of the first instance as expired while the first does not.
+        // A reservation does not change the concurrency stamp, so both read the same stamp: only the claim decides who delivers.
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.BatchSize = 2;
+            options.ReservationDuration = TimeSpan.FromMinutes(1);
+        }
+
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            Options,
+            new FakeTimeProvider(s_initialTime.AddMinutes(2)));
+        await EnqueueAsync(first, [new ReviewMessage("first"), new ReviewMessage("second")]);
+
+        // While the first instance delivers its first message, the second takes the other one and delivers it
+        string? delivered = null;
+        OutboxBatchResult? secondResult = null;
+        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        {
+            if (delivered is not null)
+            {
+                return;
+            }
+
+            delivered = text;
+            secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+        };
+
+        // Act
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The first instance still believed in its reservation, tried to claim, and lost to the stamp
+        Assert.NotNull(secondResult);
+        Assert.Equal(1, secondResult.Dispatched);
+        Assert.Equal(1, firstResult.Dispatched);
+        Assert.Equal(2, _hooks.Handled.Count);
+        Assert.Equal(2, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+
+        var messages = await GetMessagesAsync(first);
+        Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
+        Assert.All(messages, m => Assert.Equal(1, m.Attempts));
+    }
+
+    [Fact]
+    public async Task A_producer_still_removes_a_message_a_worker_reserved_but_has_not_started()
+    {
+        // Arrange
+        // A reservation keeps the concurrency stamp, so a ticket works until the message is claimed
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+
+        Dictionary<string, OutboxTicket> tickets = [];
+        await using (var scope = producer.Services.CreateAsyncScope())
+        {
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            tickets["first"] = outbox.AddOnSave(new ReviewMessage("first"));
+            tickets["second"] = outbox.AddOnSave(new ReviewMessage("second"));
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // While the worker delivers one message, the producer takes back the other one
+        bool? removed = null;
+        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        {
+            if (removed is not null)
+            {
+                return;
+            }
+
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            removed = await outbox.RemoveNowAsync(tickets[text == "first" ? "second" : "first"], cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The worker had reserved both, lost the claim of the removed one and skipped it
+        Assert.True(removed);
+        Assert.Equal(2, result.Reserved);
+        Assert.Equal(1, result.Dispatched);
+        Assert.Single(_hooks.Handled);
+        Assert.Single(await GetMessagesAsync(worker));
+    }
+
+    [Fact]
+    public async Task An_instance_does_not_reserve_messages_another_instance_claimed_after_they_were_read()
+    {
+        // Arrange
+        // Another instance claims every message between this instance reading the ids of its batch and reserving them
+        var reserving = new ReserveInterceptor();
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        var rival = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await EnqueueAsync(instance, Enumerable.Range(0, 3).Select(i => new ReviewMessage($"message-{i}")));
+
+        var rivalClaimId = Guid.CreateVersion7();
+        reserving.BeforeReserveAsync = async cancellationToken =>
+        {
+            await using var scope = rival.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+                .Set<OutboxMessage>()
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(m => m.ClaimedBy, rivalClaimId)
+                        .SetProperty(m => m.ClaimedUntil, s_initialTime.UtcDateTime.AddMinutes(10))
+                        .SetProperty(m => m.Attempts, 1)
+                        .SetProperty(m => m.ConcurrencyStamp, Guid.CreateVersion7()),
+                    cancellationToken);
+        };
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Reserving them anyway would read back the rival's stamp, claim them as well and deliver them a second time
+        Assert.Equal(1, reserving.Runs);
+        Assert.Equal(new OutboxBatchResult(Found: 3, Reserved: 0, Released: 0, Dispatched: 0), result);
+        Assert.Empty(_hooks.Handled);
+
+        var messages = await GetMessagesAsync(instance);
+        Assert.All(messages, m => Assert.Equal(rivalClaimId, m.ClaimedBy));
+        Assert.All(messages, m => Assert.Null(m.ReservedUntil));
+        Assert.All(messages, m => Assert.Equal(1, m.Attempts));
+
+        // The rival moved them on, so a drain asks again rather than stop
+        Assert.True(result.MayHaveMore);
+    }
+
+    [Fact]
+    public async Task A_drain_stops_when_a_batch_releases_every_message_it_found_untouched()
+    {
+        // Arrange
+        // Every reservation has expired before its first message starts, so each batch hands back what it found.
+        // Asking again would find the same messages forever
+        var reserving = new ReserveInterceptor();
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        await EnqueueAsync(instance, Enumerable.Range(0, 3).Select(i => new ReviewMessage($"message-{i}")));
+
+        using var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        reserving.BeforeReserveAsync = async _ =>
+        {
+            _time.Advance(TimeSpan.FromMinutes(2));
+
+            // Bounds the test should the drain spin
+            if (reserving.Runs > 5)
+            {
+                await iteration.CancelAsync();
+            }
+        };
+
+        await using var scope = instance.Services.CreateAsyncScope();
+        var task = new OutboxDispatchRecurringTask<ReviewDbContext>(scope.ServiceProvider.GetRequiredService<IOutboxProcessor<ReviewDbContext>>());
+
+        // Act
+        await task.RunAsync(iteration.Token);
+
+        // Assert
+        Assert.Equal(1, reserving.Runs);
+        Assert.Empty(_hooks.Handled);
+
+        var messages = await GetMessagesAsync(instance);
+        Assert.All(messages, m => Assert.Null(m.ClaimedBy));
+        Assert.All(messages, m => Assert.Null(m.ReservedUntil));
+        Assert.All(messages, m => Assert.Equal(0, m.Attempts));
     }
 
     [Fact]
@@ -110,7 +428,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         }
 
         // Then an instance that knows the type polls
-        var delivered = await producer.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var delivered = (await producer.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         // The old worker never claimed it, so no retry was burnt on a message it can never deliver
@@ -183,12 +501,21 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
     private async Task<IHost> CreateInstanceAsync(
         Action<OutboxConfig> configure,
-        Action<OutboxOptions<ReviewDbContext>>? configureOptions = null)
+        Action<OutboxOptions<ReviewDbContext>>? configureOptions = null,
+        TimeProvider? time = null,
+        IInterceptor? interceptor = null)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
-        builder.Services.AddSingleton<TimeProvider>(_time);
+        builder.Services.AddSingleton(time ?? _time);
         builder.Services.AddSingleton(_hooks);
-        builder.Services.AddDbContext<ReviewDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
+        builder.Services.AddDbContext<ReviewDbContext>(options =>
+        {
+            options.UseSqlite($"Data Source={_databasePath}");
+            if (interceptor is not null)
+            {
+                options.AddInterceptors(interceptor);
+            }
+        });
         builder.AddOutbox(configureOptions ?? (static _ => { }), configure);
 
         var instance = builder.Build();
@@ -227,6 +554,33 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.AddOutbox("OutboxMessage");
+        }
+    }
+
+    /// <summary>
+    /// Runs <see cref="BeforeReserveAsync"/> right before the processor executes the update that reserves its batch.
+    /// </summary>
+    private sealed class ReserveInterceptor : DbCommandInterceptor
+    {
+        public Func<CancellationToken, Task> BeforeReserveAsync { get; set; } = static _ => Task.CompletedTask;
+
+        public int Runs { get; private set; }
+
+        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            // Only the reservation sets ReservedUntil to a value and filters by AvailableAt
+            if (command.CommandText.Contains("\"ReservedUntil\" = @", StringComparison.Ordinal) &&
+                command.CommandText.Contains("\"AvailableAt\" <=", StringComparison.Ordinal))
+            {
+                Runs++;
+                await BeforeReserveAsync(cancellationToken);
+            }
+
+            return result;
         }
     }
 

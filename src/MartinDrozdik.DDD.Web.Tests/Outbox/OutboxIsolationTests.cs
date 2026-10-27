@@ -35,9 +35,9 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync<SecondTestDbContext, TestOutboxMessage>(app, new TestOutboxMessage("second"));
 
         // Act
-        var firstDispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var firstDispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         var handledByFirst = state.Handled.ToList();
-        var secondDispatched = await app.ProcessOutboxAsync<SecondTestDbContext>(TestContext.Current.CancellationToken);
+        var secondDispatched = (await app.ProcessOutboxAsync<SecondTestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, firstDispatched);
@@ -58,7 +58,7 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
         await AddRawMessageAsync<TestDbContext>(app, OutboxMessage.Create(SecondContextOutboxMessage.MessageType, """{"orderNumber":1}""", s_initialTime.UtcDateTime));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -99,7 +99,7 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
 
         // Act
         var stored = await GetSingleMessageAsync<SecondTestDbContext>(app);
-        var dispatched = await app.ProcessOutboxAsync<SecondTestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<SecondTestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Contains("\"order_number\":42", stored.Payload.Value, StringComparison.Ordinal);

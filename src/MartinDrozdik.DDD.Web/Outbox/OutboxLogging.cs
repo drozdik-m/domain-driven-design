@@ -28,8 +28,14 @@ internal static partial class OutboxLogging
     [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox}: message {MessageId} was claimed by another processor and is skipped.")]
     internal static partial void LogClaimLost(ILogger logger, string outbox, Guid messageId);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox} delivered {DispatchedCount} of {ClaimedCount} messages in this batch.")]
-    internal static partial void LogBatchCompleted(ILogger logger, string outbox, int dispatchedCount, int claimedCount);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox} delivered {DispatchedCount} of {ReservedCount} reserved messages in this batch.")]
+    internal static partial void LogBatchCompleted(ILogger logger, string outbox, int dispatchedCount, int reservedCount);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox}: the reservation of message {MessageId} expired before its delivery started. It is skipped and left to other processors.")]
+    internal static partial void LogReservationExpired(ILogger logger, string outbox, Guid messageId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox of {Outbox} could not release the unstarted reservations of run {ClaimId}. They expire on their own.")]
+    internal static partial void LogReservationsNotReleased(ILogger logger, Exception exception, string outbox, Guid claimId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Outbox of {Outbox} deleted {DeletedCount} delivered messages older than {Retention}.")]
     internal static partial void LogRetentionApplied(ILogger logger, string outbox, int deletedCount, TimeSpan retention);

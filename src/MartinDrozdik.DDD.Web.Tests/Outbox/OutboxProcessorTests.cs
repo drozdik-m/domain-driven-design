@@ -2,6 +2,7 @@ using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Testing.Outbox;
+using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Tests.App;
@@ -28,7 +29,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("hello"));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -50,7 +51,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new OtherTestOutboxMessage(42));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(2, dispatched);
@@ -67,7 +68,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -135,10 +136,10 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromMinutes(4));
-        var tooEarly = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var tooEarly = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         time.Advance(TimeSpan.FromMinutes(1));
-        var onTime = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var onTime = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, tooEarly);
@@ -159,7 +160,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromDays(1));
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -203,7 +204,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var dispatched = 0;
         for (var run = 0; run < 3; run++)
         {
-            dispatched += await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+            dispatched += (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
             time.Advance(TimeSpan.FromMinutes(10));
         }
 
@@ -240,7 +241,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("behind them"));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -258,8 +259,8 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("c"));
 
         // Act
-        var first = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-        var second = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var first = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
+        var second = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(2, first);
@@ -285,7 +286,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -311,7 +312,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromMinutes(6));
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -408,7 +409,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, "null", s_initialTime.UtcDateTime));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, dispatched);
@@ -433,7 +434,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"waiting an hour"}""", s_initialTime.UtcDateTime.AddHours(-1)));
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -454,7 +455,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         state.OnHandled = _ => run.Cancel();
 
         // Act
-        var dispatched = await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token);
+        var dispatched = (await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token)).Dispatched;
 
         // Assert
         // The delivered message is recorded, so it is not delivered again once its lease expires
@@ -487,7 +488,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         // The retention is left to the next run rather than started with the cancelled token
-        var dispatched = await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token);
+        var dispatched = (await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -543,6 +544,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         Assert.Contains("no outcome", message.LastError, StringComparison.Ordinal);
         Assert.Null(message.ClaimedBy);
         Assert.Null(message.ClaimedUntil);
+        Assert.Null(message.ReservedUntil);
         Assert.Contains(logger.At(LogLevel.Error), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
     }
 
@@ -575,9 +577,9 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         // The lease still holds, then it expires
-        var whileLeased = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var whileLeased = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         time.Advance(TimeSpan.FromMinutes(6));
-        var afterLease = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var afterLease = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, whileLeased);
@@ -661,9 +663,9 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // Act
         // No retry delay applies, only the lease: still held after the ten seconds of the retry delay, then expired
         time.Advance(TimeSpan.FromSeconds(10));
-        var whileLeased = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var whileLeased = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
         time.Advance(TimeSpan.FromMinutes(6));
-        var afterLease = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var afterLease = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(0, whileLeased);
@@ -673,6 +675,209 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var message = await GetSingleMessageAsync(app);
         Assert.NotNull(message.ProcessedAt);
         Assert.Equal(2, message.Attempts);
+    }
+
+    [Fact]
+    public async Task Reserving_does_not_count_an_attempt_or_change_the_ticket()
+    {
+        // Arrange
+        using var app = Build(out _, options => options.BatchSize = 3);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("a"));
+        await EnqueueAsync(app, new TestOutboxMessage("b"));
+        await EnqueueAsync(app, new TestOutboxMessage("c"));
+        var stampsBefore = (await GetMessagesAsync(app)).ToDictionary(m => m.Id, m => m.ConcurrencyStamp);
+
+        // Look at the rows while the first message of the batch is being delivered
+        List<OutboxMessage> duringFirst = [];
+        state.OnHandled = _ =>
+        {
+            if (duringFirst.Count == 0)
+            {
+                duringFirst = GetMessages(app);
+            }
+        };
+
+        // Act
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The two waiting messages are only reserved: no attempt, no lease, the same stamp
+        var waiting = duringFirst.Where(m => m.ReservedUntil is not null).ToList();
+        Assert.Equal(2, waiting.Count);
+        Assert.All(waiting, m => Assert.Equal(0, m.Attempts));
+        Assert.All(waiting, m => Assert.Null(m.ClaimedUntil));
+        Assert.All(waiting, m => Assert.Equal(stampsBefore[m.Id], m.ConcurrencyStamp));
+
+        // The one being delivered is claimed by the same run
+        var started = Assert.Single(duringFirst, m => m.ReservedUntil is null);
+        Assert.Equal(1, started.Attempts);
+        Assert.NotNull(started.ClaimedUntil);
+        Assert.NotEqual(stampsBefore[started.Id], started.ConcurrencyStamp);
+        Assert.All(waiting, m => Assert.Equal(started.ClaimedBy, m.ClaimedBy));
+    }
+
+    [Fact]
+    public async Task A_run_cancelled_mid_batch_releases_its_unstarted_reservations()
+    {
+        // Arrange
+        using var app = Build(out _);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("a"));
+        await EnqueueAsync(app, new TestOutboxMessage("b"));
+        await EnqueueAsync(app, new TestOutboxMessage("c"));
+
+        using var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        state.OnHandled = _ => iteration.Cancel();
+
+        // Act
+        var cancelled = await app.Services.ProcessOutboxAsync<TestDbContext>(iteration.Token);
+        var released = (await GetMessagesAsync(app)).Where(m => m.ProcessedAt is null).ToList();
+
+        state.OnHandled = static _ => { };
+        var next = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, cancelled.Reserved);
+        Assert.Equal(1, cancelled.Dispatched);
+
+        // Free again at once and never attempted, so the next run takes them without waiting for any expiry
+        Assert.Equal(2, released.Count);
+        Assert.All(released, m => Assert.Null(m.ClaimedBy));
+        Assert.All(released, m => Assert.Null(m.ReservedUntil));
+        Assert.All(released, m => Assert.Equal(0, m.Attempts));
+
+        Assert.Equal(2, next.Dispatched);
+        Assert.Equal(3, state.Handled.Count);
+    }
+
+    [Fact]
+    public async Task A_message_on_its_last_retry_is_not_dead_lettered_when_its_reservation_expired_unstarted()
+    {
+        // Arrange
+        using var app = Build(
+            out var time,
+            options =>
+            {
+                options.RetryDelays = [TimeSpan.FromSeconds(10)];
+                options.ReservationDuration = TimeSpan.FromMinutes(1);
+            });
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+
+        // A failed first attempt leaves one retry
+        await EnqueueAsync(app, new TestOutboxMessage("retried"));
+        state.ShouldFail = true;
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        state.ShouldFail = false;
+
+        // A slow message waiting longer comes first in the next batch and outlasts its reservation
+        await EnqueueAsync(app, new TestOutboxMessage("slow"));
+        time.Advance(TimeSpan.FromSeconds(10));
+        state.OnHandled = text =>
+        {
+            if (text == "slow")
+            {
+                time.Advance(TimeSpan.FromMinutes(2));
+            }
+        };
+
+        // Act
+        var skippingRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var afterSkip = Assert.Single(await GetMessagesAsync(app), m => m.ProcessedAt is null);
+        var laterRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Skipping cost nothing: still one attempt, nothing dead-lettered
+        Assert.Equal(1, skippingRun.Dispatched);
+        Assert.Equal(1, afterSkip.Attempts);
+        Assert.Null(afterSkip.FailedAt);
+        Assert.Null(afterSkip.ReservedUntil);
+
+        // And the last retry is delivered
+        Assert.Equal(1, laterRun.Dispatched);
+        var retried = Assert.Single(await GetMessagesAsync(app), m => m.Id == afterSkip.Id);
+        Assert.NotNull(retried.ProcessedAt);
+        Assert.Equal(2, retried.Attempts);
+    }
+
+    [Fact]
+    public async Task Every_attempt_gets_a_full_lease_from_its_own_start()
+    {
+        // Arrange
+        using var app = Build(
+            out var time,
+            options =>
+            {
+                options.LeaseDuration = TimeSpan.FromMinutes(5);
+                options.ReservationDuration = TimeSpan.FromMinutes(1);
+            });
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("a"));
+        await EnqueueAsync(app, new TestOutboxMessage("b"));
+
+        // The first message takes 30 seconds, then look at the lease of the second one while it is delivered
+        DateTime? secondLease = null;
+        state.OnHandled = _ =>
+        {
+            if (state.Handled.Count == 1)
+            {
+                time.Advance(TimeSpan.FromSeconds(30));
+                return;
+            }
+
+            secondLease = GetMessages(app).Single(m => m.ProcessedAt is null).ClaimedUntil;
+        };
+
+        // Act
+        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // Counted from the start of its own attempt, not from the start of the batch
+        Assert.Equal(s_initialTime.UtcDateTime.AddSeconds(30).AddMinutes(5), secondLease);
+    }
+
+    [Fact]
+    public async Task A_batch_reports_how_many_it_found_reserved_released_and_delivered()
+    {
+        // Arrange
+        using var app = Build(out _, options => options.BatchSize = 2);
+        await EnqueueAsync(app, new TestOutboxMessage("a"));
+        await EnqueueAsync(app, new TestOutboxMessage("b"));
+        await EnqueueAsync(app, new TestOutboxMessage("c"));
+
+        // Act
+        var full = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var partial = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var empty = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // A partial batch may still have more behind it, e.g. messages that became due meanwhile: only an empty one ends a drain
+        Assert.Equal(new OutboxBatchResult(Found: 2, Reserved: 2, Released: 0, Dispatched: 2), full);
+        Assert.True(full.MayHaveMore);
+        Assert.Equal(new OutboxBatchResult(Found: 1, Reserved: 1, Released: 0, Dispatched: 1), partial);
+        Assert.True(partial.MayHaveMore);
+        Assert.Equal(new OutboxBatchResult(Found: 0, Reserved: 0, Released: 0, Dispatched: 0), empty);
+        Assert.False(empty.MayHaveMore);
+    }
+
+    [Fact]
+    public async Task A_batch_reports_the_messages_it_released_untouched()
+    {
+        // Arrange
+        // The first message outlasts the reservation of the other two
+        using var app = Build(out var time, options => options.BatchSize = 3);
+        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
+        await EnqueueAsync(app, new TestOutboxMessage("a"));
+        await EnqueueAsync(app, new TestOutboxMessage("b"));
+        await EnqueueAsync(app, new TestOutboxMessage("c"));
+        state.OnHandled = _ => time.Advance(TimeSpan.FromMinutes(2));
+
+        // Act
+        var result = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(new OutboxBatchResult(Found: 3, Reserved: 3, Released: 2, Dispatched: 1), result);
+        Assert.True(result.MayHaveMore);
     }
 
     [Fact]
@@ -694,7 +899,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await AddRawMessageAsync(app, stored);
 
         // Act
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -717,7 +922,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 
         // Act
         // Materializing the row would throw an ArgumentException. It is never read, as no registered key matches it
-        var dispatched = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(1, dispatched);
@@ -742,8 +947,8 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, new TestOutboxMessage("after"));
 
         // Act
-        var firstRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-        var secondRun = await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
+        var firstRun = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
+        var secondRun = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
         Assert.Equal(2, firstRun);
@@ -831,6 +1036,18 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         return await context.Set<OutboxMessage>().AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Reads every stored message synchronously, for the synchronous handler hook, from a scope of its own.
+    /// </summary>
+    /// <param name="app">The application under test.</param>
+    /// <returns>The stored messages.</returns>
+    private static List<OutboxMessage> GetMessages(TestedApp<Program> app)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        return context.Set<OutboxMessage>().AsNoTracking().ToList();
     }
 
     /// <summary>

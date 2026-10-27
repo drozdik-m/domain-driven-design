@@ -10,18 +10,17 @@ namespace MartinDrozdik.DDD.Testing.Outbox;
 public static class OutboxTestExtensions
 {
     /// <summary>
-    /// Delivers one batch of pending messages of the outbox of <typeparamref name="TDbContext"/>, in a fresh dependency injection scope,
-    /// exactly as its dispatch task would.
+    /// Delivers one batch of pending messages of the outbox of <typeparamref name="TDbContext"/>, in a fresh dependency injection scope.
     /// </summary>
     /// <remarks>
-    /// This is a direct invocation of <see cref="IOutboxProcessor{TDbContext}"/>, not the loop.
+    /// This is a direct invocation of <see cref="IOutboxProcessor{TDbContext}"/>, not the dispatch task, which keeps going while <see cref="OutboxBatchResult.MayHaveMore"/>.
     /// Handler failures are still swallowed into retries and dead-letters.
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
     /// <param name="services">The service provider of the application.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
-    /// <returns>The number of messages delivered successfully.</returns>
-    public static async Task<int> ProcessOutboxAsync<TDbContext>(this IServiceProvider services, CancellationToken cancellationToken)
+    /// <returns>The outcome of the batch.</returns>
+    public static async Task<OutboxBatchResult> ProcessOutboxAsync<TDbContext>(this IServiceProvider services, CancellationToken cancellationToken)
         where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -34,7 +33,7 @@ public static class OutboxTestExtensions
     /// <inheritdoc cref="ProcessOutboxAsync{TDbContext}(IServiceProvider, CancellationToken)"/>
     /// <param name="testedApp">The application under test.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
-    public static Task<int> ProcessOutboxAsync<TDbContext>(this ITestedApp testedApp, CancellationToken cancellationToken)
+    public static Task<OutboxBatchResult> ProcessOutboxAsync<TDbContext>(this ITestedApp testedApp, CancellationToken cancellationToken)
         where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(testedApp);
@@ -46,6 +45,7 @@ public static class OutboxTestExtensions
     /// </summary>
     /// <remarks>
     /// Useful when a handler enqueues further messages, or when more messages are pending than one batch holds.
+    /// Keeps going while <see cref="OutboxBatchResult.MayHaveMore"/>, as the dispatch task does.
     /// Messages waiting on a retry delay are not delivered, so this terminates.
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
@@ -58,13 +58,13 @@ public static class OutboxTestExtensions
         ArgumentNullException.ThrowIfNull(testedApp);
 
         var total = 0;
-        int dispatched;
+        OutboxBatchResult result;
         do
         {
-            dispatched = await testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
-            total += dispatched;
+            result = await testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
+            total += result.Dispatched;
         }
-        while (dispatched > 0);
+        while (result.MayHaveMore);
 
         return total;
     }
