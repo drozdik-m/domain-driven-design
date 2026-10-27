@@ -50,6 +50,7 @@ public sealed class OutboxOptions<TDbContext>
     ///     <item>...</item>
     /// </list>
     /// An empty list dead-letters on the first failure.
+    /// A delay only makes the message due again. Timing also depends on the next run of the consumer (f.e. <see cref="RecurringTasks.Options.RecurringTaskOptions{TTask}.Period"/>).
     /// </remarks>
     public IReadOnlyList<TimeSpan> RetryDelays { get; set; } =
     [
