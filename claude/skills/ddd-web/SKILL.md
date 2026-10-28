@@ -302,7 +302,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 // 2. The outbox of the context + every message type of it. Once per context.
 builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),   // drop this argument for the defaults
+    outboxOptions => outboxOptions.BatchSize = 50,   // drop this argument for the defaults
     config => config
         .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
         .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
@@ -314,6 +314,11 @@ builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(schedule =>
     schedule.InitialDelay = TimeSpan.FromSeconds(10);
     schedule.Period = TimeSpan.FromSeconds(30);
 });
+
+// 3b. Optional: delete delivered messages after a week, scheduled apart from delivery. Without it they are kept forever.
+//     Skip the task to call IOutboxRetention<InvoiceDbContext>.ApplyAsync from your own scheduler.
+builder.AddOutboxRetention<InvoiceDbContext>(retention => retention.Retention = TimeSpan.FromDays(7));
+builder.AddOutboxRetentionRecurringTask<InvoiceDbContext>(schedule => schedule.Period = TimeSpan.FromHours(1));
 
 // 4. Optional: dispatch right after the commit instead of at the next poll
 builder.AddAppDbContext<InvoiceDbContext>((options, provider, dbBuilder) =>
@@ -401,8 +406,14 @@ shared type with another handler, throws `OutboxException` while the container i
 | `ReservationDuration` | `1 min` | How long a run holds the messages of its batch it has not started. Once it passes, the rest of a slow batch goes to other processors. At most `LeaseDuration`. |
 | `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
 | `MaxPayloadLength` | `null` | Cap on serialized payload characters. `AddOnSave()` throws over it, before anything is saved. |
-| `Retention` | `null` | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
 | `SerializerOptions` | `JsonSerializerOptions.Web` | Changing it after rows exist can make payloads unreadable. |
+
+`OutboxRetentionOptions<TDbContext>` — only with `AddOutboxRetention<TDbContext>`, validated on start:
+
+| Property | Default | Meaning |
+|---|---|---|
+| `Retention` | none, required | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
+| `BatchSize` | `1000` | Rows per delete statement. It deletes chunk after chunk, so a large backlog never locks the table for long. |
 
 Delivery semantics, worth stating in code review:
 

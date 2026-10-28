@@ -76,6 +76,13 @@ builder.AddOutboxDispatchRecurringTask<SecondTestDbContext>(options =>
     options.Period = TimeSpan.FromHours(1);
 });
 
+builder.AddOutboxRetention<TestDbContext>(options => options.Retention = TimeSpan.FromDays(7));
+builder.AddOutboxRetentionRecurringTask<TestDbContext>(options =>
+{
+    options.InitialDelay = TimeSpan.FromHours(1);
+    options.Period = TimeSpan.FromHours(1);
+});
+
 // --- APP ---
 var app = builder.Build();
 

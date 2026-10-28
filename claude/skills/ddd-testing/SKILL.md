@@ -198,9 +198,9 @@ public class EndpointTests(ITestOutputHelper output) : IDisposable
 ## Outbox
 
 **The dispatch loop is a recurring task, so `Build()` removes it like every other one.** Nothing is delivered
-until the test asks. Two helpers in `OutboxTestExtensions` (`MartinDrozdik.DDD.Testing.Outbox`), both on
-`ITestedApp`, with `ProcessOutboxAsync` also taking a bare `IServiceProvider`. Every context has an outbox of its
-own, so both name the context whose outbox they process:
+until the test asks. Three helpers in `OutboxTestExtensions` (`MartinDrozdik.DDD.Testing.Outbox`), all on
+`ITestedApp`, with `ProcessOutboxAsync` and `ApplyOutboxRetentionAsync` also taking a bare `IServiceProvider`. Every context has an outbox of its
+own, so each names the context whose outbox it processes:
 
 ```csharp
 // One batch, fresh scope. Returns an OutboxBatchResult: Found, Reserved, Released, Dispatched (delivered successfully), MayHaveMore.
@@ -208,6 +208,9 @@ var delivered = (await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Curren
 
 // Repeat until nothing is left: handlers that enqueue further messages, or more messages than one batch
 var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
+
+// Delete delivered messages older than Retention (the delivery never does), with AddOutboxRetention in the app. Returns the number deleted
+var deleted = await app.ApplyOutboxRetentionAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 ```
 
 Both call `IOutboxProcessor<TDbContext>` directly, not the loop, so a failing handler still becomes a retry or a

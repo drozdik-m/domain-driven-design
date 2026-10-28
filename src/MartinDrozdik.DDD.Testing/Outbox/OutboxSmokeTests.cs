@@ -106,7 +106,7 @@ public abstract class OutboxSmokeTests<TProgram, TDbContext> : IDisposable
         var options = App.Services.GetRequiredService<IOptions<OutboxOptions<TDbContext>>>().Value;
 
         // Assert
-        App.TestOutputHelper.WriteLine($"Outbox of {typeof(TDbContext).GetReadableName()}: batch size={options.BatchSize}, lease={options.LeaseDuration}, attempts={options.RetryDelays.Count + 1}, max payload={options.MaxPayloadLength?.ToString() ?? "unlimited"}, retention={options.Retention?.ToString() ?? "forever"}");
+        App.TestOutputHelper.WriteLine($"Outbox of {typeof(TDbContext).GetReadableName()}: batch size={options.BatchSize}, lease={options.LeaseDuration}, attempts={options.RetryDelays.Count + 1}, max payload={options.MaxPayloadLength?.ToString() ?? "unlimited"}");
     }
 
     /// <summary>

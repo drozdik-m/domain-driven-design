@@ -16,7 +16,7 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// <param name="context">The context the messages are read from and written back to; the processor has it to itself and clears its change tracker before every batch.</param>
 /// <param name="registry">The message types of this outbox; nothing else is read, claimed or delivered.</param>
 /// <param name="scopeFactory">Creates the scope each handler is resolved from.</param>
-/// <param name="options">Options driving batching, leases, retries, retention and serialization.</param>
+/// <param name="options">Options driving batching, leases, retries and serialization.</param>
 /// <param name="timeProvider">Source of the current instant.</param>
 /// <param name="logger">Logger for delivery outcomes.</param>
 internal sealed class OutboxProcessor<TDbContext>(
@@ -56,11 +56,6 @@ internal sealed class OutboxProcessor<TDbContext>(
             }
 
             OutboxLogging.LogBatchCompleted(logger, s_outboxName, dispatched, reserved);
-        }
-
-        if (!cancellationToken.IsCancellationRequested)
-        {
-            await ApplyRetentionAsync(cancellationToken);
         }
 
         return new OutboxBatchResult(candidates.Count, reserved, released, dispatched);
@@ -440,30 +435,6 @@ internal sealed class OutboxProcessor<TDbContext>(
             OutboxLogging.LogClaimLost(logger, s_outboxName, message.Id);
             context.Entry(message).State = EntityState.Detached;
             return false;
-        }
-    }
-
-    /// <summary>
-    /// Deletes delivered messages that are older than the configured retention.
-    /// </summary>
-    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
-    /// <returns>A <see cref="Task"/> that completes when old messages have been removed.</returns>
-    private async Task ApplyRetentionAsync(CancellationToken cancellationToken)
-    {
-        if (options.Value.Retention is not { } retention)
-        {
-            return;
-        }
-
-        // Dead-lettered messages are deliberately kept - they are the ones somebody has to look at.
-        var cutoff = timeProvider.GetUtcNow().UtcDateTime - retention;
-        var deleted = await context.Set<OutboxMessage>()
-            .Where(m => m.ProcessedAt != null && m.ProcessedAt < cutoff)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        if (deleted > 0)
-        {
-            OutboxLogging.LogRetentionApplied(logger, s_outboxName, deleted, retention);
         }
     }
 }

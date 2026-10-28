@@ -45,11 +45,6 @@ internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<Out
             .When(x => x.MaxPayloadLength.HasValue)
             .WithMessage("Outbox maximum payload length must be greater than zero when set. Leave it null for no limit.");
 
-        RuleFor(x => x.Retention)
-            .GreaterThan(TimeSpan.Zero)
-            .When(x => x.Retention.HasValue)
-            .WithMessage("Outbox retention must be greater than zero when set. Leave it null to keep delivered messages forever.");
-
         RuleFor(x => x.SerializerOptions)
             .NotNull()
             .WithMessage("Outbox serializer options must not be null.");

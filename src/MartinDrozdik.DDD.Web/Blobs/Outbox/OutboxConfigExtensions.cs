@@ -15,11 +15,9 @@ public static class OutboxConfigExtensions
     /// <returns>The <see cref="OutboxConfig"/> for chaining.</returns>
     /// <example>
     /// <code>
-    /// builder.AddOutbox&lt;InvoiceDbContext&gt;(
-    ///     options =&gt; options.Retention = TimeSpan.FromDays(7),
-    ///     config =&gt; config
-    ///         .WithMessage&lt;InvoiceDraftedMessage, InvoiceDraftedMessageHandler&gt;()
-    ///         .WithBlobs());
+    /// builder.AddOutbox&lt;InvoiceDbContext&gt;(config =&gt; config
+    ///     .WithMessage&lt;InvoiceDraftedMessage, InvoiceDraftedMessageHandler&gt;()
+    ///     .WithBlobs());
     /// </code>
     /// </example>
     public static OutboxConfig WithBlobs(this OutboxConfig config)

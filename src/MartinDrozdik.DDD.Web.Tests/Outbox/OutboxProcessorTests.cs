@@ -14,7 +14,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace MartinDrozdik.DDD.Web.Tests.Outbox;
 
 /// <summary>
-/// Verifies delivery, retries, dead-lettering, claiming and retention against a real database.
+/// Verifies delivery, retries, dead-lettering and claiming against a real database.
 /// </summary>
 public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
 {
@@ -320,63 +320,6 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task Retention_deletes_delivered_messages_and_keeps_everything_else()
-    {
-        // Arrange
-        using var app = Build(
-            out var time,
-            options =>
-            {
-                options.Retention = TimeSpan.FromDays(7);
-                options.RetryDelays = [];
-            });
-        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-
-        await EnqueueAsync(app, new TestOutboxMessage("delivered"));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        state.ShouldFail = true;
-        await EnqueueAsync(app, new TestOutboxMessage("dead"));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-        state.ShouldFail = false;
-
-        // Act
-        // Old enough for the delivered message to fall out of retention
-        time.Advance(TimeSpan.FromDays(8));
-        await EnqueueAsync(app, new TestOutboxMessage("fresh"));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Assert
-        using var scope = app.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var remaining = await context.Set<OutboxMessage>().AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
-
-        // The dead-lettered message stays, because somebody has to look at it
-        Assert.Contains(remaining, m => m.FailedAt is not null);
-
-        // The message delivered eight days ago is gone, the one delivered just now is still here
-        Assert.DoesNotContain(remaining, m => m.ProcessedAt == s_initialTime.UtcDateTime);
-        Assert.Contains(remaining, m => m.ProcessedAt == time.GetUtcNow().UtcDateTime);
-    }
-
-    [Fact]
-    public async Task Retention_keeps_delivered_messages_forever_by_default()
-    {
-        // Arrange
-        using var app = Build(out var time);
-        await EnqueueAsync(app, new TestOutboxMessage("kept"));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Act
-        time.Advance(TimeSpan.FromDays(3650));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Assert
-        var message = await GetSingleMessageAsync(app);
-        Assert.NotNull(message.ProcessedAt);
-    }
-
-    [Fact]
     public async Task A_payload_that_cannot_be_read_is_retried_and_then_dead_lettered()
     {
         // Arrange
@@ -471,27 +414,6 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         var untouched = Assert.Single(messages, m => m.ProcessedAt is null);
         Assert.Equal(0, untouched.Attempts);
         Assert.Null(untouched.ClaimedBy);
-    }
-
-    [Fact]
-    public async Task A_run_cancelled_after_a_handler_finished_returns_its_count_with_retention_configured_too()
-    {
-        // Arrange
-        // The same cancellation as above, with the only difference that retention is switched on
-        using var app = Build(out _, options => options.Retention = TimeSpan.FromDays(7));
-        var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        await EnqueueAsync(app, new TestOutboxMessage("one"));
-        await EnqueueAsync(app, new TestOutboxMessage("two"));
-
-        using var run = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        state.OnHandled = _ => run.Cancel();
-
-        // Act
-        // The retention is left to the next run rather than started with the cancelled token
-        var dispatched = (await app.Services.ProcessOutboxAsync<TestDbContext>(run.Token)).Dispatched;
-
-        // Assert
-        Assert.Equal(1, dispatched);
     }
 
     [Fact]

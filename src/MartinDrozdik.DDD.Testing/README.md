@@ -209,9 +209,12 @@ var delivered = (await app.ProcessOutboxAsync<MyAppDbContext>(TestContext.Curren
 
 // Same but keep going until nothing is left...
 var total = await app.DrainOutboxAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
+
+// Delete delivered messages older than Retention, as the retention task would
+var deleted = await app.ApplyOutboxRetentionAsync<MyAppDbContext>(TestContext.Current.CancellationToken);
 ```
 
-Both are direct invocations of `IOutboxProcessor<TContext>`, not the job – no scheduling, no waiting. A failing handler still becomes a retry or a dead-letter, exactly as in production.
+All are direct invocations of `IOutboxProcessor<TContext>`, not the job – no scheduling, no waiting. A failing handler still becomes a retry or a dead-letter, exactly as in production.
 
 The messages themselves are ordinary rows in your context, which is how you check that enqueueing happened.
 

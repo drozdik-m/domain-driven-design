@@ -69,7 +69,7 @@ stateDiagram-v2
     Backoff --> Due : (18.) retry delay elapsed
     Abandoned --> Reserved : (19.) reserved with a later batch
     Reserved --> DeadLettered : (20.) abandoned, no retry left<br/><small>DeadLetterAbandonedAsync</small>
-    Processed --> Deleted : (21.) older than Retention<br/><small>ApplyRetentionAsync</small>
+    Processed --> Deleted : (21.) older than Retention<br/><small>IOutboxRetention.ApplyAsync, in chunks</small>
     DeadLettered --> Deleted : (22.) deleted by hand
     Deleted --> [*]
 
@@ -90,7 +90,7 @@ stateDiagram-v2
 | **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim`, `OutboxOptions.LeaseDuration` |
 | **Backing off** | `AvailableAt` > now, `LastError` set | `OutboxMessage.MarkRetrying`, `OutboxOptions.RetryDelays` |
 | **Abandoned** | Claimed, `ClaimedUntil` < now | `OutboxMessage.IsAbandonedWithoutRetry` |
-| **Processed** | `ProcessedAt` set | `OutboxMessage.MarkProcessed`, `OutboxOptions.Retention` |
+| **Processed** | `ProcessedAt` set | `OutboxMessage.MarkProcessed`, `OutboxRetentionOptions.Retention` |
 | **Dead-lettered** | `FailedAt` set | `OutboxMessage.MarkFailed`, [below](#dead-letters) |
 
 ## One processor run
@@ -108,8 +108,7 @@ flowchart TD
     readable -- "yes" --> next{"Next message?<br/><small>stops early when cancelled</small>"}
 
     next -- "none left" --> release["Release the reservations not claimed (11.)<br/><small>ReleaseReservationsAsync, however the run ended</small>"]
-    release --> retention["Delete Processed rows older than Retention (21.)<br/><small>ApplyRetentionAsync</small>"]
-    retention --> done(["Return OutboxBatchResult<br/><small>found, reserved, released, delivered, MayHaveMore</small>"])
+    release --> done(["Return OutboxBatchResult<br/><small>found, reserved, released, delivered, MayHaveMore</small>"])
 
     next -- "message" --> stands{"Reservation still stands?<br/><small>OutboxMessage.IsReservedBy</small>"}
     stands -- "no, an earlier message outlasted it" --> skipped["Skip it, it belongs to whoever reserves it next (11.)"]
@@ -129,7 +128,7 @@ flowchart TD
     retrying --> next
     retryLeft -- "no" --> failed["Dead-lettered (16.)<br/><small>MarkFailed</small>"]
     failed --> next
-    dispatch -- "cancelled<br/><small>shutdown or Timeout, whatever it threw</small>" --> cancelled(["Throw. The lease stays and expires on its own (17.)<br/><small>the reservations not claimed are released, no retention this run</small>"])
+    dispatch -- "cancelled<br/><small>shutdown or Timeout, whatever it threw</small>" --> cancelled(["Throw. The lease stays and expires on its own (17.)<br/><small>the reservations not claimed are released</small>"])
 ```
 
 Two checks prevent a double delivery. The update that reserves the batch repeats the "due and free" filter, and the database checks it again on each row it locks. A row another processor reserved, claimed or postponed after the ids were read is skipped. Without that check, the read-back would pick up the stamp of the other processor's claim, and this run's claim would succeed as well. The claim is saved against the concurrency stamp, so of two processors holding the same stamp, only one claims.

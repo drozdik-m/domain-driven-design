@@ -70,15 +70,6 @@ public sealed class OutboxOptions<TDbContext>
     public int? MaxPayloadLength { get; set; }
 
     /// <summary>
-    /// Gets or sets how long delivered messages are kept before the processor deletes them.
-    /// Null, the default, keeps them forever.
-    /// </summary>
-    /// <remarks>
-    /// Only delivered messages are ever deleted. Dead-lettered ones stay until an operator has dealt with them.
-    /// </remarks>
-    public TimeSpan? Retention { get; set; }
-
-    /// <summary>
     /// Gets or sets the options used to serialize and deserialize payloads of this outbox.
     /// </summary>
     /// <remarks>

@@ -6,6 +6,7 @@ using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
+using MartinDrozdik.DDD.Web.Outbox.Retention;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
@@ -108,14 +109,14 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task Every_outbox_applies_its_own_options()
+    public async Task The_retention_of_one_outbox_leaves_the_other_outbox_alone()
     {
         // Arrange
-        // Only the first outbox forgets delivered messages
+        // Only the first outbox has a retention, the test application adds none to the second
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper)
             .WithFakeTime(time)
-            .WithServices(services => services.Configure<OutboxOptions<TestDbContext>>(options => options.Retention = TimeSpan.FromDays(1)))
+            .WithServices(services => services.Configure<OutboxRetentionOptions<TestDbContext>>(options => options.Retention = TimeSpan.FromDays(1)))
             .Build();
         await EnqueueAsync<TestDbContext, TestOutboxMessage>(app, new TestOutboxMessage("first"));
         await EnqueueAsync<SecondTestDbContext, TestOutboxMessage>(app, new TestOutboxMessage("second"));
@@ -124,8 +125,7 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
 
         // Act
         time.Advance(TimeSpan.FromDays(2));
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync<SecondTestDbContext>(TestContext.Current.CancellationToken);
+        await app.ApplyOutboxRetentionAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(0, await CountAsync<TestDbContext>(app));

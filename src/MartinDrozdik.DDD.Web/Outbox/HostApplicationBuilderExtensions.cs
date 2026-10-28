@@ -5,6 +5,7 @@ using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Outbox.Registries;
+using MartinDrozdik.DDD.Web.Outbox.Retention;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,7 @@ public static class HostApplicationBuilderExtensions
     /// Pair it with <see cref="AddOutboxDispatchRecurringTask{TDbContext}"/> for the built-in schedule,
     /// or leave it out and use <see cref="IOutboxProcessor{TDbContext}"/> from your own scheduler (Quartz.NET etc.).
     /// An application without either only enqueues messages.
+    /// Delivered messages are kept forever unless <see cref="AddOutboxRetention{TDbContext}"/> is added too.
     /// </para>
     /// <para>
     /// It does not touch <typeparamref name="TDbContext"/> either. To have a commit wake the dispatch
@@ -78,7 +80,7 @@ public static class HostApplicationBuilderExtensions
     /// <example>
     /// <code>
     /// builder.AddOutbox&lt;InvoiceDbContext&gt;(
-    ///     options =&gt; options.Retention = TimeSpan.FromDays(7),
+    ///     options =&gt; options.BatchSize = 50,
     ///     config =&gt; config
     ///         .WithMessage&lt;SendEmailMessage, SendEmailHandler&gt;()
     ///         .WithMessage&lt;SendSmsMessage, SendSmsHandler&gt;());
@@ -173,4 +175,108 @@ public static class HostApplicationBuilderExtensions
 
         return builder.AddRecurringTask(configure);
     }
+
+    /// <summary>
+    /// Adds the retention of the outbox of <typeparamref name="TDbContext"/>: <see cref="IOutboxRetention{TDbContext}"/>, which deletes old delivered messages.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The outbox itself has to be added first, with <see cref="AddOutbox{TDbContext}(IHostApplicationBuilder, Action{OutboxOptions{TDbContext}}, Action{OutboxConfig})"/>.
+    /// Without this call delivered messages are kept forever; dead-lettered ones are kept either way.
+    /// </para>
+    /// <para>
+    /// This adds no background loop.
+    /// Pair it with <see cref="AddOutboxRetentionRecurringTask{TDbContext}"/>, or call <see cref="IOutboxRetention{TDbContext}"/> from your own scheduler.
+    /// </para>
+    /// </remarks>
+    /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
+    /// <param name="configure">Action to configure the retention; <see cref="OutboxRetentionOptions{TDbContext}.Retention"/> must be set.</param>
+    /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
+    /// <exception cref="OutboxException">The outbox of <typeparamref name="TDbContext"/> has not been added, or its retention is already added.</exception>
+    /// <example>
+    /// <code>
+    /// builder.AddOutboxRetention&lt;InvoiceDbContext&gt;(options =&gt; options.Retention = TimeSpan.FromDays(7));
+    /// </code>
+    /// </example>
+    public static IHostApplicationBuilder AddOutboxRetention<TDbContext>(
+        this IHostApplicationBuilder builder,
+        Action<OutboxRetentionOptions<TDbContext>> configure)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var contextName = typeof(TDbContext).GetReadableName();
+        if (!OutboxRegistry<TDbContext>.TryFind(builder.Services, out _))
+        {
+            throw new OutboxException($"The outbox of {contextName} has not been added, so there is nothing for its retention to delete. Call AddOutbox<{contextName}> before AddOutboxRetention<{contextName}>.");
+        }
+
+        if (IsRetentionAdded<TDbContext>(builder.Services))
+        {
+            throw new OutboxException($"The retention of the outbox of {contextName} is already added. Call AddOutboxRetention<{contextName}> once.");
+        }
+
+        builder.Services.AddOptions<OutboxRetentionOptions<TDbContext>>()
+            .Configure(configure)
+            .ValidateOnStart();
+
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<OutboxRetentionOptions<TDbContext>>, OutboxRetentionOptionsValidation<TDbContext>>());
+
+        builder.Services.AddScoped<IOutboxRetention<TDbContext>, OutboxRetention<TDbContext>>();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Adds the built-in background service (task) that deletes old delivered messages of the outbox of <typeparamref name="TDbContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The retention itself has to be added first, with <see cref="AddOutboxRetention{TDbContext}"/>.
+    /// </para>
+    /// <para>
+    /// It runs apart from the dispatch task: give it a long <see cref="RecurringTaskOptions{TTask}.Period"/>,
+    /// and a <see cref="RecurringTaskOptions{TTask}.RunBetween"/> window to keep the deletes out of busy hours.
+    /// </para>
+    /// <para>
+    /// Skip the call to schedule <see cref="IOutboxRetention{TDbContext}"/> yourself, from Quartz.NET or anything else.
+    /// </para>
+    /// </remarks>
+    /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to extend.</param>
+    /// <param name="configure">Action to configure the schedule of the retention task.</param>
+    /// <returns>Updated <see cref="IHostApplicationBuilder"/>.</returns>
+    /// <exception cref="OutboxException">The retention of the outbox of <typeparamref name="TDbContext"/> has not been added.</exception>
+    /// <example>
+    /// <code>
+    /// builder.AddOutboxRetentionRecurringTask&lt;InvoiceDbContext&gt;(schedule =&gt;
+    /// {
+    ///     schedule.Period = TimeSpan.FromHours(1);
+    ///     schedule.RunBetween = new RecurringTaskTimeWindow(new TimeOnly(1, 0), new TimeOnly(5, 0));
+    /// });
+    /// </code>
+    /// </example>
+    public static IHostApplicationBuilder AddOutboxRetentionRecurringTask<TDbContext>(
+        this IHostApplicationBuilder builder,
+        Action<RecurringTaskOptions<OutboxRetentionRecurringTask<TDbContext>>> configure)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        if (!IsRetentionAdded<TDbContext>(builder.Services))
+        {
+            var contextName = typeof(TDbContext).GetReadableName();
+            throw new OutboxException($"The retention of the outbox of {contextName} has not been added, so its task would have nothing to run. Call AddOutboxRetention<{contextName}> before AddOutboxRetentionRecurringTask<{contextName}>.");
+        }
+
+        return builder.AddRecurringTask(configure);
+    }
+
+    private static bool IsRetentionAdded<TDbContext>(IServiceCollection services)
+        where TDbContext : DbContext
+        => services.Any(descriptor => descriptor.ServiceType == typeof(IOutboxRetention<TDbContext>));
 }

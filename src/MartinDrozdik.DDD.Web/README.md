@@ -420,17 +420,23 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 Every context has a separate outbox table.
 
 ```csharp
-builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7), // or AddOutbox<InvoiceDbContext>(config => ...) for the defaults
-    config => config
-        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
-        .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
+builder.AddOutbox<InvoiceDbContext>(config => config
+    .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+    .WithMessage<InvoicePaidMessage, InvoicePaidMessageHandler>());
 
 // The message consumer invoking the dispatch loop
 builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(schedule =>
 {
     schedule.InitialDelay = TimeSpan.FromSeconds(10);
     schedule.Period = TimeSpan.FromSeconds(30);
+});
+
+// Optional: delete delivered messages after a week, in chunks of BatchSize (1000). Without it they are kept forever.
+builder.AddOutboxRetention<InvoiceDbContext>(options => options.Retention = TimeSpan.FromDays(7));
+builder.AddOutboxRetentionRecurringTask<InvoiceDbContext>(schedule =>
+{
+    schedule.Period = TimeSpan.FromHours(1);
+    schedule.RunBetween = new(new TimeOnly(1, 0), new TimeOnly(5, 0)); // optional, keeps the deletes out of busy hours
 });
 ```
 
@@ -477,7 +483,7 @@ The `*NowAsync` messages are committed at once through a fresh instance of your 
 
 Committing on its own connection may work differently on some databases. F.e. SQLite starts transactions as immediate , and an `AddNowAsync()` inside it then waits for its own transaction until it times out. Best to call `*NowAsync()` before beginning your transaction, or begin a deferred one (`connection.BeginTransaction(deferred: true)` with `Database.UseTransaction`) and call it before its first save.
 
-Set you preferred options for the outbox, like batch size, retry delays, retention, and so on:
+Set you preferred options for the outbox, like batch size, retry delays, and so on:
 
 ```csharp
 builder.AddOutbox<InvoiceDbContext>(options => { /* ... */ }, config => { /* ... */ });
@@ -554,6 +560,8 @@ public sealed class InvoiceOutboxJob(IOutboxProcessor<InvoiceDbContext> processo
 }
 ```
 
+With `AddOutboxRetention`, schedule `IOutboxRetention<TContext>.ApplyAsync(ct)` as a second job, hourly or nightly, and skip `AddOutboxRetentionRecurringTask`.
+
 #### Several instances
 
 Multiple instances may run the outbox processing, **safely!**. Each run reserves its batch up front (`BatchSize` messages for `ReservationDuration`), so instances polling together deliver separate batches. If one message of a batch takes longer than `ReservationDuration`, the rest of the batch goes to other instances and the slow run skips it.
@@ -617,11 +625,9 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 Register its messages into the outbox of the context first, then the engine with its containers, and pick a store:
 
 ```csharp
-builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
-    config => config
-        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
-        .WithBlobs());   // required - every removal of content rides on the outbox
+builder.AddOutbox<InvoiceDbContext>(config => config
+    .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+    .WithBlobs());   // required - every removal of content rides on the outbox
 
 builder.AddBlobs<InvoiceDbContext>(blobs => blobs
     .WithContainer("invoice-scans", containerOptions =>

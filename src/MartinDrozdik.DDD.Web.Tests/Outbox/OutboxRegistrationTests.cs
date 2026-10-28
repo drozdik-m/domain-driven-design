@@ -3,6 +3,7 @@ using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Outbox.Registries;
+using MartinDrozdik.DDD.Web.Outbox.Retention;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using MartinDrozdik.DDD.Web.RecurringTasks.Options;
 using Microsoft.EntityFrameworkCore;
@@ -283,6 +284,126 @@ public class OutboxRegistrationTests
     }
 
     [Fact]
+    public void The_retention_task_registers_a_recurring_loop_of_its_own()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+
+        // Act
+        builder.AddOutboxDispatchRecurringTask<RegistrationDbContext>(options => options.Period = TimeSpan.FromSeconds(30));
+        builder.AddOutboxRetention<RegistrationDbContext>(options => options.Retention = TimeSpan.FromDays(7));
+        builder.AddOutboxRetentionRecurringTask<RegistrationDbContext>(options => options.Period = TimeSpan.FromHours(1));
+        using var host = builder.Build();
+
+        // Assert
+        var hostedServices = host.Services.GetServices<IHostedService>().ToList();
+        Assert.Single(hostedServices.OfType<RecurringTaskHost<OutboxDispatchRecurringTask<RegistrationDbContext>>>());
+        Assert.Single(hostedServices.OfType<RecurringTaskHost<OutboxRetentionRecurringTask<RegistrationDbContext>>>());
+
+        var schedule = host.Services.GetRequiredService<IOptions<RecurringTaskOptions<OutboxRetentionRecurringTask<RegistrationDbContext>>>>().Value;
+        Assert.Equal(TimeSpan.FromHours(1), schedule.Period);
+
+        using var scope = host.Services.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetService<OutboxRetentionRecurringTask<RegistrationDbContext>>());
+    }
+
+    [Fact]
+    public void The_retention_cannot_be_added_without_the_outbox_of_its_context()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+
+        // Act
+        var exception = Assert.Throws<OutboxException>(() =>
+            builder.AddOutboxRetention<OtherDbContext>(options => options.Retention = TimeSpan.FromDays(7)));
+
+        // Assert
+        Assert.Contains(nameof(OtherDbContext), exception.Message, StringComparison.Ordinal);
+        Assert.Contains("AddOutbox<", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_retention_cannot_be_added_twice_for_one_context()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+        builder.AddOutboxRetention<RegistrationDbContext>(options => options.Retention = TimeSpan.FromDays(7));
+
+        // Act
+        // The second set of options would be merged into the first one silently
+        var exception = Assert.Throws<OutboxException>(() =>
+            builder.AddOutboxRetention<RegistrationDbContext>(options => options.Retention = TimeSpan.FromDays(30)));
+
+        // Assert
+        Assert.Contains(nameof(RegistrationDbContext), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_retention_task_cannot_be_added_without_the_retention_of_its_context()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+
+        // Act
+        // It would resolve no retention and fail on every iteration
+        var exception = Assert.Throws<OutboxException>(() =>
+            builder.AddOutboxRetentionRecurringTask<RegistrationDbContext>(options => options.Period = TimeSpan.FromHours(1)));
+
+        // Assert
+        Assert.Contains(nameof(RegistrationDbContext), exception.Message, StringComparison.Ordinal);
+        Assert.Contains("AddOutboxRetention<", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_outbox_alone_adds_no_retention()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+        using var host = builder.Build();
+
+        // Assert
+        // Delivered messages are kept forever unless the retention is added
+        using var scope = host.Services.CreateScope();
+        Assert.Null(scope.ServiceProvider.GetService<IOutboxRetention<RegistrationDbContext>>());
+    }
+
+    [Theory]
+    [InlineData(nameof(OutboxRetentionOptions<>.Retention), "retention must be greater than zero")]
+    [InlineData(nameof(OutboxRetentionOptions<>.BatchSize), "retention batch size")]
+    public async Task Invalid_retention_options_fail_the_application_at_startup_naming_the_context(string invalid, string expectedFailure)
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+        builder.AddOutboxRetention<RegistrationDbContext>(options =>
+        {
+            // The retention has no default, so leaving it out is the invalid case
+            if (invalid == nameof(OutboxRetentionOptions<>.BatchSize))
+            {
+                options.Retention = TimeSpan.FromDays(7);
+                options.BatchSize = 0;
+            }
+        });
+        using var host = builder.Build();
+
+        // Act
+        var exception = await Assert.ThrowsAsync<OptionsValidationException>(
+            () => host.StartAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        var failure = Assert.Single(exception.Failures);
+        Assert.Contains(expectedFailure, failure, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(nameof(RegistrationDbContext), failure, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_trigger_is_registered_even_without_the_dispatch_task()
     {
         // Arrange
@@ -308,7 +429,6 @@ public class OutboxRegistrationTests
     [InlineData(nameof(OutboxOptions<>.RetryDelays), "retry delays must not be null")]
     [InlineData("NegativeRetryDelay", "retry delay must not be negative")]
     [InlineData(nameof(OutboxOptions<>.MaxPayloadLength), "maximum payload length")]
-    [InlineData(nameof(OutboxOptions<>.Retention), "retention")]
     [InlineData(nameof(OutboxOptions<>.SerializerOptions), "serializer options")]
     public async Task Invalid_options_fail_the_application_at_startup_naming_the_context(string invalid, string expectedFailure)
     {
@@ -393,9 +513,6 @@ public class OutboxRegistrationTests
                 break;
             case nameof(OutboxOptions<>.MaxPayloadLength):
                 options.MaxPayloadLength = 0;
-                break;
-            case nameof(OutboxOptions<>.Retention):
-                options.Retention = TimeSpan.Zero;
                 break;
             case nameof(OutboxOptions<>.SerializerOptions):
                 options.SerializerOptions = null!;

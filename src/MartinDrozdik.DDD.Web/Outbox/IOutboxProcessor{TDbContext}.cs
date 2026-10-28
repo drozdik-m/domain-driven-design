@@ -47,10 +47,10 @@ public interface IOutboxProcessor<TDbContext>
     where TDbContext : DbContext
 {
     /// <summary>
-    /// Reserves and delivers a single batch of pending messages, then applies the retention policy.
+    /// Reserves and delivers a single batch of pending messages.
     /// </summary>
     /// <remarks>
-    /// A run cancelled between two messages stops there and returns what it delivered so far, without applying the retention policy.
+    /// A run cancelled between two messages stops there and returns what it delivered so far.
     /// The messages it reserved but did not start are released for other processors.
     /// Clears the change tracker of <typeparamref name="TDbContext"/>.
     /// </remarks>

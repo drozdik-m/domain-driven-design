@@ -55,11 +55,9 @@ builder.AddRecurringTask<InvoiceVolumeReportTask>(taskOptions =>
 // - AddOutbox is the engine
 // - AddOutboxDispatchRecurringTask is the consumer. Drop it to drive IOutboxProcessor<InvoiceDbContext> from Quartz.NET instead,
 //   or to only enqueue here and deliver from a worker app making the identical AddOutbox call plus the schedule.
-builder.AddOutbox<InvoiceDbContext>(
-    outboxOptions => outboxOptions.Retention = TimeSpan.FromDays(7),
-    config => config
-        .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
-        .WithBlobs()); // Blob deletion rides on the same outbox
+builder.AddOutbox<InvoiceDbContext>(config => config
+    .WithMessage<InvoiceDraftedMessage, InvoiceDraftedMessageHandler>()
+    .WithBlobs()); // Blob deletion rides on the same outbox
 
 // Blob storage over the same context
 builder.AddBlobs<InvoiceDbContext>(blobs => blobs
@@ -82,6 +80,14 @@ builder.AddOutboxDispatchRecurringTask<InvoiceDbContext>(taskOptions =>
 {
     taskOptions.InitialDelay = TimeSpan.FromSeconds(10);
     taskOptions.Period = TimeSpan.FromSeconds(30);
+});
+
+// Removes old delivered messages
+builder.AddOutboxRetention<InvoiceDbContext>(retentionOptions => retentionOptions.Retention = TimeSpan.FromDays(7));
+builder.AddOutboxRetentionRecurringTask<InvoiceDbContext>(taskOptions =>
+{
+    taskOptions.InitialDelay = TimeSpan.FromMinutes(5);
+    taskOptions.Period = TimeSpan.FromHours(1);
 });
 
 builder.Services.AddControllers();

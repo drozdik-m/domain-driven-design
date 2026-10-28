@@ -1,4 +1,5 @@
 using MartinDrozdik.DDD.Web.Outbox;
+using MartinDrozdik.DDD.Web.Outbox.Retention;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,6 +39,37 @@ public static class OutboxTestExtensions
     {
         ArgumentNullException.ThrowIfNull(testedApp);
         return testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes the delivered messages of the outbox of <typeparamref name="TDbContext"/> that are older than its retention, in a fresh dependency injection scope.
+    /// </summary>
+    /// <remarks>
+    /// This is a direct invocation of <see cref="IOutboxRetention{TDbContext}.ApplyAsync"/>, not the retention task.
+    /// The retention must be added with <see cref="HostApplicationBuilderExtensions.AddOutboxRetention{TDbContext}"/>.
+    /// </remarks>
+    /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
+    /// <param name="services">The service provider of the application.</param>
+    /// <param name="cancellationToken">Cancellation token of the test.</param>
+    /// <returns>The number of messages deleted.</returns>
+    public static async Task<int> ApplyOutboxRetentionAsync<TDbContext>(this IServiceProvider services, CancellationToken cancellationToken)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        await using var scope = services.CreateAsyncScope();
+        var retention = scope.ServiceProvider.GetRequiredService<IOutboxRetention<TDbContext>>();
+        return await retention.ApplyAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="ApplyOutboxRetentionAsync{TDbContext}(IServiceProvider, CancellationToken)"/>
+    /// <param name="testedApp">The application under test.</param>
+    /// <param name="cancellationToken">Cancellation token of the test.</param>
+    public static Task<int> ApplyOutboxRetentionAsync<TDbContext>(this ITestedApp testedApp, CancellationToken cancellationToken)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(testedApp);
+        return testedApp.Services.ApplyOutboxRetentionAsync<TDbContext>(cancellationToken);
     }
 
     /// <summary>
