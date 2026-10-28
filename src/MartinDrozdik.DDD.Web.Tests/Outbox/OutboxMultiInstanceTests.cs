@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Data.Common;
 using MartinDrozdik.DDD.Outbox;
+using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace MartinDrozdik.DDD.Web.Tests.Outbox;
@@ -28,6 +30,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"{Guid.CreateVersion7():N}_outbox_instances.db");
     private readonly FakeTimeProvider _time = new(s_initialTime);
     private readonly ReviewHandlerHooks _hooks = new();
+    private readonly TestLogger _logger = new();
     private readonly List<IHost> _instances = [];
 
     [Fact]
@@ -439,7 +442,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(1, message.Attempts);
     }
 
-    // TODO [Fact] Implement lease extension during a long-running delivery
+    [Fact]
     public async Task A_delivery_that_outlives_its_lease_is_recorded_even_after_another_processor_retook_the_message()
     {
         // Arrange
@@ -448,7 +451,9 @@ public sealed class OutboxMultiInstanceTests : IDisposable
             static options =>
             {
                 options.LeaseDuration = TimeSpan.FromMinutes(1);
-                options.RetryDelays = [];
+
+                // A retry left, so the other processor attempts the message instead of dead-lettering it as abandoned
+                options.RetryDelays = [TimeSpan.FromMinutes(1)];
             });
         await EnqueueAsync(instance, [new ReviewMessage("slow")]);
 
@@ -472,12 +477,331 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
-        // The message was delivered, so it must not end up dead-lettered (or retried and delivered yet again).
-        // Today the successful outcome is rejected by the concurrency token and silently dropped.
+        // The message was delivered, so it must not end up dead-lettered (or retried and delivered yet again)
         Assert.Equal(2, attempts);
         var message = Assert.Single(await GetMessagesAsync(instance));
         Assert.NotNull(message.ProcessedAt);
         Assert.Null(message.FailedAt);
+        Assert.Null(message.LastError);
+
+        // Attempts counts the attempts started, not the one that delivered
+        Assert.Equal(2, message.Attempts);
+
+        // A lease shorter than the delivery is worth a warning: the message may have been delivered twice
+        Assert.Single(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
+
+        // The retry the failed attempt scheduled is gone with it
+        _time.Advance(TimeSpan.FromMinutes(5));
+        var later = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        Assert.Equal(0, later.Found);
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
+    public async Task A_delivery_that_outlives_its_lease_clears_the_dead_letter_of_its_abandoned_attempt()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options =>
+            {
+                options.LeaseDuration = TimeSpan.FromMinutes(1);
+                options.RetryDelays = [];
+            });
+        await EnqueueAsync(instance, [new ReviewMessage("slow")]);
+
+        var attempts = 0;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                // No retry left, so the next run takes the expired lease for an abandoned attempt and dead-letters the message
+                _time.Advance(TimeSpan.FromMinutes(2));
+                await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+            }
+        };
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The attempt was not abandoned after all, it was only slow
+        Assert.Equal(1, attempts);
+        Assert.Equal(1, result.Dispatched);
+
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Null(message.FailedAt);
+        Assert.Null(message.LastError);
+    }
+
+    [Fact]
+    public async Task A_delivery_that_outlives_its_lease_rejects_the_failure_of_the_attempt_that_retook_the_message()
+    {
+        // Arrange
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.LeaseDuration = TimeSpan.FromMinutes(1);
+            options.RetryDelays = [TimeSpan.FromMinutes(1)];
+        }
+
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        var secondStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<OutboxBatchResult>? secondRun = null;
+        var attempts = 0;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                // The first delivery is slow, its lease runs out, and the second instance retakes the message
+                _time.Advance(TimeSpan.FromMinutes(2));
+                secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
+                await secondStarted.Task.WaitAsync(cancellationToken);
+
+                // ...and the first delivery succeeds while the second is still running
+                return;
+            }
+
+            secondStarted.SetResult();
+            await secondReleased.Task.WaitAsync(cancellationToken);
+            throw new InvalidOperationException("The second delivery failed.");
+        };
+
+        // Act
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        secondReleased.SetResult();
+        var secondResult = await secondRun!;
+
+        // Assert
+        // The failure came after the recorded delivery, so it neither schedules a retry nor dead-letters the message
+        Assert.Equal(1, firstResult.Dispatched);
+        Assert.Equal(0, secondResult.Dispatched);
+
+        var message = Assert.Single(await GetMessagesAsync(first));
+        Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
+        Assert.Null(message.FailedAt);
+        Assert.Null(message.LastError);
+        Assert.Null(message.ClaimedBy);
+        Assert.Null(message.ClaimedUntil);
+        Assert.Null(message.ReservedUntil);
+    }
+
+    [Fact]
+    public async Task A_delivery_that_outlives_its_lease_keeps_the_delivery_another_processor_recorded_first()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options => options.LeaseDuration = TimeSpan.FromMinutes(1));
+        await EnqueueAsync(instance, [new ReviewMessage("slow")]);
+
+        var attempts = 0;
+        OutboxBatchResult? retakenResult = null;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                // Another processor retakes the message and delivers it before the slow first delivery finishes
+                _time.Advance(TimeSpan.FromMinutes(2));
+                retakenResult = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+                _time.Advance(TimeSpan.FromMinutes(1));
+            }
+        };
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, attempts);
+        Assert.Equal(1, retakenResult?.Dispatched);
+        Assert.Equal(0, result.Dispatched);
+
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
+        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_delivery_whose_message_was_deleted_meanwhile_records_nothing()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await EnqueueAsync(instance, [new ReviewMessage("deleted")]);
+
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            // F.e. cleaned up by hand while it was being delivered
+            await using var scope = instance.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+                .Set<OutboxMessage>()
+                .ExecuteDeleteAsync(cancellationToken);
+        };
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, result.Dispatched);
+        Assert.Empty(await GetMessagesAsync(instance));
+    }
+
+    [Fact]
+    public async Task A_delivery_that_outlives_its_lease_is_recorded_even_when_its_run_is_cancelled_meanwhile()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options =>
+            {
+                options.LeaseDuration = TimeSpan.FromMinutes(1);
+                options.RetryDelays = [TimeSpan.FromMinutes(1)];
+            });
+        await EnqueueAsync(instance, [new ReviewMessage("slow")]);
+
+        using var run = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var attempts = 0;
+        _hooks.OnHandleAsync = async (_, _) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                // Another processor retakes the message and fails it, then the slow run is cancelled (shutdown, Timeout)
+                _time.Advance(TimeSpan.FromMinutes(2));
+                await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+                await run.CancelAsync();
+                return;
+            }
+
+            throw new InvalidOperationException("The second delivery failed.");
+        };
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(run.Token);
+
+        // Assert
+        // The handler already returned, so the delivery is recorded rather than lost to the cancellation
+        Assert.Equal(1, result.Dispatched);
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Null(message.LastError);
+    }
+
+    [Fact]
+    public async Task A_run_that_reserved_a_message_during_its_slow_delivery_does_not_deliver_it_again()
+    {
+        // Arrange
+        // The first instance only knows the slow message, the second one also an older message it handles first
+        static void Options(OutboxOptions<ReviewDbContext> options) => options.LeaseDuration = TimeSpan.FromMinutes(1);
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(
+            static config => config
+                .WithMessage<ReviewMessage, ReviewMessageHandler>()
+                .WithMessage<NewReviewMessage, NewReviewMessageHandler>(),
+            Options);
+        await EnqueueAsync(second, [new NewReviewMessage("older")]);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        var secondBusy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<OutboxBatchResult>? secondRun = null;
+        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        {
+            switch (text)
+            {
+                case "slow":
+                    // The lease runs out, and the second instance reserves the slow message behind the older one
+                    _time.Advance(TimeSpan.FromMinutes(2));
+                    secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
+                    await secondBusy.Task.WaitAsync(cancellationToken);
+                    return;
+
+                case "new:older":
+                    secondBusy.SetResult();
+                    await secondReleased.Task.WaitAsync(cancellationToken);
+                    return;
+            }
+        };
+
+        // Act
+        // A reservation leaves the stamp alone, so the slow delivery is recorded as usual - and its new stamp turns the reservation away
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        secondReleased.SetResult();
+        var secondResult = await secondRun!;
+
+        // Assert
+        Assert.Equal(1, firstResult.Dispatched);
+        Assert.Equal(2, secondResult.Reserved);
+        Assert.Equal(1, secondResult.Dispatched);
+        Assert.Equal(["slow", "new:older"], _hooks.Handled);
+
+        var slow = Assert.Single(await GetMessagesAsync(first), m => m.MessageType.Key == ReviewMessage.MessageType.Key);
+        Assert.NotNull(slow.ProcessedAt);
+        Assert.Equal(1, slow.Attempts);
+        Assert.Empty(_logger.AtLeast(LogLevel.Warning));
+
+        // The reservation of the second run goes with the delivery, it does not linger on the row
+        Assert.Null(slow.ClaimedBy);
+        Assert.Null(slow.ReservedUntil);
+    }
+
+    [Fact]
+    public async Task A_retry_recorded_while_another_run_reserved_the_message_is_due_after_its_own_delay()
+    {
+        // Arrange
+        // The first instance only knows the slow message, the second one also an older message it handles first
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.LeaseDuration = TimeSpan.FromMinutes(1);
+            options.ReservationDuration = TimeSpan.FromMinutes(1);
+            options.RetryDelays = [TimeSpan.FromSeconds(10)];
+        }
+
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(
+            static config => config
+                .WithMessage<ReviewMessage, ReviewMessageHandler>()
+                .WithMessage<NewReviewMessage, NewReviewMessageHandler>(),
+            Options);
+        await EnqueueAsync(second, [new NewReviewMessage("older")]);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        var secondBusy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<OutboxBatchResult>? secondRun = null;
+        var slowAttempts = 0;
+        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        {
+            switch (text)
+            {
+                case "slow" when Interlocked.Increment(ref slowAttempts) == 1:
+                    // The lease runs out, the second instance reserves the slow message behind the older one, and then the slow delivery fails
+                    _time.Advance(TimeSpan.FromMinutes(2));
+                    secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
+                    await secondBusy.Task.WaitAsync(cancellationToken);
+                    throw new InvalidOperationException("The slow delivery failed.");
+
+                case "new:older":
+                    secondBusy.SetResult();
+                    await secondReleased.Task.WaitAsync(cancellationToken);
+                    return;
+            }
+        };
+
+        await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        secondReleased.SetResult();
+        await secondRun!;
+
+        // Act
+        // The retry delay has passed, the reservation of the second run has not
+        _time.Advance(TimeSpan.FromSeconds(10));
+        var retry = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, retry.Dispatched);
+        Assert.Equal(2, slowAttempts);
     }
 
     /// <inheritdoc />
@@ -508,6 +832,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.Services.AddSingleton(time ?? _time);
         builder.Services.AddSingleton(_hooks);
+        builder.Services.AddSingleton<ILoggerProvider>(_logger);
         builder.Services.AddDbContext<ReviewDbContext>(options =>
         {
             options.UseSqlite($"Data Source={_databasePath}");
@@ -612,10 +937,10 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
     private sealed class NewReviewMessageHandler(ReviewHandlerHooks hooks) : IOutboxMessageHandler<NewReviewMessage>
     {
-        public Task HandleAsync(NewReviewMessage message, CancellationToken cancellationToken)
+        public async Task HandleAsync(NewReviewMessage message, CancellationToken cancellationToken)
         {
             hooks.Handled.Enqueue($"new:{message.Text}");
-            return Task.CompletedTask;
+            await hooks.OnHandleAsync($"new:{message.Text}", cancellationToken);
         }
     }
 }

@@ -25,6 +25,9 @@ internal static partial class OutboxLogging
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox of {Outbox}: message {MessageId} could not be read and was dead-lettered. It will not be delivered again.")]
     internal static partial void LogUnreadableDeadLettered(ILogger logger, Exception exception, string outbox, Guid messageId);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox of {Outbox} delivered message {MessageId} of type {MessageType} after its lease of {LeaseDuration} expired, and another processor had taken it meanwhile. The delivery is recorded anyway, the message may have been delivered more than once. Raise the lease duration above the longest delivery.")]
+    internal static partial void LogDeliveredAfterLeaseExpired(ILogger logger, string outbox, Guid messageId, string messageType, TimeSpan leaseDuration);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox of {Outbox}: message {MessageId} was claimed by another processor and is skipped.")]
     internal static partial void LogClaimLost(ILogger logger, string outbox, Guid messageId);
 

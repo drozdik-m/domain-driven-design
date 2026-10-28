@@ -372,13 +372,62 @@ internal sealed class OutboxProcessor<TDbContext>(
 
         // Record the success
         // Do it even when cancellation is requested, so the message is not double-delivered
-        message.MarkProcessed(timeProvider.GetUtcNow().UtcDateTime);
-        if (!await TrySaveAsync(message, CancellationToken.None))
+        var processedAt = timeProvider.GetUtcNow().UtcDateTime;
+        message.MarkProcessed(processedAt);
+        MarkClaimColumnsModified(message);
+        try
         {
-            return false;
+            await context.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The lease expired during the delivery and another processor took the message meanwhile
+            // "Force-save" the current success
+            context.Entry(message).State = EntityState.Detached;
+            return await RecordLateSuccessAsync(message, processedAt);
         }
 
         OutboxLogging.LogDispatched(logger, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
+        return true;
+    }
+
+    /// <summary>
+    /// Records a delivery that finished after its lease expired.
+    /// Another processor may have already retried, force the current success to be the outcome.
+    /// </summary>
+    /// <remarks>
+    /// Very rare but possible.
+    /// <para>
+    /// The rotated stamp rejects the outcome of an attempt still in flight, so it cannot schedule a retry or dead-letter the message afterwards.
+    /// </para>
+    /// </remarks>
+    /// <param name="message">The delivered message, no longer tracked.</param>
+    /// <param name="processedAt">The UTC instant the delivery finished.</param>
+    /// <returns>True when the delivery was recorded, false when the message was already delivered or is gone.</returns>
+    private async Task<bool> RecordLateSuccessAsync(OutboxMessage message, DateTime processedAt)
+    {
+        var id = message.Id;
+        var rotatedConcurrencyStamp = Guid.CreateVersion7();
+        var recorded = await context.Set<OutboxMessage>()
+            .Where(m => m.Id == id && m.ProcessedAt == null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(m => m.ProcessedAt, processedAt)
+                    .SetProperty(m => m.FailedAt, (DateTime?)null)
+                    .SetProperty(m => m.LastError, (string?)null)
+                    .SetProperty(m => m.ClaimedBy, (Guid?)null)
+                    .SetProperty(m => m.ClaimedUntil, (DateTime?)null)
+                    .SetProperty(m => m.ReservedUntil, (DateTime?)null)
+                    .SetProperty(m => m.ConcurrencyStamp, rotatedConcurrencyStamp),
+                CancellationToken.None);
+
+        if (recorded == 0)
+        {
+            OutboxLogging.LogClaimLost(logger, s_outboxName, id);
+            return false;
+        }
+
+        OutboxLogging.LogDeliveredAfterLeaseExpired(logger, s_outboxName, id, message.MessageType.Key, options.Value.LeaseDuration);
         return true;
     }
 
@@ -411,7 +460,25 @@ internal sealed class OutboxProcessor<TDbContext>(
             OutboxLogging.LogDeadLettered(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
         }
 
+        MarkClaimColumnsModified(message);
         return TrySaveAsync(message, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Makes sure saving an outcome clears the claim and reservation columns.
+    /// </summary>
+    /// <remarks>
+    /// EF Core only writes columns that changed since the message was loaded.
+    /// But when a slow delivery outlives its lease, another processor may reserve the row in the meantime.
+    /// Without this, that reservation would stay on the row and a retry would wait for it to expire.
+    /// </remarks>
+    /// <param name="message">The message whose outcome is about to be saved.</param>
+    private void MarkClaimColumnsModified(OutboxMessage message)
+    {
+        var entry = context.Entry(message);
+        entry.Property(m => m.ClaimedBy).IsModified = true;
+        entry.Property(m => m.ClaimedUntil).IsModified = true;
+        entry.Property(m => m.ReservedUntil).IsModified = true;
     }
 
     /// <summary>

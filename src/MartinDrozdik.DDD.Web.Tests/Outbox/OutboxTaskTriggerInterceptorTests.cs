@@ -1,3 +1,4 @@
+using System.Transactions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
@@ -153,6 +154,74 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             async () => await concrete.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
+    public async Task Saving_inside_a_transaction_scope_triggers_only_once_it_commits()
+    {
+        // Arrange
+        var trigger = new RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>();
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await using var context = await CreateContextAsync(connection, trigger, TestContext.Current.CancellationToken);
+        var transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"in-scope"}""", DateTime.UtcNow));
+
+        // Act
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var triggeredBySave = trigger.TryConsume();
+        transactionScope.Complete();
+        var triggeredByComplete = trigger.TryConsume();
+        transactionScope.Dispose();
+
+        // Assert
+        // The scope commits when it is disposed, not when it is completed
+        Assert.False(triggeredBySave);
+        Assert.False(triggeredByComplete);
+        Assert.True(trigger.TryConsume());
+    }
+
+    [Fact]
+    public async Task Rolling_back_a_transaction_scope_does_not_trigger_the_dispatch_task()
+    {
+        // Arrange
+        var trigger = new RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>();
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await using var context = await CreateContextAsync(connection, trigger, TestContext.Current.CancellationToken);
+
+        // Act
+        using (new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+        {
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"rolled-back"}""", DateTime.UtcNow));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            // Disposed without Complete
+        }
+
+        // Assert
+        Assert.False(trigger.TryConsume());
+    }
+
+    [Fact]
+    public async Task Several_saves_inside_one_transaction_scope_trigger_once_it_commits()
+    {
+        // Arrange
+        var trigger = new RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>();
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await using var context = await CreateContextAsync(connection, trigger, TestContext.Current.CancellationToken);
+
+        // Act
+        using (var transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+        {
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"first"}""", DateTime.UtcNow));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"second"}""", DateTime.UtcNow));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            transactionScope.Complete();
+        }
+
+        // Assert
+        Assert.True(trigger.TryConsume());
+        Assert.False(trigger.TryConsume());
     }
 
     [Fact]
@@ -349,6 +418,34 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
             Assert.False(timeout.IsCancellationRequested, "The outbox message was never delivered after its transaction committed.");
             await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
         }
+    }
+
+    /// <summary>
+    /// Creates a context with only the interceptor under test attached, over an open in-memory database.
+    /// </summary>
+    /// <remarks>
+    /// SQLite does not enlist in a <see cref="TransactionScope"/>, so the saves commit at once.
+    /// The interceptor only looks at <see cref="Transaction.Current"/>, which is what these tests are about.
+    /// </remarks>
+    /// <param name="connection">The connection to open and keep the database on.</param>
+    /// <param name="trigger">The trigger the interceptor wakes.</param>
+    /// <param name="cancellationToken">Cancellation token of the test.</param>
+    /// <returns>The created context with its schema in place.</returns>
+    private static async Task<TestDbContext> CreateContextAsync(
+        SqliteConnection connection,
+        RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>> trigger,
+        CancellationToken cancellationToken)
+    {
+        await connection.OpenAsync(cancellationToken);
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseSqlite(connection)
+            .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.AmbientTransactionWarning))
+            .AddInterceptors(new OutboxTaskTriggerInterceptor<TestDbContext>(trigger))
+            .Options;
+
+        var context = new TestDbContext(options, TimeProvider.System);
+        await context.Database.EnsureCreatedAsync(cancellationToken);
+        return context;
     }
 
     /// <summary>

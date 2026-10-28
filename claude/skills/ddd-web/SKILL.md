@@ -433,6 +433,8 @@ Delivery semantics, worth stating in code review:
 - An attempt cut short (shutdown, the dispatch task's `Timeout`, a crash) records no outcome, but it counts: an attempt
   is counted when it is claimed. The lease simply expires, then the message is attempted again, or dead-lettered when
   that was its last attempt.
+- A handler that outlives `LeaseDuration` may run twice, because the message is taken again. Its success is recorded
+  when it returns anyway, over a retry or a dead letter recorded meanwhile, and logged as a Warning.
 
 Health check per context, reporting `pending` / `overdue` / `deadLettered`, degraded on any dead-letter or while more
 messages are overdue than the threshold (scheduled messages never count), unhealthy only when the table cannot be read.

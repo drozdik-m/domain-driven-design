@@ -71,6 +71,9 @@ stateDiagram-v2
     Reserved --> DeadLettered : (20.) abandoned, no retry left<br/><small>DeadLetterAbandonedAsync</small>
     Processed --> Deleted : (21.) older than Retention<br/><small>IOutboxRetention.ApplyAsync, in chunks</small>
     DeadLettered --> Deleted : (22.) deleted by hand
+    Abandoned --> Processed : (23.) the delivery that outlived its lease returned<br/><small>RecordLateSuccessAsync</small>
+    Backoff --> Processed : (23.) the delivery that outlived its lease returned
+    DeadLettered --> Processed : (23.) the delivery that outlived its lease returned
     Deleted --> [*]
 
     classDef terminal stroke-width:3px
@@ -122,7 +125,10 @@ flowchart TD
     won -- "yes" --> dispatch["Deserialize and call the handler<br/><small>OutboxRegistration.Dispatch → IOutboxMessageHandler.HandleAsync</small>"]
 
     dispatch -- "returned" --> processed["Processed (14.)<br/><small>MarkProcessed</small>"]
-    processed --> next
+    processed --> saved{"Saved?"}
+    saved -- "yes" --> next
+    saved -- "no, the lease expired and another processor took it<br/><small>DbUpdateConcurrencyException</small>" --> late["Record it anyway, unless already processed (23.)<br/><small>RecordLateSuccessAsync: conditional update, new stamp</small>"]
+    late --> next
     dispatch -- "threw" --> retryLeft{"Attempts ≤<br/>RetryDelays.Count?"}
     retryLeft -- "yes" --> retrying["Backing off (15.)<br/><small>MarkRetrying: AvailableAt = now + RetryDelays[Attempts - 1]</small>"]
     retrying --> next
@@ -132,3 +138,5 @@ flowchart TD
 ```
 
 Two checks prevent a double delivery. The update that reserves the batch repeats the "due and free" filter, and the database checks it again on each row it locks. A row another processor reserved, claimed or postponed after the ids were read is skipped. Without that check, the read-back would pick up the stamp of the other processor's claim, and this run's claim would succeed as well. The claim is saved against the concurrency stamp, so of two processors holding the same stamp, only one claims.
+
+A handler that runs past `LeaseDuration` can be delivered twice: the message is taken again once the lease expires. When the slow delivery returns, its success is recorded anyway (23.), over a retry or a dead letter recorded in the meantime. Only an earlier recorded delivery is kept.
