@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Transactions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.RecurringTasks;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Interceptors;
 /// <para>
 /// A plain <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> commits on its own, so the trigger fires right after it.
 /// Inside an explicit transaction started with <see cref="Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade.BeginTransactionAsync(CancellationToken)"/>
+/// or inside an ambient <see cref="TransactionScope"/>,
 /// the save is not the commit: the trigger waits for the transaction to commit, and is dropped when it rolls back.
 /// Otherwise the woken dispatch would read before the messages are visible and the trigger would be spent for nothing.
 /// </para>
@@ -191,7 +193,7 @@ public sealed class OutboxTaskTriggerInterceptor<TDbContext>(IRecurringTaskTrigg
 
     /// <summary>
     /// Wakes the dispatch task when the completed save wrote new messages,
-    /// or leaves that to the commit when the save ran inside an explicit transaction.
+    /// or leaves that to the commit when the save ran inside an ambient or an explicit transaction.
     /// </summary>
     /// <param name="context">The context that was saved.</param>
     private void TriggerIfNeeded(DbContext? context)
@@ -202,6 +204,19 @@ public sealed class OutboxTaskTriggerInterceptor<TDbContext>(IRecurringTaskTrigg
         }
 
         _isWritingMessages = false;
+
+        // The commit belongs to the TransactionScope, not to the save
+        if (Transaction.Current is { } ambient)
+        {
+            ambient.TransactionCompleted += (_, e) =>
+            {
+                if (e.Transaction?.TransactionInformation.Status == TransactionStatus.Committed)
+                {
+                    trigger.Trigger();
+                }
+            };
+            return;
+        }
 
         // The transaction SaveChanges opens on its own is already committed by now
         // This transaction is the callers
