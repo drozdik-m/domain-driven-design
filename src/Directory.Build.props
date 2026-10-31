@@ -6,4 +6,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!--Test projects run on Microsoft.Testing.Platform as executables (see global.json)-->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
 </Project>

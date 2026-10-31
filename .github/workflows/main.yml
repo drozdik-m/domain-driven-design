@@ -111,7 +111,7 @@ jobs:
       run: chmod +x ${{ matrix.executable }}
       
     - name: Run model tests
-      run: dotnet test ${{ matrix.path }} --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=${{ matrix.project_name }}-results.trx" --results-directory ./TestResults
+      run: dotnet test --project ${{ matrix.path }} --no-build --configuration Release --verbosity normal --results-directory ./TestResults --report-xunit-trx --report-xunit-trx-filename ${{ matrix.project_name }}-results.trx
     
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
