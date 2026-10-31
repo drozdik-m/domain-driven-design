@@ -40,10 +40,10 @@ public class DemoAppEndpointSmokeTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(Endpoints))]
-    public async Task Test_smoke_endpoint(EndpointTest testCase)
+    public Task Test_smoke_endpoint(EndpointTest testCase)
     {
         var builder = new DemoAppBuilder(testOutputHelper);
         var tester = new EndpointSmokeTester<Program>(builder);
-        await tester.Test(testCase, TestContext.Current.CancellationToken);
+        return tester.Test(testCase, TestContext.Current.CancellationToken);
     }
 }
