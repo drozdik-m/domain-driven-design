@@ -258,6 +258,22 @@ app.IsBehindProxy();
 
 Handles `X-Forwarded-*` headers.
 
+### Redirects
+
+You launched the new site and its URLs changed. Other sites still link to `/contact.html`. Send those visitors somewhere useful:
+
+```csharp
+builder
+    .AddPermanentRedirect("/contact.html", "/") // HTTP 301
+    .AddPermanentRedirect(new Redirect("/about-us.html", "/about")) // HTTP 301
+    .AddTemporaryRedirect("/blog", "https://blog.example.com/"); // HTTP 302
+
+var app = builder.Build();
+app.UseAppMiddlewares();
+app.UseRedirects();
+app.UseStaticFiles();
+```
+
 ### HTTP Client Resilience
 
 ```csharp

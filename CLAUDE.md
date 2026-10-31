@@ -71,7 +71,7 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 
 ### Web library (`MartinDrozdik.DDD.Web`)
 
-Entry point is two extension methods: `AddAppServices()` and `UseAppMiddlewares()`. Every module (OpenTelemetry, health checks, HTTP resilience, OpenAPI, RFC 7807 error formatting, FluentValidation config validation) is optional and composable.
+Entry point is two extension methods: `AddAppServices()` and `UseAppMiddlewares()`. Every module (OpenTelemetry, health checks, HTTP resilience, OpenAPI, RFC 7807 error formatting, FluentValidation config validation, old-URL redirects via `AddPermanentRedirect`/`AddTemporaryRedirect` + `app.UseRedirects()`) is optional and composable.
 
 Two stateful modules sit on top of a consumer's `DbContext` and are mapped in its `OnModelCreating`:
 

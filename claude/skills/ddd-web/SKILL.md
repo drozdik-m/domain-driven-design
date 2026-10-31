@@ -469,6 +469,25 @@ Health check requests are excluded from traces automatically.
 app.IsBehindProxy(); // processes X-Forwarded-* headers (nginx, YARP, etc.)
 ```
 
+### Redirects
+
+Old URLs of a previous site, registered on the builder (`MartinDrozdik.DDD.Web.Redirects`):
+
+```csharp
+builder
+    .AddPermanentRedirect("/contact.html", "/")                        // 301
+    .AddPermanentRedirect(new Redirect("/about-us.html", "/about"))    // 301
+    .AddTemporaryRedirect("/blog", "https://blog.example.com/");       // 302
+
+app.UseAppMiddlewares();
+app.UseRedirects();    // required; the redirects run where you call it, e.g. before UseStaticFiles()
+```
+
+Without `app.UseRedirects()` the registered redirects do nothing. The old path matches ignoring
+case and must not contain `?` or `#`. The target is a `/` path (prefixed with the path base) or an absolute
+`http`/`https` URL; it receives the request's query string when it has none of its own. A duplicate old path or a
+redirect to itself throws at startup.
+
 ### HTTP Client Resilience
 
 ```csharp

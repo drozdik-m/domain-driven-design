@@ -6,6 +6,7 @@ using MartinDrozdik.DDD.Web.Databases;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Interceptors;
 using MartinDrozdik.DDD.Web.RecurringTasks;
+using MartinDrozdik.DDD.Web.Redirects;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
 
@@ -83,6 +84,12 @@ builder.AddOutboxRetentionRecurringTask<TestDbContext>(options =>
     options.Period = TimeSpan.FromHours(1);
 });
 
+// Old URLs of a previous version of the site
+builder
+    .AddPermanentRedirect(new Redirect("/contact.html", "/"))
+    .AddPermanentRedirect("/o-n%C3%A1s.html", "/about?from=old#team")
+    .AddTemporaryRedirect("/blog", "https://blog.example.com/");
+
 // --- APP ---
 var app = builder.Build();
 
@@ -90,6 +97,7 @@ await app.EnsureCreatedDatabaseAsync<TestDbContext>();
 await app.EnsureCreatedDatabaseAsync<SecondTestDbContext>();
 
 app.UseAppMiddlewares();
+app.UseRedirects();
 
 app.MapOpenApi("/openapi/doc.json");
 app.MapOpenApi("/openapi/doc.yaml");
