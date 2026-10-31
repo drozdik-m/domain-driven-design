@@ -94,7 +94,7 @@ stateDiagram-v2
 | **Backing off** | `AvailableAt` > now, `LastError` set | `OutboxMessage.MarkRetrying`, `OutboxOptions.RetryDelays` |
 | **Abandoned** | Claimed, `ClaimedUntil` < now | `OutboxMessage.IsAbandonedWithoutRetry` |
 | **Processed** | `ProcessedAt` set | `OutboxMessage.MarkProcessed`, `OutboxRetentionOptions.Retention` |
-| **Dead-lettered** | `FailedAt` set | `OutboxMessage.MarkFailed`, [below](#dead-letters) |
+| **Dead-lettered** | `FailedAt` set | `OutboxMessage.MarkFailed` |
 
 ## One processor run
 
