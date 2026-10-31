@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Blobs.Models;
@@ -7,8 +8,10 @@ using MartinDrozdik.DDD.Blobs.Sweepers;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Blobs;
+using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Blobs.Options;
+using MartinDrozdik.DDD.Web.Blobs.Sweepers;
 using MartinDrozdik.DDD.Web.Tests.App;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -197,7 +200,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             Assert.False(await store.ExistsAsync(key, TestContext.Current.CancellationToken));
         }
 
-        Assert.Empty(logger.At(LogLevel.Warning));
+        Assert.Empty(SweeperWarnings(logger));
     }
 
     [Fact]
@@ -234,7 +237,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Assert
         Assert.Equal(2, result.Expired);
         Assert.Equal(0, await context.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
-        Assert.Empty(logger.At(LogLevel.Warning));
+        Assert.Empty(SweeperWarnings(logger));
     }
 
     [Fact]
@@ -271,7 +274,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Assert
         Assert.Equal(4, result.Expired);
         Assert.Equal(0, await context.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
-        Assert.Single(logger.At(LogLevel.Warning));
+        Assert.Single(SweeperWarnings(logger));
     }
 
     [Fact]
@@ -375,7 +378,7 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         // Assert
         Assert.Equal(4, result.Expired);
         Assert.Equal(1, await context.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
-        Assert.Single(logger.At(LogLevel.Warning));
+        Assert.Single(SweeperWarnings(logger));
     }
 
     [Fact]
@@ -456,6 +459,18 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
     /// Builds a request storing a small file.
     /// </summary>
     /// <returns>The request.</returns>
+    /// <summary>
+    /// Gets the warnings logged by the <see cref="BlobSweeper{TDbContext}"/>.
+    /// </summary>
+    /// <remarks>
+    /// EF Core logs its model warnings once per process, into whichever test builds the model first,
+    /// so counting every warning makes the result depend on the test order.
+    /// </remarks>
+    /// <param name="logger">The logger the application logged into.</param>
+    /// <returns>The warnings of the sweeper.</returns>
+    private static ImmutableList<LogEntry> SweeperWarnings(TestLogger logger)
+        => logger.From(typeof(BlobSweeper<>).Namespace!).FindAll(entry => entry.Level == LogLevel.Warning);
+
     private static BlobUploadRequest CreateRequest()
         => new()
         {
