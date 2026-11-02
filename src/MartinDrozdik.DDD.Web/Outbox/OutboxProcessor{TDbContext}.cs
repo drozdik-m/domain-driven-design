@@ -3,6 +3,7 @@ using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -377,7 +378,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         MarkClaimColumnsModified(message);
         try
         {
-            await context.SaveChangesAsync(CancellationToken.None);
+            await SaveChangesAsync(CancellationToken.None);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -492,7 +493,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     {
         try
         {
-            await context.SaveChangesAsync(cancellationToken);
+            await SaveChangesAsync(cancellationToken);
             return true;
         }
         catch (DbUpdateConcurrencyException)
@@ -503,5 +504,20 @@ internal sealed class OutboxProcessor<TDbContext>(
             context.Entry(message).State = EntityState.Detached;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Saves the tracked changes of the batch, detecting them first.
+    /// </summary>
+    /// <remarks>
+    /// The consumer's context may switch <see cref="ChangeTracker.AutoDetectChangesEnabled"/> off.
+    /// This is dangerous - it could cause infinite delivery loops.
+    /// </remarks>
+    /// <param name="cancellationToken">Cancelled when the application is shutting down.</param>
+    /// <returns>A <see cref="Task"/> that completes when the changes have been stored.</returns>
+    private Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        context.ChangeTracker.DetectChanges();
+        return context.SaveChangesAsync(cancellationToken);
     }
 }
