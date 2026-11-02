@@ -67,6 +67,21 @@ public class BlobTests
         Assert.Equal(Blob.OriginalFileNameMaxLength, blob.OriginalFileName.Length);
     }
 
+    [Fact]
+    public void Create_does_not_cut_a_character_in_half_when_shortening_the_original_file_name()
+    {
+        // Arrange
+        // The emoji straddles the maximum length
+        var originalFileName = new string('a', Blob.OriginalFileNameMaxLength - 1) + "\U0001F600.pdf";
+
+        // Act
+        var blob = CreateBlob(originalFileName: originalFileName);
+
+        // Assert
+        // A lone high surrogate is not valid UTF-16, and PostgreSQL rejects it when the row is saved
+        Assert.Equal(new string('a', Blob.OriginalFileNameMaxLength - 1), blob.OriginalFileName);
+    }
+
     /// <summary>
     /// Catalogues a blob with valid defaults for everything not given.
     /// </summary>

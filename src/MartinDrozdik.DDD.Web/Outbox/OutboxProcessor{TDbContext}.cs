@@ -301,7 +301,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     private async Task DeadLetterUnreadableAsync(Guid id, ArgumentException exception, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var error = OutboxMessage.Truncate($"The row could not be read, it can never be delivered: {exception.Message}");
+        var error = $"The row could not be read, it can never be delivered: {exception.Message}".Truncate(OutboxMessage.LastErrorMaxLength)
         var rotatedConcurrencyStamp = Guid.CreateVersion7();
 
         // Multiple instances may try to dead-letter the same row, only one will succeed

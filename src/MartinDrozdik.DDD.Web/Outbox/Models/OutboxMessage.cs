@@ -197,7 +197,7 @@ public sealed class OutboxMessage
         EnsurePending(nameof(MarkRetrying));
 
         AvailableAt = nowUtc + delay;
-        LastError = Truncate(error);
+        LastError = error.Truncate(LastErrorMaxLength);
         ReleaseClaim();
         RotateConcurrencyStamp();
     }
@@ -212,23 +212,9 @@ public sealed class OutboxMessage
         EnsurePending(nameof(MarkFailed));
 
         FailedAt = nowUtc;
-        LastError = Truncate(error);
+        LastError = error.Truncate(LastErrorMaxLength);
         ReleaseClaim();
         RotateConcurrencyStamp();
-    }
-
-    /// <summary>
-    /// Shortens an error so it always fits the column.
-    /// </summary>
-    /// <param name="error">The error to shorten.</param>
-    /// <returns>The error, at most <see cref="LastErrorMaxLength"/> characters long.</returns>
-    internal static string Truncate(string error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return error.Length <= LastErrorMaxLength
-            ? error
-            : error[..LastErrorMaxLength];
     }
 
     /// <summary>

@@ -213,6 +213,24 @@ public class OutboxMessageTests
         Assert.Equal(OutboxMessage.LastErrorMaxLength, message.LastError?.Length);
     }
 
+    [Fact]
+    public void MarkFailed_does_not_cut_a_surrogate_pair_in_half_when_truncating_the_error()
+    {
+        // Arrange
+        // An emoji, e.g. from a subject line quoted in the exception message, straddles the limit
+        var message = OutboxMessage.Create("email.send.v1", "{}", s_now);
+        var error = new string('e', OutboxMessage.LastErrorMaxLength - 1) + "\U0001F600" + new string('e', 100);
+
+        // Act
+        message.MarkFailed(s_now, error);
+
+        // Assert
+        // A lone high surrogate is not valid UTF-16, and PostgreSQL rejects it when the outcome is saved
+        Assert.NotNull(message.LastError);
+        Assert.InRange(message.LastError.Length, 1, OutboxMessage.LastErrorMaxLength);
+        Assert.False(char.IsHighSurrogate(message.LastError[^1]), "The truncated error ends with half of a surrogate pair.");
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

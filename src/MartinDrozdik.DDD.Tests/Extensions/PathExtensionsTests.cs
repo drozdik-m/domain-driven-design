@@ -191,6 +191,34 @@ public class PathExtensionsTests
     }
 
     [Fact]
+    public void ToStoredFileName_does_not_cut_a_character_in_half_when_shortening_a_name_with_an_extension()
+    {
+        // Arrange
+        // The emoji straddles the end of the kept stem
+        var keptStemLength = PathExtensions.MaxStoredFileNameLength - ".pdf".Length;
+        var name = new string('a', keptStemLength - 1) + "\U0001F600" + new string('b', 10) + ".pdf";
+
+        // Act
+        var result = name.ToStoredFileName();
+
+        // Assert
+        Assert.Equal(new string('a', keptStemLength - 1) + ".pdf", result);
+    }
+
+    [Fact]
+    public void ToStoredFileName_does_not_cut_a_character_in_half_when_shortening_a_name_without_an_extension()
+    {
+        // Arrange
+        var name = new string('a', PathExtensions.MaxStoredFileNameLength - 1) + "\U0001F600" + new string('b', 10);
+
+        // Act
+        var result = name.ToStoredFileName();
+
+        // Assert
+        Assert.Equal(new string('a', PathExtensions.MaxStoredFileNameLength - 1), result);
+    }
+
+    [Fact]
     public void ToStoredFileName_shortens_an_overlong_name_that_has_no_extension()
     {
         // Arrange

@@ -115,7 +115,7 @@ public static class PathExtensions
         }
 
         candidate = EscapeReservedDeviceName(candidate);
-        candidate = Truncate(candidate);
+        candidate = ShortenKeepingExtension(candidate);
 
         // Truncation can uncover a trailing dot
         candidate = candidate.TrimEnd('.', ' ');
@@ -144,11 +144,14 @@ public static class PathExtensions
     }
 
     /// <summary>
-    /// Shortens a name to <see cref="MaxStoredFileNameLength"/> characters, keeping its extension.
+    /// Shortens a name to at most <see cref="MaxStoredFileNameLength"/> characters, keeping its extension.
     /// </summary>
+    /// <remarks>
+    /// Never cuts a character in half, see <see cref="StringExtensions.Truncate(string, int)"/>.
+    /// </remarks>
     /// <param name="name">The name to shorten.</param>
     /// <returns>The name, at most <see cref="MaxStoredFileNameLength"/> characters long.</returns>
-    private static string Truncate(string name)
+    private static string ShortenKeepingExtension(string name)
     {
         if (name.Length <= MaxStoredFileNameLength)
         {
@@ -160,14 +163,14 @@ public static class PathExtensions
         // An "extension" longer than this is probably something else, just drop it
         if (extension.Length is 0 or > 32)
         {
-            return name[..MaxStoredFileNameLength];
+            return name.Truncate(MaxStoredFileNameLength);
         }
 
         var stemLength = name.Length - extension.Length;
         var keptStemLength = MaxStoredFileNameLength - extension.Length;
         var stem = name[..stemLength];
 
-        return stem[..keptStemLength] + extension;
+        return stem.Truncate(keptStemLength) + extension;
     }
 
     /// <summary>

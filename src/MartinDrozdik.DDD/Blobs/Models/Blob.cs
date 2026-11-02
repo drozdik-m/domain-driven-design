@@ -182,7 +182,7 @@ public sealed class Blob
             Id = parameters.Key.Id,
             Container = parameters.Key.Container,
             Name = name,
-            OriginalFileName = Truncate(parameters.OriginalFileName, OriginalFileNameMaxLength),
+            OriginalFileName = parameters.OriginalFileName.Truncate(OriginalFileNameMaxLength),
             Extension = name.Extension is { Length: <= ExtensionMaxLength } extension ? extension : null,
             ContentType = parameters.ContentType,
             Size = parameters.Size,
@@ -253,15 +253,6 @@ public sealed class Blob
     /// </remarks>
     /// <returns>The message to enqueue.</returns>
     public DeleteBlobMessage ToDeleteMessage() => DeleteBlobMessage.For(Key);
-
-    /// <summary>
-    /// Shortens a value so it always fits its column.
-    /// </summary>
-    /// <param name="value">The value to shorten.</param>
-    /// <param name="maxLength">The most characters the column holds.</param>
-    /// <returns>The value, at most <paramref name="maxLength"/> characters long.</returns>
-    private static string Truncate(string value, int maxLength)
-        => value.Length <= maxLength ? value : value[..maxLength];
 
     /// <summary>
     /// Changes the concurrency token so a competing write of the same row is rejected.

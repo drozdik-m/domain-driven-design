@@ -183,4 +183,87 @@ public class StringExtensionsTests
     {
         Assert.Equal(expected, input.RemoveNeighbourlyRepeatingString(pattern));
     }
+
+    [Theory]
+    [InlineData("", 0)]
+    [InlineData("abc", 3)]
+    [InlineData("abc", 10)]
+    public void Truncate_returns_the_text_itself_when_it_fits(string text, int maxLength)
+    {
+        // Arrange
+        // Act
+        var result = text.Truncate(maxLength);
+
+        // Assert
+        Assert.Same(text, result);
+    }
+
+    [Theory]
+    [InlineData("Hello", 0, "")]
+    [InlineData("Hello", 1, "H")]
+    [InlineData("Hello", 2, "He")]
+    [InlineData("Hello", 3, "Hel")]
+    [InlineData("Hello", 4, "Hell")]
+    [InlineData("Hello", 5, "Hello")]
+    [InlineData("Hello", 6, "Hello")]
+    [InlineData("Hello", 7, "Hello")]
+    [InlineData("čeština", 3, "češ")]
+    [InlineData("ab\U0001F600cd", 3, "ab")] // Surrogate pair
+    [InlineData("ab\U0001F600cd", 4, "ab\U0001F600")] // Surrogate pair that ends exactly at the limit
+    [InlineData("cafe\u0301 au lait", 4, "caf")] // Combining accent
+    [InlineData("a\U0001F44D\U0001F3FD", 4, "a")] // Skin tone modifier
+    [InlineData("a\U0001F468\u200D\U0001F469\u200D\U0001F467", 6, "a")] // Emoji joined by zero width joiners
+    [InlineData("a\U0001F1E8\U0001F1FF", 3, "a")] // Flag made of two regional indicators
+    [InlineData("a\r\nb", 2, "a")] // CRLF
+    [InlineData("e\u0301\u0301\u0301\u0301\u0301\u0301", 4, "e\u0301\u0301\u0301")] // First char is longer then maxLength
+    [InlineData("\U0001F44D\U0001F3FD", 3, "\U0001F44D")] // First char is longer then maxLength
+    public void Truncate_cuts_plain_text_at_the_maximum_length(string text, int maxLength, string expected)
+    {
+        // Arrange
+        // Act
+        var result = text.Truncate(maxLength);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Truncate_returns_a_valid_prefix_for_every_maximum_length()
+    {
+        // Arrange
+        const string text = "Ahoj \U0001F600 cafe\u0301 \U0001F44D\U0001F3FD \U0001F468\u200D\U0001F469\u200D\U0001F467 \U0001F1E8\U0001F1FF\r\nkonec";
+
+        for (var maxLength = 0; maxLength <= text.Length + 5; maxLength++)
+        {
+            // Act
+            var result = text.Truncate(maxLength);
+
+            // Assert
+            Assert.True(result.Length <= maxLength, $"The result for {maxLength} is {result.Length} long.");
+#pragma warning disable S3415 // Assertion arguments should be passed in the correct order
+            Assert.StartsWith(result, text, StringComparison.Ordinal);
+#pragma warning restore S3415
+            Assert.False(result.Length > 0 && char.IsHighSurrogate(result[^1]), $"The result for {maxLength} ends with half of a surrogate pair.");
+        }
+    }
+
+    [Fact]
+    public void Truncate_throws_for_a_negative_maximum_length()
+    {
+        // Arrange
+        // Act
+        // Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => "abc".Truncate(-1));
+    }
+
+    [Fact]
+    public void Truncate_throws_for_null()
+    {
+        // Arrange
+        string text = null!;
+
+        // Act
+        // Assert
+        Assert.Throws<ArgumentNullException>(() => text.Truncate(1));
+    }
 }
