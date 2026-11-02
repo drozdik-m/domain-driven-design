@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
@@ -60,6 +61,28 @@ internal sealed class OutboxProcessor<TDbContext>(
         }
 
         return new OutboxBatchResult(candidates.Count, reserved, released, dispatched);
+    }
+
+    /// <summary>
+    /// Tells whether reading a row failed because a converter rejected a stored value.
+    /// </summary>
+    /// <remarks>
+    /// In production, the converter's <see cref="ArgumentException"/> is thrown as it is.
+    /// In non-production, EF Core wraps it in an <see cref="InvalidOperationException"/> that provides details.
+    /// </remarks>
+    /// <param name="exception">The exception thrown while reading.</param>
+    /// <param name="rejected">The converter's exception, when the row could not be read.</param>
+    /// <returns>True when the row could not be read, else false.</returns>
+    private static bool IsUnreadableRow(Exception exception, [NotNullWhen(true)] out ArgumentException? rejected)
+    {
+        rejected = exception switch
+        {
+            InvalidOperationException { InnerException: ArgumentException inner } => inner,
+            ArgumentException raw => raw,
+            _ => null,
+        };
+
+        return rejected is not null;
     }
 
     /// <summary>
@@ -190,7 +213,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         {
             return await reserved.ToListAsync(cancellationToken);
         }
-        catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException)
+        catch (Exception exception) when (IsUnreadableRow(exception, out _))
         {
             // The content is unparsable, e.g. a broken invariant, and the whole batch cannot be read
             // Read row by row and deadletter the broken messages
@@ -223,7 +246,7 @@ internal sealed class OutboxProcessor<TDbContext>(
                     messages.Add(message);
                 }
             }
-            catch (InvalidOperationException exception) when (exception.InnerException is ArgumentException rejected)
+            catch (Exception exception) when (IsUnreadableRow(exception, out var rejected))
             {
                 // Found the invalid row, dead-letter it and continue
                 await DeadLetterUnreadableAsync(id, rejected, cancellationToken);

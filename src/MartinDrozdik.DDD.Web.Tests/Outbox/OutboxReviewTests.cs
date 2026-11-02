@@ -30,6 +30,35 @@ public sealed class OutboxReviewTests : IDisposable
     private readonly List<IHost> _instances = [];
 
     [Fact]
+    public async Task A_stored_row_with_a_blank_payload_does_not_block_the_outbox_without_detailed_errors()
+    {
+        // Arrange
+        // Between two healthy messages, as in OutboxProcessorTests, but without detailed errors
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await EnqueueAsync(instance, [new ReviewMessage("before")]);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        var unreadableId = await AddRawRowAsync(instance, ReviewMessage.MessageType.Key, " ", _time.GetUtcNow().UtcDateTime);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        await EnqueueAsync(instance, [new ReviewMessage("after")]);
+
+        // Act
+        var result = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, result.Dispatched);
+        Assert.Equal(["before", "after"], _hooks.Handled);
+
+        await using var scope = instance.Services.CreateAsyncScope();
+        var unreadable = await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+            .Set<OutboxMessage>()
+            .Where(m => m.Id == unreadableId)
+            .Select(m => new { m.FailedAt, m.LastError })
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(unreadable.FailedAt);
+        Assert.Contains("could not be read", unreadable.LastError, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_context_that_does_not_detect_changes_automatically_still_records_every_delivery()
     {
         // Arrange
