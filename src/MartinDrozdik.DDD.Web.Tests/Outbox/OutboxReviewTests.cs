@@ -59,6 +59,152 @@ public sealed class OutboxReviewTests : IDisposable
     }
 
     [Fact]
+    public async Task A_context_that_does_not_track_queries_by_default_records_the_deliveries_of_a_batch_read_row_by_row()
+    {
+        // Arrange
+        // The unreadable row sends the batch down the row by row fallback, which must track what it reads as well
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            configureContext: static options => options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+        await EnqueueAsync(instance, [new ReviewMessage("before")]);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        var unreadableId = await AddRawRowAsync(instance, ReviewMessage.MessageType.Key, " ", _time.GetUtcNow().UtcDateTime);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        await EnqueueAsync(instance, [new ReviewMessage("after")]);
+
+        // Act
+        var first = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var second = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, first.Dispatched);
+        Assert.Equal(0, second.Dispatched);
+        Assert.Equal(["before", "after"], _hooks.Handled);
+
+        await using var scope = instance.Services.CreateAsyncScope();
+        var delivered = await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+            .Set<OutboxMessage>()
+            .Where(m => m.Id != unreadableId)
+            .Select(m => new { m.ProcessedAt, m.Attempts })
+            .ToListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, delivered.Count);
+        Assert.All(delivered, message =>
+        {
+            Assert.NotNull(message.ProcessedAt);
+            Assert.Equal(1, message.Attempts);
+        });
+    }
+
+    [Fact]
+    public async Task A_context_that_does_not_track_queries_by_default_still_records_every_delivery()
+    {
+        // Arrange
+        // A common setting of read-heavy applications, applied to the context the processor borrows
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            configureContext: static options => options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+        await EnqueueAsync(instance, [new ReviewMessage("once")]);
+
+        // Act
+        var first = await RecordAsync(() => instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken));
+        var second = await RecordAsync(() => instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Null(first);
+        Assert.Null(second);
+        Assert.Equal(["once"], _hooks.Handled);
+
+        await using var scope = instance.Services.CreateAsyncScope();
+        var message = await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+            .Set<OutboxMessage>()
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(1, message.Attempts);
+    }
+
+    [Fact]
+    public async Task A_context_that_does_not_track_queries_by_default_keeps_a_message_in_delivery_from_other_instances()
+    {
+        // Arrange
+        // The delivery takes two minutes: past the one minute reservation, well within the five minute lease
+        static void NoTracking(DbContextOptionsBuilder options) => options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), configureContext: NoTracking);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), configureContext: NoTracking);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        OutboxBatchResult? secondResult = null;
+        var secondHasPolled = false;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (secondHasPolled)
+            {
+                return;
+            }
+
+            secondHasPolled = true;
+            _time.Advance(TimeSpan.FromMinutes(2));
+            secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+        };
+
+        // Act
+        await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The claim holds the message for the lease, so the second instance must find nothing to deliver
+        Assert.NotNull(secondResult);
+        Assert.Equal(0, secondResult.Dispatched);
+        Assert.Equal(["slow"], _hooks.Handled);
+    }
+
+    [Fact]
+    public async Task Removing_a_message_on_save_works_on_a_context_that_does_not_track_queries_by_default()
+    {
+        // Arrange
+        // Blob storage takes back the grace removal of every upload this way
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            configureContext: static options => options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+        var ticket = await EnqueueWithTicketAsync(instance, new ReviewMessage("taken back"));
+
+        // Act
+        bool removed;
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            removed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        Assert.True(removed);
+        Assert.Empty(await GetMessagesAsync(instance));
+    }
+
+    [Fact]
+    public async Task Postponing_a_message_on_save_works_on_a_context_that_does_not_track_queries_by_default()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            configureContext: static options => options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+        var ticket = await EnqueueWithTicketAsync(instance, new ReviewMessage("later"));
+        var later = s_initialTime.AddHours(1);
+
+        // Act
+        OutboxTicket? postponed;
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().PostponeOnSaveAsync(ticket, later, TestContext.Current.CancellationToken);
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        Assert.NotNull(postponed);
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.Equal(later.UtcDateTime, message.AvailableAt);
+        Assert.Equal(postponed.Value, message.ToTicket());
+    }
+
+    [Fact]
     public async Task A_context_that_does_not_detect_changes_automatically_still_records_every_delivery()
     {
         // Arrange

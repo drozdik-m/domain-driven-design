@@ -164,8 +164,14 @@ internal sealed class Outbox<TDbContext>(
             return null;
         }
 
-        // The message is tracked, but the ticket is newer than the tracked copy. Reload it to see if it is still there.
+        // Get entry (consider auto-tracking is off)
         var entry = context.Entry(message);
+        if (entry.State == EntityState.Detached)
+        {
+            entry.State = EntityState.Unchanged;
+        }
+
+        // The message is tracked, but the ticket is newer than the tracked copy. Reload it to see if it is still there.
         if (entry.State == EntityState.Unchanged && message.ConcurrencyStamp != ticket.ConcurrencyStamp)
         {
             await entry.ReloadAsync(cancellationToken);

@@ -88,7 +88,7 @@ stateDiagram-v2
 |---|---|---|
 | **Tracked** | No row yet, only an `Added` entry in your context | `Outbox.AddOnSave` |
 | **Scheduled** | `AvailableAt` > now | `OutboxMessageSettings.AvailableAt`, `Outbox.Postpone…Async` |
-| **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDueAndFree` |
+| **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDue`, `OutboxMessage.IsFree` |
 | **Reserved** | `ClaimedBy` set, `ReservedUntil` > now | `OutboxProcessor.ReserveAsync`, `OutboxOptions.ReservationDuration` |
 | **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim`, `OutboxOptions.LeaseDuration` |
 | **Backing off** | `AvailableAt` > now, `LastError` set | `OutboxMessage.MarkRetrying`, `OutboxOptions.RetryDelays` |
@@ -103,7 +103,7 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     start(["ProcessPendingAsync<br/><small>poll, trigger or your scheduler</small>"]) --> reserve["Reserve up to BatchSize due, free rows of registered types,<br/>oldest AvailableAt first (10.)<br/><small>ReserveAsync: read the ids, then one conditional update</small>"]
-    reserve --> read["Read back the rows this run reserved, by those ids<br/><small>GetReservedAsync</small>"]
+    reserve --> read["Read back the rows this run reserved and still due, by those ids<br/><small>GetReservedAsync</small>"]
     read --> readable{"Whole batch<br/>readable?"}
     readable -- "no" --> rowByRow["Re-read the same batch row by row<br/><small>GetRowByRowAsync</small>"]
     rowByRow --> unreadable["Dead-letter each unreadable row (12.)<br/><small>DeadLetterUnreadableAsync</small>"]

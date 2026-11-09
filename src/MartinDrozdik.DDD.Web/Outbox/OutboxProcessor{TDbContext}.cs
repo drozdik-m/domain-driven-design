@@ -164,7 +164,8 @@ internal sealed class OutboxProcessor<TDbContext>(
         // SQL Server compares the last bytes first so an order that ignores waiting time could starve old messages
         // Ignores unknown message types
         var candidates = await context.Set<OutboxMessage>()
-            .Where(OutboxMessage.IsDueAndFree(now))
+            .Where(OutboxMessage.IsDue(now))
+            .Where(OutboxMessage.IsFree(now))
             .Where(m => messageTypes.Contains(m.MessageType))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id)
@@ -178,9 +179,10 @@ internal sealed class OutboxProcessor<TDbContext>(
         }
 
         // Another processor may have reserved, claimed or postponed a candidate since it was read.
-        // The database re-checks the IsDueAndFree condition on the locked row and does atomic update.
+        // The database re-checks the IsDue and IsFree conditions on the locked row and does atomic update.
         var reserved = await context.Set<OutboxMessage>()
-            .Where(OutboxMessage.IsDueAndFree(now)) // Re-check the condition on the locked row
+            .Where(OutboxMessage.IsDue(now)) // Re-check the conditions on the locked row
+            .Where(OutboxMessage.IsFree(now))
             .Where(m => candidates.Contains(m.Id))
             .ExecuteUpdateAsync(
                 setters => setters
@@ -204,8 +206,13 @@ internal sealed class OutboxProcessor<TDbContext>(
     private async Task<IReadOnlyList<OutboxMessage>> GetReservedAsync(Guid claimId, IReadOnlyList<Guid> candidates, CancellationToken cancellationToken)
     {
         // Get reserved by this batch
+        // A reservation keeps the concurrency stamp -> a ticket may still postpone a reserved message.
+        // Repeat the due IsDue, or the run would claim the postponed row.
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         var reserved = context.Set<OutboxMessage>()
+            .AsTracking()
             .Where(m => candidates.Contains(m.Id) && m.ClaimedBy == claimId && m.ReservedUntil != null)
+            .Where(OutboxMessage.IsDue(now))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id);
 
@@ -241,7 +248,7 @@ internal sealed class OutboxProcessor<TDbContext>(
             try
             {
                 // Rows read before the batch failed are tracked and found from the change tracker
-                if (await context.Set<OutboxMessage>().FindAsync([id], cancellationToken) is { } message)
+                if (await batchQuery.Where(m => m.Id == id).FirstOrDefaultAsync(cancellationToken) is { } message)
                 {
                     messages.Add(message);
                 }
@@ -301,7 +308,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     private async Task DeadLetterUnreadableAsync(Guid id, ArgumentException exception, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var error = $"The row could not be read, it can never be delivered: {exception.Message}".Truncate(OutboxMessage.LastErrorMaxLength)
+        var error = $"The row could not be read, it can never be delivered: {exception.Message}".Truncate(OutboxMessage.LastErrorMaxLength);
         var rotatedConcurrencyStamp = Guid.CreateVersion7();
 
         // Multiple instances may try to dead-letter the same row, only one will succeed

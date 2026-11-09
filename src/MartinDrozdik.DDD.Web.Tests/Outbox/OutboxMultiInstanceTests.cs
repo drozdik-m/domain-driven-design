@@ -328,6 +328,222 @@ public sealed class OutboxMultiInstanceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_producer_still_postpones_a_message_a_worker_reserved_but_has_not_started()
+    {
+        // Arrange
+        // A reservation keeps the concurrency stamp, so a ticket postpones the message until it is claimed
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        Dictionary<string, OutboxTicket> tickets = [];
+        tickets["first"] = await EnqueueWithTicketAsync(producer, new ReviewMessage("first"));
+        tickets["second"] = await EnqueueWithTicketAsync(producer, new ReviewMessage("second"));
+
+        // While the worker delivers one message, the producer postpones the other one
+        var later = s_initialTime.AddHours(1);
+        OutboxTicket? postponed = null;
+        string? postponedText = null;
+        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        {
+            if (postponedText is not null)
+            {
+                return;
+            }
+
+            postponedText = text == "first" ? "second" : "first";
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            postponed = await outbox.PostponeNowAsync(tickets[postponedText], later, cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The worker had read both back, lost the claim of the postponed one and left it untouched
+        Assert.NotNull(postponed);
+        Assert.Equal(2, result.Reserved);
+        Assert.Equal(1, result.Dispatched);
+        Assert.Single(_hooks.Handled);
+
+        var waiting = Assert.Single(await GetMessagesAsync(worker), m => m.ProcessedAt is null);
+        Assert.Equal(postponed.Value, waiting.ToTicket());
+        Assert.Equal(later.UtcDateTime, waiting.AvailableAt);
+        Assert.Equal(0, waiting.Attempts);
+        Assert.Null(waiting.ClaimedBy);
+        Assert.Null(waiting.ReservedUntil);
+
+        // Delivered once its new time comes
+        _time.Advance(TimeSpan.FromHours(1));
+        var onTime = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        Assert.Equal(1, onTime.Dispatched);
+        Assert.Equal(["first", "second"], _hooks.Handled.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_instance_does_not_reserve_a_message_postponed_after_its_id_was_read()
+    {
+        // Arrange
+        // The producer postpones the message between the worker reading the ids of its batch and reserving them
+        var reserving = new ReserveInterceptor();
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
+
+        OutboxTicket? postponed = null;
+        reserving.BeforeReserveAsync = async cancellationToken =>
+        {
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            postponed = await outbox.PostponeNowAsync(ticket, s_initialTime.AddHours(1), cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The reserving update repeats the "due" check, so the message is no longer taken
+        Assert.NotNull(postponed);
+        Assert.Equal(new OutboxBatchResult(Found: 1, Reserved: 0, Released: 0, Dispatched: 0), result);
+        Assert.Empty(_hooks.Handled);
+
+        var message = Assert.Single(await GetMessagesAsync(worker));
+        Assert.Null(message.ClaimedBy);
+        Assert.Null(message.ReservedUntil);
+    }
+
+    [Fact]
+    public async Task A_message_postponed_after_a_worker_reserved_it_is_not_delivered_before_its_new_time()
+    {
+        // Arrange
+        // The producer postpones the message after the worker reserved it, before the worker reads its batch back.
+        // A reservation keeps the concurrency stamp, so the ticket still postpones the message - and the worker has to respect that.
+        var reserving = new ReserveInterceptor();
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
+
+        var later = s_initialTime.AddHours(1);
+        OutboxTicket? postponed = null;
+        reserving.AfterReserveAsync = async cancellationToken =>
+        {
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            postponed = await outbox.PostponeNowAsync(ticket, later, cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The producer was told the message is postponed...
+        Assert.NotNull(postponed);
+        Assert.Equal(1, result.Reserved);
+
+        // ...so the worker must not deliver it now
+        Assert.Empty(_hooks.Handled);
+        Assert.Equal(0, result.Dispatched);
+
+        var message = Assert.Single(await GetMessagesAsync(worker));
+        Assert.Null(message.ProcessedAt);
+        Assert.Equal(0, message.Attempts);
+        Assert.Equal(later.UtcDateTime, message.AvailableAt);
+        Assert.Equal(postponed.Value, message.ToTicket());
+        Assert.Null(message.ReservedUntil);
+    }
+
+    [Fact]
+    public async Task A_postponement_committed_after_a_worker_reserved_the_message_is_not_delivered_before_its_new_time()
+    {
+        // Arrange
+        // The same, with the postponement tracked by the producer and committed by its own save
+        var reserving = new ReserveInterceptor();
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
+
+        var later = s_initialTime.AddHours(1);
+        OutboxTicket? postponed = null;
+        reserving.AfterReserveAsync = async cancellationToken =>
+        {
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            postponed = await outbox.PostponeOnSaveAsync(ticket, later, cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The producer's transaction committed the postponement, so the message waits for its new time
+        Assert.NotNull(postponed);
+        Assert.Empty(_hooks.Handled);
+        Assert.Equal(0, result.Dispatched);
+
+        var message = Assert.Single(await GetMessagesAsync(worker));
+        Assert.Null(message.ProcessedAt);
+        Assert.Equal(0, message.Attempts);
+        Assert.Equal(later.UtcDateTime, message.AvailableAt);
+    }
+
+    [Fact]
+    public async Task A_message_removed_after_a_worker_reserved_it_is_never_delivered()
+    {
+        // Arrange
+        // The producer takes the message back after the worker reserved it, before the worker reads its batch back
+        var reserving = new ReserveInterceptor();
+        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("removed"));
+
+        bool? removed = null;
+        reserving.AfterReserveAsync = async cancellationToken =>
+        {
+            await using var scope = producer.Services.CreateAsyncScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+            removed = await outbox.RemoveNowAsync(ticket, cancellationToken);
+        };
+
+        // Act
+        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(removed);
+        Assert.Equal(new OutboxBatchResult(Found: 1, Reserved: 1, Released: 0, Dispatched: 0), result);
+        Assert.Empty(_hooks.Handled);
+        Assert.Empty(await GetMessagesAsync(worker));
+    }
+
+    [Fact]
+    public async Task Several_instances_draining_at_the_same_time_deliver_every_message_exactly_once()
+    {
+        // Arrange
+        // Small batches, so every instance keeps coming back for more and they race over every batch
+        static void Options(OutboxOptions<ReviewDbContext> options) => options.BatchSize = 7;
+        List<IHost> hosts = [];
+        for (var i = 0; i < 4; i++)
+        {
+            hosts.Add(await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options));
+        }
+
+        await EnqueueAsync(hosts[0], Enumerable.Range(0, 100).Select(i => new ReviewMessage($"message-{i}")));
+        _hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
+
+        // Act
+        await Task.WhenAll(hosts.Select(host => Task.Run(() => RunDispatchIterationAsync(host), TestContext.Current.CancellationToken)));
+
+        // Assert
+        Assert.Equal(100, _hooks.Handled.Count);
+        Assert.Equal(100, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+
+        var messages = await GetMessagesAsync(hosts[0]);
+        Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
+        Assert.All(messages, m => Assert.Equal(1, m.Attempts));
+        Assert.All(messages, m => Assert.Null(m.ClaimedBy));
+        Assert.All(messages, m => Assert.Null(m.ReservedUntil));
+    }
+
+    [Fact]
     public async Task An_instance_does_not_reserve_messages_another_instance_claimed_after_they_were_read()
     {
         // Arrange
@@ -865,6 +1081,25 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
+    private static async Task<OutboxTicket> EnqueueWithTicketAsync<TMessage>(IHost instance, TMessage message)
+        where TMessage : IOutboxMessage
+    {
+        await using var scope = instance.Services.CreateAsyncScope();
+        var ticket = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().AddOnSave(message);
+        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        return ticket;
+    }
+
+    /// <summary>
+    /// Runs one iteration of the dispatch task of an instance in a scope of its own, as the recurring task host does.
+    /// </summary>
+    private static async Task RunDispatchIterationAsync(IHost instance)
+    {
+        await using var scope = instance.Services.CreateAsyncScope();
+        var task = new OutboxDispatchRecurringTask<ReviewDbContext>(scope.ServiceProvider.GetRequiredService<IOutboxProcessor<ReviewDbContext>>());
+        await task.RunAsync(TestContext.Current.CancellationToken);
+    }
+
     private static async Task<List<OutboxMessage>> GetMessagesAsync(IHost instance)
     {
         await using var scope = instance.Services.CreateAsyncScope();
@@ -883,11 +1118,14 @@ public sealed class OutboxMultiInstanceTests : IDisposable
     }
 
     /// <summary>
-    /// Runs <see cref="BeforeReserveAsync"/> right before the processor executes the update that reserves its batch.
+    /// Runs <see cref="BeforeReserveAsync"/> right before the processor executes the update that reserves its batch,
+    /// and <see cref="AfterReserveAsync"/> right after it, before the processor reads the batch back.
     /// </summary>
     private sealed class ReserveInterceptor : DbCommandInterceptor
     {
         public Func<CancellationToken, Task> BeforeReserveAsync { get; set; } = static _ => Task.CompletedTask;
+
+        public Func<CancellationToken, Task> AfterReserveAsync { get; set; } = static _ => Task.CompletedTask;
 
         public int Runs { get; private set; }
 
@@ -897,9 +1135,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
             InterceptionResult<int> result,
             CancellationToken cancellationToken = default)
         {
-            // Only the reservation sets ReservedUntil to a value and filters by AvailableAt
-            if (command.CommandText.Contains("\"ReservedUntil\" = @", StringComparison.Ordinal) &&
-                command.CommandText.Contains("\"AvailableAt\" <=", StringComparison.Ordinal))
+            if (IsReservation(command))
             {
                 Runs++;
                 await BeforeReserveAsync(cancellationToken);
@@ -907,6 +1143,25 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
             return result;
         }
+
+        public override async ValueTask<int> NonQueryExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (IsReservation(command))
+            {
+                await AfterReserveAsync(cancellationToken);
+            }
+
+            return result;
+        }
+
+        // Only the reservation sets ReservedUntil to a value and filters by AvailableAt
+        private static bool IsReservation(DbCommand command)
+            => command.CommandText.Contains("\"ReservedUntil\" = @", StringComparison.Ordinal) &&
+               command.CommandText.Contains("\"AvailableAt\" <=", StringComparison.Ordinal);
     }
 
     private sealed class ReviewHandlerHooks

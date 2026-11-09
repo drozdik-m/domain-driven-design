@@ -94,16 +94,50 @@ public class OutboxMessageTests
     [Theory]
     [InlineData("fresh", 0, true)]
     [InlineData("scheduled", 0, false)] // AvailableAt not reached yet
-    [InlineData("claimed", 1, false)] // Lease still held
-    [InlineData("claimed", 6, true)] // Lease expired
+    [InlineData("scheduled", 10, true)] // AvailableAt reached
+    [InlineData("postponed", 1, false)] // Postponed past now
+    [InlineData("claimed", 1, true)] // Holding a message does not make it any less due
     [InlineData("processed", 0, false)]
     [InlineData("failed", 0, false)]
-    public void IsDueAndFree_holds_only_for_a_due_message_nobody_holds(string state, int minutesLater, bool expected)
+    public void IsDue_holds_only_for_a_pending_message_whose_time_has_come(string state, int minutesLater, bool expected)
     {
         // Arrange
+        var message = CreateInState(state);
+        var isDue = OutboxMessage.IsDue(s_now.AddMinutes(minutesLater)).Compile();
+
+        // Act
+        var due = isDue(message);
+
+        // Assert
+        Assert.Equal(expected, due);
+    }
+
+    [Theory]
+    [InlineData("fresh", 0, true)]
+    [InlineData("scheduled", 0, true)] // Nobody holds it, whether it is due is not the question
+    [InlineData("claimed", 1, false)] // Lease still held
+    [InlineData("claimed", 6, true)] // Lease expired
+    public void IsFree_holds_only_for_a_message_nobody_holds(string state, int minutesLater, bool expected)
+    {
+        // Arrange
+        var message = CreateInState(state);
+        var isFree = OutboxMessage.IsFree(s_now.AddMinutes(minutesLater)).Compile();
+
+        // Act
+        var free = isFree(message);
+
+        // Assert
+        Assert.Equal(expected, free);
+    }
+
+    private static OutboxMessage CreateInState(string state)
+    {
         var message = OutboxMessage.Create("email.send.v1", "{}", s_now, state == "scheduled" ? s_now.AddMinutes(10) : null);
         switch (state)
         {
+            case "postponed":
+                message.Postpone(s_now.AddHours(1));
+                break;
             case "claimed":
                 message.Claim(Guid.CreateVersion7(), s_now, TimeSpan.FromMinutes(5));
                 break;
@@ -115,13 +149,7 @@ public class OutboxMessageTests
                 break;
         }
 
-        var isDueAndFree = OutboxMessage.IsDueAndFree(s_now.AddMinutes(minutesLater)).Compile();
-
-        // Act
-        var free = isDueAndFree(message);
-
-        // Assert
-        Assert.Equal(expected, free);
+        return message;
     }
 
     [Fact]

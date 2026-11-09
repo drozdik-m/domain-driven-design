@@ -218,16 +218,28 @@ public sealed class OutboxMessage
     }
 
     /// <summary>
-    /// Builds the filter of the messages that are due and held by no processor, neither claimed nor reserved.
-    /// The one definition of "free".
+    /// Builds the filter of the messages that are due: pending, with <see cref="AvailableAt"/> reached.
     /// </summary>
+    /// <remarks>
+    /// Says nothing about who holds the message, see <see cref="IsFree"/>.
+    /// </remarks>
     /// <param name="nowUtc">The current UTC time.</param>
     /// <returns>The filter, translatable to SQL.</returns>
-    internal static Expression<Func<OutboxMessage, bool>> IsDueAndFree(DateTime nowUtc)
+    internal static Expression<Func<OutboxMessage, bool>> IsDue(DateTime nowUtc)
         => m => m.ProcessedAt == null &&
             m.FailedAt == null &&
-            m.AvailableAt <= nowUtc &&
-            (m.ClaimedUntil == null || m.ClaimedUntil < nowUtc) &&
+            m.AvailableAt <= nowUtc;
+
+    /// <summary>
+    /// Builds the filter of the messages held by no processor, neither claimed nor reserved.
+    /// </summary>
+    /// <remarks>
+    /// Says nothing about whether the message is due, see <see cref="IsDue"/>.
+    /// </remarks>
+    /// <param name="nowUtc">The current UTC time.</param>
+    /// <returns>The filter, translatable to SQL.</returns>
+    internal static Expression<Func<OutboxMessage, bool>> IsFree(DateTime nowUtc)
+        => m => (m.ClaimedUntil == null || m.ClaimedUntil < nowUtc) &&
             (m.ReservedUntil == null || m.ReservedUntil < nowUtc);
 
     /// <summary>
