@@ -491,7 +491,12 @@ var settings = new OutboxMessageSettings {
 }; 
 var removal = await outbox.AddNowAsync(new DeleteFileMessage(path), settings, ct); // committed at once
 await WriteFileAsync(path, ct); // a side effect
-await outbox.RemoveOnSaveAsync(removal, ct); // tracked
+if (!await outbox.RemoveOnSaveAsync(removal, ct)) // tracked
+{
+    // The grace period ran out and a processor took the removal, so the file is gone or about to be
+    throw new FileReclaimedException(path); // don't save changes that point at it
+}
+
 await context.SaveChangesAsync(ct); // removes it with your changes
 ```
 
