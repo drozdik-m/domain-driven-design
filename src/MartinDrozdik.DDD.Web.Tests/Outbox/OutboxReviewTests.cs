@@ -316,6 +316,51 @@ public sealed class OutboxReviewTests : IDisposable
         Assert.True(message.AvailableAt > _time.GetUtcNow().UtcDateTime);
     }
 
+    [Fact]
+    public async Task Removing_a_message_on_save_reports_false_once_it_was_delivered_after_the_caller_saved_it()
+    {
+        // Arrange
+        // The caller saved the message and still tracks it when a processor delivers it
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+        var ticket = outbox.AddOnSave(new ReviewMessage("delivered"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Act
+        var removed = await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        var save = await RecordAsync(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        // The ticket is stale since the claim, so the removal is refused up front instead of failing the caller's save
+        Assert.False(removed);
+        Assert.Null(save);
+        Assert.NotNull(Assert.Single(await GetMessagesAsync(instance)).ProcessedAt);
+    }
+
+    [Fact]
+    public async Task Postponing_a_message_on_save_reports_null_once_it_was_delivered_after_the_caller_saved_it()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+        var ticket = outbox.AddOnSave(new ReviewMessage("delivered"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Act
+        var postponed = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
+        var save = await RecordAsync(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Null(postponed);
+        Assert.Null(save);
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {

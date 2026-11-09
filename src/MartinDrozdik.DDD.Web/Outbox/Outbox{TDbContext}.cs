@@ -149,38 +149,41 @@ internal sealed class Outbox<TDbContext>(
     /// Finds the version of a message a ticket saw, tracked in the caller's context.
     /// </summary>
     /// <remarks>
-    /// A message already tracked is used without a query.
-    /// A tracked copy older than the ticket is reloaded first.
+    /// <para>
+    /// A message the caller has not saved yet, or has already changed, is used as tracked: its state is the caller's, not the database's.
+    /// </para>
+    /// <para>
+    /// A tracked copy without changes is reloaded first: a processor may have claimed, delivered or removed the row since.
+    /// </para>
     /// </remarks>
     /// <param name="ticket">The ticket of the message.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>The entry of the message, or null when it is gone, being removed, or changed since the ticket was issued.</returns>
     private async Task<EntityEntry<OutboxMessage>?> FindAsync(OutboxTicket ticket, CancellationToken cancellationToken)
     {
-        // The message is not tracked, so query it.
-        var message = await context.Set<OutboxMessage>().FindAsync([ticket.Id], cancellationToken);
-        if (message is null)
+        var entry = context.Set<OutboxMessage>().Local.FindEntry(ticket.Id);
+        if (entry is null)
         {
-            return null;
-        }
+            // Not tracked yet, so load the row
+            var message = await context.Set<OutboxMessage>()
+                .AsTracking()
+                .FirstOrDefaultAsync(m => m.Id == ticket.Id, cancellationToken);
+            if (message is null)
+            {
+                return null;
+            }
 
-        // Get entry (consider auto-tracking is off)
-        var entry = context.Entry(message);
-        if (entry.State == EntityState.Detached)
-        {
-            entry.State = EntityState.Unchanged;
+            entry = context.Entry(message);
         }
-
-        // The message is tracked, but the ticket is newer than the tracked copy. Reload it to see if it is still there.
-        if (entry.State == EntityState.Unchanged && message.ConcurrencyStamp != ticket.ConcurrencyStamp)
+        else if (entry.State == EntityState.Unchanged)
         {
+            // The tracked copy may be stale, so reload it
             await entry.ReloadAsync(cancellationToken);
         }
 
-        // The message is tracked and the ticket is current. Return it, or null if it was removed.
-        var isCurrent = entry.State != EntityState.Detached
-            && entry.State != EntityState.Deleted
-            && message.ConcurrencyStamp == ticket.ConcurrencyStamp;
+        // Current when the message is still there, not being removed, and has the correct stamp
+        var isCurrent = (entry.State is EntityState.Added or EntityState.Modified or EntityState.Unchanged)
+            && entry.Entity.ConcurrencyStamp == ticket.ConcurrencyStamp;
 
         return isCurrent ? entry : null;
     }
