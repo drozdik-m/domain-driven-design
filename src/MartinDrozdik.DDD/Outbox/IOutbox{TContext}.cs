@@ -46,7 +46,7 @@ public interface IOutbox<TContext>
     /// <typeparam name="TMessage">The type of the message.</typeparam>
     /// <param name="message">The message to enqueue.</param>
     /// <returns>The ticket of the message, e.g. to take it back out with <see cref="RemoveOnSaveAsync"/> before saving.</returns>
-    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, or its serialized payload exceeds the configured maximum payload length.</exception>
+    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, its key is registered by another type, or its serialized payload exceeds the configured maximum payload length.</exception>
     OutboxTicket AddOnSave<TMessage>(TMessage message)
         where TMessage : IOutboxMessage;
 
@@ -57,7 +57,7 @@ public interface IOutbox<TContext>
     /// <param name="message">The message to enqueue.</param>
     /// <param name="settings">How the message is enqueued.</param>
     /// <returns>The ticket of the message, e.g. to take it back out with <see cref="RemoveOnSaveAsync"/> before saving.</returns>
-    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, or its serialized payload exceeds the configured maximum payload length.</exception>
+    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, its key is registered by another type, or its serialized payload exceeds the configured maximum payload length.</exception>
     OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings settings)
         where TMessage : IOutboxMessage;
 
@@ -71,7 +71,7 @@ public interface IOutbox<TContext>
     /// <param name="message">The message to enqueue.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>The ticket of the message.</returns>
-    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, or its serialized payload exceeds the configured maximum payload length.</exception>
+    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, its key is registered by another type, or its serialized payload exceeds the configured maximum payload length.</exception>
     Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
         where TMessage : IOutboxMessage;
 
@@ -86,7 +86,7 @@ public interface IOutbox<TContext>
     /// <param name="settings">How the message is enqueued.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>The ticket of the message.</returns>
-    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, or its serialized payload exceeds the configured maximum payload length.</exception>
+    /// <exception cref="Exceptions.OutboxException">The message type is not registered with this outbox, its key is registered by another type, or its serialized payload exceeds the configured maximum payload length.</exception>
     Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings settings, CancellationToken cancellationToken)
         where TMessage : IOutboxMessage;
 

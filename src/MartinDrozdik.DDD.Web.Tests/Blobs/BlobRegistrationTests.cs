@@ -74,6 +74,22 @@ public class BlobRegistrationTests
     }
 
     [Fact]
+    public void Adding_blobs_over_an_outbox_that_maps_the_blob_key_to_another_type_throws()
+    {
+        // Arrange
+        // The key of DeleteBlobMessage is taken, but by a type that is not DeleteBlobMessage
+        var builder = CreateBuilder();
+        builder.AddOutbox<CatalogueDbContext>(config => config.WithMessage<ImpostorDeleteBlobMessage, ImpostorDeleteBlobMessageHandler>());
+
+        // Act
+        var exception = Assert.Throws<BlobException>(() =>
+            builder.AddBlobs<CatalogueDbContext>(blobs => blobs.WithContainer(s_invoices)));
+
+        // Assert
+        Assert.Contains("WithBlobs()", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Adding_blobs_a_second_time_throws()
     {
         // Arrange
@@ -309,4 +325,14 @@ public class BlobRegistrationTests
     private sealed class CatalogueDbContext(DbContextOptions<CatalogueDbContext> options) : DbContext(options);
 
     private sealed class OtherDbContext(DbContextOptions<OtherDbContext> options) : DbContext(options);
+
+    private sealed record ImpostorDeleteBlobMessage(string Path) : IOutboxMessage
+    {
+        public static OutboxMessageType MessageType => DeleteBlobMessage.MessageType;
+    }
+
+    private sealed class ImpostorDeleteBlobMessageHandler : IOutboxMessageHandler<ImpostorDeleteBlobMessage>
+    {
+        public Task HandleAsync(ImpostorDeleteBlobMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 }

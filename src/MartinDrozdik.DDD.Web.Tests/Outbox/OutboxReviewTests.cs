@@ -96,6 +96,44 @@ public sealed class OutboxReviewTests : IDisposable
     }
 
     [Fact]
+    public async Task Enqueuing_a_type_that_only_shares_the_key_of_a_registered_type_throws()
+    {
+        // Arrange
+        // ImpostorMessage is registered nowhere, it only reuses the key of ReviewMessage
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await using var scope = instance.Services.CreateAsyncScope();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+
+        // Act
+        var exception = Record.Exception(() => outbox.AddOnSave(new ImpostorMessage(42)));
+
+        // Assert
+        Assert.IsType<OutboxException>(exception);
+    }
+
+    [Fact]
+    public async Task A_type_sharing_the_key_of_a_registered_type_is_never_handed_to_the_handler_of_that_type()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        try
+        {
+            await EnqueueAsync(instance, [new ImpostorMessage(42)]);
+        }
+        catch (OutboxException)
+        {
+            // Rejected at enqueue time, which is the fix
+        }
+
+        // Act
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // {"number":42} read as a ReviewMessage is a ReviewMessage with a null Text
+        Assert.Empty(_hooks.Handled);
+    }
+
+    [Fact]
     public async Task A_context_that_does_not_track_queries_by_default_still_records_every_delivery()
     {
         // Arrange

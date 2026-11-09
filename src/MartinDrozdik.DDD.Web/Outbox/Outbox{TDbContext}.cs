@@ -192,16 +192,22 @@ internal sealed class Outbox<TDbContext>(
     /// <param name="message">The message to enqueue.</param>
     /// <param name="settings">How the message is enqueued.</param>
     /// <returns>The message, ready to be stored.</returns>
-    /// <exception cref="OutboxException">The message type is not registered with this outbox, or the message cannot be stored.</exception>
+    /// <exception cref="OutboxException">The message type is not registered with this outbox, its key is registered by another type, or the message cannot be stored.</exception>
     private OutboxMessage CreateOutboxMessage<TMessage>(TMessage message, OutboxMessageSettings settings)
         where TMessage : IOutboxMessage
     {
         ArgumentNullException.ThrowIfNull(message);
 
         var messageType = TMessage.MessageType;
-        if (!registry.Contains(messageType))
+        if (!registry.TryGet(messageType, out var registration))
         {
             throw new OutboxException($"Outbox message type '{messageType}' is not registered with the outbox of {s_outboxName}. Register it with WithMessage<{typeof(TMessage).GetReadableName()}, ...>() when calling AddOutbox<{s_outboxName}>.");
+        }
+
+        // Validate the actual payload type against the registered type
+        if (registration.MessageClrType != typeof(TMessage))
+        {
+            throw new OutboxException($"Outbox message type '{messageType}' is registered with the outbox of {s_outboxName} by {registration.MessageClrType.GetReadableName()}, not by {typeof(TMessage).GetReadableName()}. Give {typeof(TMessage).GetReadableName()} a key of its own and register it with WithMessage<{typeof(TMessage).GetReadableName()}, ...>().");
         }
 
         var payload = SerializeMessage(message, messageType);

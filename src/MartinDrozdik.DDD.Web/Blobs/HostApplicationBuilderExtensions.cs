@@ -186,7 +186,7 @@ public static class HostApplicationBuilderExtensions
             throw new BlobException($"Blob storage over {contextName} requires the outbox of {contextName}, which delivers every removal of content. Call AddOutbox<{contextName}>(..., config => config.WithBlobs()) before AddBlobs<{contextName}>.");
         }
 
-        if (!outbox.Contains(DeleteBlobMessage.MessageType))
+        if (!outbox.TryGet(DeleteBlobMessage.MessageType, out var registration) || registration.MessageClrType != typeof(DeleteBlobMessage))
         {
             throw new BlobException($"The outbox of {contextName} does not deliver {nameof(DeleteBlobMessage)}, which every removal of blob content rides on. Add WithBlobs() to the configuration of AddOutbox<{contextName}>.");
         }
