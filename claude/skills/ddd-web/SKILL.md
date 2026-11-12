@@ -406,7 +406,7 @@ shared type with another handler, throws `OutboxException` while the container i
 | `ReservationDuration` | `1 min` | How long a run holds the messages of its batch it has not started. Once it passes, the rest of a slow batch goes to other processors. At most `LeaseDuration`. |
 | `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
 | `MaxPayloadLength` | `null` | Cap on serialized payload characters. `AddOnSave()` throws over it, before anything is saved. |
-| `SerializerOptions` | `JsonSerializerOptions.Web` | Changing it after rows exist can make payloads unreadable. |
+| `SerializerOptions` | `JsonSerializerOptions.Strict`, enums by name, non-nullable properties required | A payload that does not fit its type exactly is dead-lettered. Changing it after rows exist can make payloads unreadable. |
 
 `OutboxRetentionOptions<TDbContext>` — only with `AddOutboxRetention<TDbContext>`, validated on start:
 

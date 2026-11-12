@@ -56,7 +56,7 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
             .WithFakeTime(new FakeTimeProvider(s_initialTime))
             .Build();
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        await AddRawMessageAsync<TestDbContext>(app, OutboxMessage.Create(SecondContextOutboxMessage.MessageType, """{"orderNumber":1}""", s_initialTime.UtcDateTime));
+        await AddRawMessageAsync<TestDbContext>(app, OutboxMessage.Create(SecondContextOutboxMessage.MessageType, """{"OrderNumber":1}""", s_initialTime.UtcDateTime));
 
         // Act
         var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;

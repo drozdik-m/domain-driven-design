@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 
@@ -73,7 +75,84 @@ public sealed class OutboxOptions<TDbContext>
     /// Gets or sets the options used to serialize and deserialize payloads of this outbox.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The default is <see cref="JsonSerializerOptions.Strict"/> with two more checks:
+    /// <list type="bullet">
+    ///    <item>Member names are exact C# matches</item>
+    ///    <item>Enums are stored by name</item>
+    /// </list>
+    /// A payload that does not fit its type exactly cannot be read:
+    /// </para>
+    /// <list type="bullet">
+    ///     <item>a constructor parameter without a default value is missing (<see cref="JsonSerializerOptions.RespectRequiredConstructorParameters"/>),</item>
+    ///     <item>a non-nullable property outside the constructor is missing,</item>
+    ///     <item>a non-nullable member holds null (<see cref="JsonSerializerOptions.RespectNullableAnnotations"/>),</item>
+    ///     <item>a member the type does not have is present (<see cref="JsonUnmappedMemberHandling.Disallow"/>),</item>
+    ///     <item>a member appears twice (<see cref="JsonSerializerOptions.AllowDuplicateProperties"/>),</item>
+    ///     <item>a name differs in case (<see cref="JsonSerializerOptions.PropertyNameCaseInsensitive"/>),</item>
+    ///     <item>a number is written as a string (<see cref="JsonNumberHandling.Strict"/>),</item>
+    ///     <item>an enum value is not defined by its enum, or is written as a number (<see cref="JsonStringEnumConverter"/>).</item>
+    /// </list>
+    /// <para>
+    /// Such a message is retried and dead-lettered, never handed to its handler with null or zero members.
+    /// Enqueueing a message with null in a non-nullable member, or with an undefined enum value, throws.
+    /// Elements of a collection and values of a dictionary are not checked for null.
+    /// We want to avoid null reference exception and possible attacks/misuse of the handler.
+    /// </para>
+    /// <para>
+    /// To customize it, copy the default: <c>options.SerializerOptions = new JsonSerializerOptions(options.SerializerOptions) { ... }</c>.
+    /// </para>
+    /// <para>
     /// Changing this after rows exist can make stored payloads unreadable, which dead-letters them.
+    /// </para>
     /// </remarks>
-    public JsonSerializerOptions SerializerOptions { get; set; } = JsonSerializerOptions.Web;
+    public JsonSerializerOptions SerializerOptions { get; set; } = CreateDefaultSerializerOptions();
+
+    /// <summary>
+    /// Creates the default of <see cref="SerializerOptions"/>.
+    /// </summary>
+    /// <returns><see cref="JsonSerializerOptions.Strict"/>, with enums stored by name and every non-nullable property required.</returns>
+    private static JsonSerializerOptions CreateDefaultSerializerOptions()
+    {
+        var serializerOptions = new JsonSerializerOptions(JsonSerializerOptions.Strict)
+        {
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver
+            {
+                Modifiers = { RequireNonNullableProperties },
+            },
+        };
+
+        serializerOptions.Converters.Add(new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false));
+        serializerOptions.MakeReadOnly();
+
+        return serializerOptions;
+    }
+
+    /// <summary>
+    /// Makes every non-nullable property outside the constructor required, so a payload without it is refused.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="JsonSerializerOptions.RespectRequiredConstructorParameters"/> covers the constructor parameters,
+    /// and <see cref="JsonSerializerOptions.RespectNullableAnnotations"/> only an explicit null.
+    /// </remarks>
+    /// <param name="typeInfo">The contract of a type being serialized.</param>
+    private static void RequireNonNullableProperties(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Kind != JsonTypeInfoKind.Object)
+        {
+            return;
+        }
+
+        foreach (var property in typeInfo.Properties)
+        {
+            var isOptional = property.AssociatedParameter is not null // already decided by its constructor parameter
+                || property.Set is null // never read
+                || property.IsExtensionData
+                || property.IsSetNullable;
+            if (!isOptional)
+            {
+                property.IsRequired = true;
+            }
+        }
+    }
 }

@@ -129,8 +129,46 @@ public sealed class OutboxReviewTests : IDisposable
         await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
-        // {"number":42} read as a ReviewMessage is a ReviewMessage with a null Text
+        // {"Number":42} read as a ReviewMessage is a ReviewMessage with a null Text
         Assert.Empty(_hooks.Handled);
+    }
+
+    [Theory]
+    [InlineData("""{"Number":42}""")]
+    [InlineData("""{"Text":null}""")]
+    [InlineData("""{"Text":"a","Extra":1}""")]
+    public async Task A_stored_payload_that_no_longer_fits_its_type_is_dead_lettered_instead_of_delivered(string payload)
+    {
+        // Arrange
+        // E.g. a v1 row read by a type that gained a required member without a key bump
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options => options.RetryDelays = []);
+        await AddRawRowAsync(instance, ReviewMessage.MessageType.Key, payload, s_initialTime.UtcDateTime);
+
+        // Act
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(_hooks.Handled);
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.Null(message.ProcessedAt);
+        Assert.NotNull(message.FailedAt);
+    }
+
+    [Fact]
+    public async Task Enqueuing_a_message_with_null_in_a_non_nullable_member_throws_an_outbox_exception()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
+        await using var scope = instance.Services.CreateAsyncScope();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+
+        // Act
+        var exception = Record.Exception(() => outbox.AddOnSave(new ReviewMessage(null!)));
+
+        // Assert
+        Assert.IsType<OutboxException>(exception);
     }
 
     [Fact]

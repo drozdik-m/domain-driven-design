@@ -370,11 +370,11 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // The message created first, so with the smaller version 7 id, has been available for a shorter time
         using var app = Build(out _, options => options.BatchSize = 1);
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"waiting a minute"}""", s_initialTime.UtcDateTime.AddMinutes(-1)));
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"waiting a minute"}""", s_initialTime.UtcDateTime.AddMinutes(-1)));
 
         // A version 7 id only orders by the millisecond it was created in
         await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.Current.CancellationToken);
-        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"waiting an hour"}""", s_initialTime.UtcDateTime.AddHours(-1)));
+        await AddRawMessageAsync(app, OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"waiting an hour"}""", s_initialTime.UtcDateTime.AddHours(-1)));
 
         // Act
         var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
@@ -811,7 +811,7 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = Build(out _, options => options.RetryDelays = []);
         var state = app.Services.GetRequiredService<TestOutboxHandlerState>();
-        var stored = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"retried"}""", s_initialTime.UtcDateTime.AddMinutes(-2));
+        var stored = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"retried"}""", s_initialTime.UtcDateTime.AddMinutes(-2));
         for (var attempt = 0; attempt < 2; attempt++)
         {
             stored.Claim(Guid.CreateVersion7(), s_initialTime.UtcDateTime.AddMinutes(-2), TimeSpan.FromMinutes(5));

@@ -164,7 +164,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         await using var connection = new SqliteConnection("Data Source=:memory:");
         await using var context = await CreateContextAsync(connection, trigger, TestContext.Current.CancellationToken);
         var transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
-        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"in-scope"}""", DateTime.UtcNow));
+        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"in-scope"}""", DateTime.UtcNow));
 
         // Act
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -191,7 +191,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         // Act
         using (new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
         {
-            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"rolled-back"}""", DateTime.UtcNow));
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"rolled-back"}""", DateTime.UtcNow));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             // Disposed without Complete
@@ -212,9 +212,9 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         // Act
         using (var transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
         {
-            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"first"}""", DateTime.UtcNow));
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"first"}""", DateTime.UtcNow));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"second"}""", DateTime.UtcNow));
+            context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"second"}""", DateTime.UtcNow));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             transactionScope.Complete();
         }
@@ -350,7 +350,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(
             app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>());
 
-        var message = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"twice"}""", DateTime.UtcNow);
+        var message = OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"twice"}""", DateTime.UtcNow);
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
@@ -394,7 +394,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         // Act
-        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"text":"elsewhere"}""", DateTime.UtcNow));
+        context.Set<OutboxMessage>().Add(OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"elsewhere"}""", DateTime.UtcNow));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
