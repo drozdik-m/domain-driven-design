@@ -1,12 +1,9 @@
-using System.Collections.Concurrent;
 using System.Data.Common;
 using MartinDrozdik.DDD.Outbox;
-using MartinDrozdik.DDD.Testing.Logging;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,20 +16,8 @@ namespace MartinDrozdik.DDD.Web.Tests.Outbox;
 /// <summary>
 /// Verifies several application instances working on one outbox table at the same time.
 /// </summary>
-/// <remarks>
-/// Every instance is a host of its own, with its own container and registry, over one shared SQLite file.
-/// The clock and the record of handled messages are shared, so a test can drive and observe all of them.
-/// </remarks>
-public sealed class OutboxMultiInstanceTests : IDisposable
+public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
 {
-    private static readonly DateTimeOffset s_initialTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"{Guid.CreateVersion7():N}_outbox_instances.db");
-    private readonly FakeTimeProvider _time = new(s_initialTime);
-    private readonly ReviewHandlerHooks _hooks = new();
-    private readonly TestLogger _logger = new();
-    private readonly List<IHost> _instances = [];
-
     [Fact]
     public async Task Two_instances_processing_at_the_same_time_deliver_every_message_exactly_once()
     {
@@ -42,7 +27,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         await EnqueueAsync(first, Enumerable.Range(0, 30).Select(i => new ReviewMessage($"message-{i}")));
 
         // Both poll at once and race to reserve the same rows
-        _hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
+        Hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
 
         // Act
         var results = await Task.WhenAll(
@@ -52,8 +37,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Assert
         Assert.Equal(30, results.Sum(r => r.Dispatched));
         Assert.Equal(30, results.Sum(r => r.Reserved));
-        Assert.Equal(30, _hooks.Handled.Count);
-        Assert.Equal(30, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(30, Hooks.Handled.Count);
+        Assert.Equal(30, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
 
         var messages = await GetMessagesAsync(first);
         Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
@@ -73,7 +58,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // The second instance polls while the first is still delivering its first message
         var secondDispatched = 0;
         var secondHasPolled = false;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (secondHasPolled)
             {
@@ -91,7 +76,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // The first instance reserved its ten up front, so the second reads past them and takes the other ten
         Assert.Equal(10, firstDispatched);
         Assert.Equal(10, secondDispatched);
-        Assert.Equal(20, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(20, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -107,7 +92,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         List<OutboxMessage> duringFirstBatch = [];
         OutboxBatchResult? secondResult = null;
         var secondHasPolled = false;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (secondHasPolled)
             {
@@ -135,8 +120,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(1, secondResult.Reserved);
         Assert.Equal(1, secondResult.Dispatched);
         Assert.Equal(3, firstResult.Dispatched);
-        Assert.Equal(4, _hooks.Handled.Count);
-        Assert.Equal(4, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(4, Hooks.Handled.Count);
+        Assert.Equal(4, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -157,7 +142,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // The first message outlasts the reservation of the batch, and the second instance polls meanwhile
         OutboxBatchResult? secondResult = null;
         var secondHasPolled = false;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (secondHasPolled)
             {
@@ -165,7 +150,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
             }
 
             secondHasPolled = true;
-            _time.Advance(TimeSpan.FromMinutes(2));
+            Time.Advance(TimeSpan.FromMinutes(2));
             secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
         };
 
@@ -181,8 +166,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(1, firstResult.Dispatched);
 
         // Each message delivered once, none attempted twice
-        Assert.Equal(3, _hooks.Handled.Count);
-        Assert.Equal(3, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(3, Hooks.Handled.Count);
+        Assert.Equal(3, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
         var messages = await GetMessagesAsync(first);
         Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
         Assert.All(messages, m => Assert.Equal(1, m.Attempts));
@@ -205,12 +190,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         // Whichever message is delivered first outlasts the reservation
         var slowHandled = false;
-        _hooks.OnHandleAsync = (_, _) =>
+        Hooks.OnHandleAsync = (_, _) =>
         {
             if (!slowHandled)
             {
                 slowHandled = true;
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
             }
 
             return Task.CompletedTask;
@@ -231,8 +216,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Null(skipped.ClaimedUntil);
 
         Assert.Equal(1, secondRun.Dispatched);
-        Assert.Equal(2, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(2, _hooks.Handled.Count);
+        Assert.Equal(2, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(2, Hooks.Handled.Count);
     }
 
     [Fact]
@@ -251,13 +236,13 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var second = await CreateInstanceAsync(
             static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
             Options,
-            new FakeTimeProvider(s_initialTime.AddMinutes(2)));
+            time: new FakeTimeProvider(InitialTime.AddMinutes(2)));
         await EnqueueAsync(first, [new ReviewMessage("first"), new ReviewMessage("second")]);
 
         // While the first instance delivers its first message, the second takes the other one and delivers it
         string? delivered = null;
         OutboxBatchResult? secondResult = null;
-        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        Hooks.OnHandleAsync = async (text, cancellationToken) =>
         {
             if (delivered is not null)
             {
@@ -276,8 +261,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.NotNull(secondResult);
         Assert.Equal(1, secondResult.Dispatched);
         Assert.Equal(1, firstResult.Dispatched);
-        Assert.Equal(2, _hooks.Handled.Count);
-        Assert.Equal(2, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(2, Hooks.Handled.Count);
+        Assert.Equal(2, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
 
         var messages = await GetMessagesAsync(first);
         Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
@@ -303,7 +288,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         // While the worker delivers one message, the producer takes back the other one
         bool? removed = null;
-        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        Hooks.OnHandleAsync = async (text, cancellationToken) =>
         {
             if (removed is not null)
             {
@@ -323,7 +308,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.True(removed);
         Assert.Equal(2, result.Reserved);
         Assert.Equal(1, result.Dispatched);
-        Assert.Single(_hooks.Handled);
+        Assert.Single(Hooks.Handled);
         Assert.Single(await GetMessagesAsync(worker));
     }
 
@@ -339,10 +324,10 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         tickets["second"] = await EnqueueWithTicketAsync(producer, new ReviewMessage("second"));
 
         // While the worker delivers one message, the producer postpones the other one
-        var later = s_initialTime.AddHours(1);
+        var later = InitialTime.AddHours(1);
         OutboxTicket? postponed = null;
         string? postponedText = null;
-        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        Hooks.OnHandleAsync = async (text, cancellationToken) =>
         {
             if (postponedText is not null)
             {
@@ -363,7 +348,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.NotNull(postponed);
         Assert.Equal(2, result.Reserved);
         Assert.Equal(1, result.Dispatched);
-        Assert.Single(_hooks.Handled);
+        Assert.Single(Hooks.Handled);
 
         var waiting = Assert.Single(await GetMessagesAsync(worker), m => m.ProcessedAt is null);
         Assert.Equal(postponed.Value, waiting.ToTicket());
@@ -373,10 +358,10 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Null(waiting.ReservedUntil);
 
         // Delivered once its new time comes
-        _time.Advance(TimeSpan.FromHours(1));
+        Time.Advance(TimeSpan.FromHours(1));
         var onTime = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
         Assert.Equal(1, onTime.Dispatched);
-        Assert.Equal(["first", "second"], _hooks.Handled.Order(StringComparer.Ordinal));
+        Assert.Equal(["first", "second"], Hooks.Handled.Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -394,7 +379,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         {
             await using var scope = producer.Services.CreateAsyncScope();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            postponed = await outbox.PostponeNowAsync(ticket, s_initialTime.AddHours(1), cancellationToken);
+            postponed = await outbox.PostponeNowAsync(ticket, InitialTime.AddHours(1), cancellationToken);
         };
 
         // Act
@@ -404,7 +389,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // The reserving update repeats the "due" check, so the message is no longer taken
         Assert.NotNull(postponed);
         Assert.Equal(new OutboxBatchResult(Found: 1, Reserved: 0, Released: 0, Dispatched: 0), result);
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
 
         var message = Assert.Single(await GetMessagesAsync(worker));
         Assert.Null(message.ClaimedBy);
@@ -422,7 +407,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
 
-        var later = s_initialTime.AddHours(1);
+        var later = InitialTime.AddHours(1);
         OutboxTicket? postponed = null;
         reserving.AfterReserveAsync = async cancellationToken =>
         {
@@ -440,7 +425,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(1, result.Reserved);
 
         // ...so the worker must not deliver it now
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
         Assert.Equal(0, result.Dispatched);
 
         var message = Assert.Single(await GetMessagesAsync(worker));
@@ -461,7 +446,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
 
-        var later = s_initialTime.AddHours(1);
+        var later = InitialTime.AddHours(1);
         OutboxTicket? postponed = null;
         reserving.AfterReserveAsync = async cancellationToken =>
         {
@@ -477,7 +462,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Assert
         // The producer's transaction committed the postponement, so the message waits for its new time
         Assert.NotNull(postponed);
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
         Assert.Equal(0, result.Dispatched);
 
         var message = Assert.Single(await GetMessagesAsync(worker));
@@ -510,7 +495,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Assert
         Assert.True(removed);
         Assert.Equal(new OutboxBatchResult(Found: 1, Reserved: 1, Released: 0, Dispatched: 0), result);
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
         Assert.Empty(await GetMessagesAsync(worker));
     }
 
@@ -527,14 +512,14 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         }
 
         await EnqueueAsync(hosts[0], Enumerable.Range(0, 100).Select(i => new ReviewMessage($"message-{i}")));
-        _hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
+        Hooks.OnHandleAsync = static async (_, _) => await Task.Yield();
 
         // Act
         await Task.WhenAll(hosts.Select(host => Task.Run(() => RunDispatchIterationAsync(host), TestContext.Current.CancellationToken)));
 
         // Assert
-        Assert.Equal(100, _hooks.Handled.Count);
-        Assert.Equal(100, _hooks.Handled.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(100, Hooks.Handled.Count);
+        Assert.Equal(100, Hooks.Handled.Distinct(StringComparer.Ordinal).Count());
 
         var messages = await GetMessagesAsync(hosts[0]);
         Assert.All(messages, m => Assert.NotNull(m.ProcessedAt));
@@ -562,7 +547,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
                 .ExecuteUpdateAsync(
                     setters => setters
                         .SetProperty(m => m.ClaimedBy, rivalClaimId)
-                        .SetProperty(m => m.ClaimedUntil, s_initialTime.UtcDateTime.AddMinutes(10))
+                        .SetProperty(m => m.ClaimedUntil, InitialTime.UtcDateTime.AddMinutes(10))
                         .SetProperty(m => m.Attempts, 1)
                         .SetProperty(m => m.ConcurrencyStamp, Guid.CreateVersion7()),
                     cancellationToken);
@@ -575,7 +560,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Reserving them anyway would read back the rival's stamp, claim them as well and deliver them a second time
         Assert.Equal(1, reserving.Runs);
         Assert.Equal(new OutboxBatchResult(Found: 3, Reserved: 0, Released: 0, Dispatched: 0), result);
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
 
         var messages = await GetMessagesAsync(instance);
         Assert.All(messages, m => Assert.Equal(rivalClaimId, m.ClaimedBy));
@@ -599,7 +584,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         using var iteration = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         reserving.BeforeReserveAsync = async _ =>
         {
-            _time.Advance(TimeSpan.FromMinutes(2));
+            Time.Advance(TimeSpan.FromMinutes(2));
 
             // Bounds the test should the drain spin
             if (reserving.Runs > 5)
@@ -616,7 +601,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         // Assert
         Assert.Equal(1, reserving.Runs);
-        Assert.Empty(_hooks.Handled);
+        Assert.Empty(Hooks.Handled);
 
         var messages = await GetMessagesAsync(instance);
         Assert.All(messages, m => Assert.Null(m.ClaimedBy));
@@ -643,7 +628,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         for (var poll = 0; poll < 5; poll++)
         {
             await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
-            _time.Advance(TimeSpan.FromMinutes(1));
+            Time.Advance(TimeSpan.FromMinutes(1));
         }
 
         // Then an instance that knows the type polls
@@ -652,7 +637,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Assert
         // The old worker never claimed it, so no retry was burnt on a message it can never deliver
         Assert.Equal(1, delivered);
-        Assert.Equal(["new:new"], _hooks.Handled);
+        Assert.Equal(["new:new"], Hooks.Handled);
 
         var message = Assert.Single(await GetMessagesAsync(producer));
         Assert.Equal(1, message.Attempts);
@@ -674,12 +659,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         await EnqueueAsync(instance, [new ReviewMessage("slow")]);
 
         var attempts = 0;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
                 // The first delivery is slow, its lease runs out, and another processor retakes the message - and fails it
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
 
                 // ...but the first delivery then succeeds
@@ -704,10 +689,10 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(2, message.Attempts);
 
         // A lease shorter than the delivery is worth a warning: the message may have been delivered twice
-        Assert.Single(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
+        Assert.Single(Logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
 
         // The retry the failed attempt scheduled is gone with it
-        _time.Advance(TimeSpan.FromMinutes(5));
+        Time.Advance(TimeSpan.FromMinutes(5));
         var later = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
         Assert.Equal(0, later.Found);
         Assert.Equal(2, attempts);
@@ -727,12 +712,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         await EnqueueAsync(instance, [new ReviewMessage("slow")]);
 
         var attempts = 0;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
                 // No retry left, so the next run takes the expired lease for an abandoned attempt and dead-letters the message
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
             }
         };
@@ -769,12 +754,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<OutboxBatchResult>? secondRun = null;
         var attempts = 0;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
                 // The first delivery is slow, its lease runs out, and the second instance retakes the message
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
                 await secondStarted.Task.WaitAsync(cancellationToken);
 
@@ -798,7 +783,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(0, secondResult.Dispatched);
 
         var message = Assert.Single(await GetMessagesAsync(first));
-        Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
+        Assert.Equal(InitialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
         Assert.Null(message.FailedAt);
         Assert.Null(message.LastError);
         Assert.Null(message.ClaimedBy);
@@ -825,11 +810,11 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<OutboxBatchResult>? secondRun = null;
         var attempts = 0;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
                 await secondStarted.Task.WaitAsync(cancellationToken);
                 return;
@@ -848,8 +833,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         // Assert
         // The message is delivered. An error saying it was dead-lettered would page someone for nothing.
         Assert.NotNull(Assert.Single(await GetMessagesAsync(first)).ProcessedAt);
-        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
-        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("will be retried", StringComparison.Ordinal));
+        Assert.DoesNotContain(Logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
+        Assert.DoesNotContain(Logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("will be retried", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -863,14 +848,14 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         var attempts = 0;
         OutboxBatchResult? retakenResult = null;
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
                 // Another processor retakes the message and delivers it before the slow first delivery finishes
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 retakenResult = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
-                _time.Advance(TimeSpan.FromMinutes(1));
+                Time.Advance(TimeSpan.FromMinutes(1));
             }
         };
 
@@ -883,8 +868,8 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(0, result.Dispatched);
 
         var message = Assert.Single(await GetMessagesAsync(instance));
-        Assert.Equal(s_initialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
-        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
+        Assert.Equal(InitialTime.UtcDateTime.AddMinutes(2), message.ProcessedAt);
+        Assert.DoesNotContain(Logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("after its lease", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -894,7 +879,7 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         await EnqueueAsync(instance, [new ReviewMessage("deleted")]);
 
-        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
         {
             // F.e. cleaned up by hand while it was being delivered
             await using var scope = instance.Services.CreateAsyncScope();
@@ -926,12 +911,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         using var run = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var attempts = 0;
-        _hooks.OnHandleAsync = async (_, _) =>
+        Hooks.OnHandleAsync = async (_, _) =>
         {
             if (Interlocked.Increment(ref attempts) == 1)
             {
                 // Another processor retakes the message and fails it, then the slow run is cancelled (shutdown, Timeout)
-                _time.Advance(TimeSpan.FromMinutes(2));
+                Time.Advance(TimeSpan.FromMinutes(2));
                 await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
                 await run.CancelAsync();
                 return;
@@ -969,13 +954,13 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var secondBusy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<OutboxBatchResult>? secondRun = null;
-        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        Hooks.OnHandleAsync = async (text, cancellationToken) =>
         {
             switch (text)
             {
                 case "slow":
                     // The lease runs out, and the second instance reserves the slow message behind the older one
-                    _time.Advance(TimeSpan.FromMinutes(2));
+                    Time.Advance(TimeSpan.FromMinutes(2));
                     secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
                     await secondBusy.Task.WaitAsync(cancellationToken);
                     return;
@@ -997,12 +982,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         Assert.Equal(1, firstResult.Dispatched);
         Assert.Equal(2, secondResult.Reserved);
         Assert.Equal(1, secondResult.Dispatched);
-        Assert.Equal(["slow", "new:older"], _hooks.Handled);
+        Assert.Equal(["slow", "new:older"], Hooks.Handled);
 
         var slow = Assert.Single(await GetMessagesAsync(first), m => m.MessageType.Key == ReviewMessage.MessageType.Key);
         Assert.NotNull(slow.ProcessedAt);
         Assert.Equal(1, slow.Attempts);
-        Assert.Empty(_logger.AtLeast(LogLevel.Warning));
+        Assert.Empty(Logger.AtLeast(LogLevel.Warning));
 
         // The reservation of the second run goes with the delivery, it does not linger on the row
         Assert.Null(slow.ClaimedBy);
@@ -1034,13 +1019,13 @@ public sealed class OutboxMultiInstanceTests : IDisposable
         var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<OutboxBatchResult>? secondRun = null;
         var slowAttempts = 0;
-        _hooks.OnHandleAsync = async (text, cancellationToken) =>
+        Hooks.OnHandleAsync = async (text, cancellationToken) =>
         {
             switch (text)
             {
                 case "slow" when Interlocked.Increment(ref slowAttempts) == 1:
                     // The lease runs out, the second instance reserves the slow message behind the older one, and then the slow delivery fails
-                    _time.Advance(TimeSpan.FromMinutes(2));
+                    Time.Advance(TimeSpan.FromMinutes(2));
                     secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
                     await secondBusy.Task.WaitAsync(cancellationToken);
                     throw new InvalidOperationException("The slow delivery failed.");
@@ -1058,109 +1043,12 @@ public sealed class OutboxMultiInstanceTests : IDisposable
 
         // Act
         // The retry delay has passed, the reservation of the second run has not
-        _time.Advance(TimeSpan.FromSeconds(10));
+        Time.Advance(TimeSpan.FromSeconds(10));
         var retry = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, retry.Dispatched);
         Assert.Equal(2, slowAttempts);
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        foreach (var instance in _instances)
-        {
-            instance.Dispose();
-        }
-
-        SqliteConnection.ClearAllPools();
-        try
-        {
-            File.Delete(_databasePath);
-        }
-        catch (IOException)
-        {
-            // Left to the OS temp cleanup
-        }
-    }
-
-    private async Task<IHost> CreateInstanceAsync(
-        Action<OutboxConfig> configure,
-        Action<OutboxOptions<ReviewDbContext>>? configureOptions = null,
-        TimeProvider? time = null,
-        IInterceptor? interceptor = null)
-    {
-        var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
-        builder.Services.AddSingleton(time ?? _time);
-        builder.Services.AddSingleton(_hooks);
-        builder.Services.AddSingleton<ILoggerProvider>(_logger);
-        builder.Services.AddDbContext<ReviewDbContext>(options =>
-        {
-            options.UseSqlite($"Data Source={_databasePath}");
-            if (interceptor is not null)
-            {
-                options.AddInterceptors(interceptor);
-            }
-        });
-        builder.AddOutbox(configureOptions ?? (static _ => { }), configure);
-
-        var instance = builder.Build();
-        _instances.Add(instance);
-
-        await using var scope = instance.Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
-
-        return instance;
-    }
-
-    private static async Task EnqueueAsync<TMessage>(IHost instance, IEnumerable<TMessage> messages)
-        where TMessage : IOutboxMessage
-    {
-        await using var scope = instance.Services.CreateAsyncScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-        foreach (var message in messages)
-        {
-            outbox.AddOnSave(message);
-        }
-
-        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
-    }
-
-    private static async Task<OutboxTicket> EnqueueWithTicketAsync<TMessage>(IHost instance, TMessage message)
-        where TMessage : IOutboxMessage
-    {
-        await using var scope = instance.Services.CreateAsyncScope();
-        var ticket = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().AddOnSave(message);
-        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
-        return ticket;
-    }
-
-    /// <summary>
-    /// Runs one iteration of the dispatch task of an instance in a scope of its own, as the recurring task host does.
-    /// </summary>
-    private static async Task RunDispatchIterationAsync(IHost instance)
-    {
-        await using var scope = instance.Services.CreateAsyncScope();
-        var task = new OutboxDispatchRecurringTask<ReviewDbContext>(scope.ServiceProvider.GetRequiredService<IOutboxProcessor<ReviewDbContext>>());
-        await task.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    private static async Task<List<OutboxMessage>> GetMessagesAsync(IHost instance)
-    {
-        await using var scope = instance.Services.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
-            .Set<OutboxMessage>()
-            .AsNoTracking()
-            .ToListAsync(TestContext.Current.CancellationToken);
-    }
-
-    private sealed class ReviewDbContext(DbContextOptions<ReviewDbContext> options) : DbContext(options)
-    {
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.AddOutbox("OutboxMessage");
-        }
     }
 
     /// <summary>
@@ -1210,30 +1098,9 @@ public sealed class OutboxMultiInstanceTests : IDisposable
                command.CommandText.Contains("\"AvailableAt\" <=", StringComparison.Ordinal);
     }
 
-    private sealed class ReviewHandlerHooks
-    {
-        public ConcurrentQueue<string> Handled { get; } = [];
-
-        public Func<string, CancellationToken, Task> OnHandleAsync { get; set; } = static (_, _) => Task.CompletedTask;
-    }
-
-    private sealed record ReviewMessage(string Text) : IOutboxMessage
-    {
-        public static OutboxMessageType MessageType => "review.message.v1";
-    }
-
     private sealed record NewReviewMessage(string Text) : IOutboxMessage
     {
         public static OutboxMessageType MessageType => "review.new-message.v1";
-    }
-
-    private sealed class ReviewMessageHandler(ReviewHandlerHooks hooks) : IOutboxMessageHandler<ReviewMessage>
-    {
-        public async Task HandleAsync(ReviewMessage message, CancellationToken cancellationToken)
-        {
-            hooks.Handled.Enqueue(message.Text);
-            await hooks.OnHandleAsync(message.Text, cancellationToken);
-        }
     }
 
     private sealed class NewReviewMessageHandler(ReviewHandlerHooks hooks) : IOutboxMessageHandler<NewReviewMessage>

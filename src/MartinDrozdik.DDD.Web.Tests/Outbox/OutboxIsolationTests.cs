@@ -174,14 +174,12 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
 
         // The worker's loop is scheduled an hour out, so a delivery can only come from waking it
         worker.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>().Trigger();
-        await WaitForHandledAsync(workerState, TestContext.Current.CancellationToken);
+        var message = await WaitForProcessedAsync<TestDbContext>(producer, TestContext.Current.CancellationToken);
 
         // Assert
+        Assert.NotNull(message.ProcessedAt);
         Assert.Equal(["from-producer"], workerState.Handled);
         Assert.Empty(producerState.Handled);
-
-        var message = await GetSingleMessageAsync<TestDbContext>(producer);
-        Assert.NotNull(message.ProcessedAt);
     }
 
     /// <summary>
@@ -247,19 +245,30 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
     }
 
     /// <summary>
-    /// Waits until the outbox handlers have recorded something, or the test is cancelled.
+    /// Waits until the only message stored in the table of a context is recorded as delivered, or the test is cancelled.
     /// </summary>
-    /// <param name="state">The record of handled messages.</param>
+    /// <remarks>
+    /// The worker saves the delivery after its handler returns, so the handler's record alone does not mean the row is updated yet.
+    /// </remarks>
+    /// <typeparam name="TContext">The context whose table is read.</typeparam>
+    /// <param name="app">The application under test.</param>
     /// <param name="cancellationToken">Cancellation token of the test.</param>
-    /// <returns>A <see cref="Task"/> that completes once a message has been handled.</returns>
-    private static async Task WaitForHandledAsync(TestOutboxHandlerState state, CancellationToken cancellationToken)
+    /// <returns>The delivered message.</returns>
+    private static async Task<OutboxMessage> WaitForProcessedAsync<TContext>(ITestedApp app, CancellationToken cancellationToken)
+        where TContext : DbContext
     {
         // Bounded, so a delivery that never happens fails the test instead of hanging the suite
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
 
-        while (state.Handled.Count == 0)
+        while (true)
         {
+            var message = await GetSingleMessageAsync<TContext>(app);
+            if (message.ProcessedAt is not null)
+            {
+                return message;
+            }
+
             Assert.False(timeout.IsCancellationRequested, "The worker never delivered the message the producer enqueued.");
             await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
         }

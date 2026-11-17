@@ -327,6 +327,30 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public async Task Postponing_a_message_twice_on_save_commits_the_last_postponement()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
+        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+
+        // Act
+        // The second postponement goes by the ticket the first one issued, before anything is saved
+        var first = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(2), TestContext.Current.CancellationToken);
+        var second = await outbox.PostponeOnSaveAsync(first!.Value, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The save still checks the stamp the row had when it was loaded, and stores the last one issued
+        Assert.NotNull(second);
+        var stored = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(s_initialTime.AddHours(3).UtcDateTime, stored.AvailableAt);
+        Assert.Equal(second.Value, stored.ToTicket());
+    }
+
+    [Fact]
     public async Task Removing_a_message_postponed_in_the_same_save_removes_it()
     {
         // Arrange

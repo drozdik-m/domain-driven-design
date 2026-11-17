@@ -272,6 +272,30 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
     }
 
     [Fact]
+    public async Task Adding_a_message_now_triggers_the_dispatch_task()
+    {
+        // Arrange
+        // Committed by a context of its own, resolved from a scope of its own - which carries an interceptor of its own
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(
+            app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>());
+
+        // Act
+        using (var scope = app.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddNowAsync(
+                new TestOutboxMessage("now"),
+                TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        // Bounded, so a trigger that never arrives fails the test instead of hanging the suite
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        await concrete.WaitAsync(timeout.Token);
+    }
+
+    [Fact]
     public async Task Committing_a_message_queues_exactly_one_trigger()
     {
         // Arrange

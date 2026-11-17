@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Demo.Tests.Outbox;
 /// <summary>
 /// Exercises the outbox end to end through the real API of the demo application.
 /// </summary>
-public class InvoiceOutboxTests
+public sealed class InvoiceOutboxTests : IDisposable
 {
     private readonly TestedApp<Program> _factory;
 
@@ -82,6 +82,12 @@ public class InvoiceOutboxTests
         Assert.NotNull(message.ProcessedAt);
         Assert.Equal(1, message.Attempts);
         Assert.Null(message.LastError);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _factory.Dispose();
     }
 
     private async Task<OutboxMessage> GetSingleMessageAsync()
