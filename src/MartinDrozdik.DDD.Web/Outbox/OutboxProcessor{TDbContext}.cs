@@ -467,11 +467,12 @@ internal sealed class OutboxProcessor<TDbContext>(
     /// </summary>
     /// <remarks>
     /// Saved regardless of any cancellation.
+    /// Logged only once saved: when the lease expired and another processor recorded a delivery first, the save is rejected and the failure is not the outcome.
     /// </remarks>
     /// <param name="message">The message that failed.</param>
     /// <param name="exception">The failure that prevented delivery.</param>
-    /// <returns>A <see cref="Task"/> that completes when the outcome has been stored.</returns>
-    private Task<bool> RecordFailureAsync(OutboxMessage message, Exception exception)
+    /// <returns>True when the outcome was stored, false when another processor changed the message first.</returns>
+    private async Task<bool> RecordFailureAsync(OutboxMessage message, Exception exception)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var retryDelays = options.Value.RetryDelays;
@@ -479,20 +480,32 @@ internal sealed class OutboxProcessor<TDbContext>(
         // The attempt is already incremented at this time (at claim time)
         var attemptIndex = message.Attempts - 1;
 
-        if (attemptIndex < retryDelays.Count)
+        var retrying = attemptIndex < retryDelays.Count;
+        if (retrying)
         {
-            var delay = retryDelays[attemptIndex];
-            message.MarkRetrying(now, delay, exception.ToString());
-            OutboxLogging.LogRetrying(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts, delay);
+            message.MarkRetrying(now, retryDelays[attemptIndex], exception.ToString());
         }
         else
         {
             message.MarkFailed(now, exception.ToString());
-            OutboxLogging.LogDeadLettered(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
         }
 
         MarkClaimColumnsModified(message);
-        return TrySaveAsync(message, CancellationToken.None);
+        if (!await TrySaveAsync(message, CancellationToken.None))
+        {
+            return false;
+        }
+
+        if (retrying)
+        {
+            OutboxLogging.LogRetrying(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts, retryDelays[attemptIndex]);
+        }
+        else
+        {
+            OutboxLogging.LogDeadLettered(logger, exception, s_outboxName, message.Id, message.MessageType.Key, message.Attempts);
+        }
+
+        return true;
     }
 
     /// <summary>

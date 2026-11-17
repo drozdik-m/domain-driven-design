@@ -807,6 +807,52 @@ public sealed class OutboxMultiInstanceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failure_rejected_after_a_late_success_is_not_logged_as_a_dead_letter()
+    {
+        // Arrange
+        // As above: the second instance retakes the message on its last attempt, and that attempt fails after the late success was recorded
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.LeaseDuration = TimeSpan.FromMinutes(1);
+            options.RetryDelays = [TimeSpan.FromMinutes(1)];
+        }
+
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        var secondStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<OutboxBatchResult>? secondRun = null;
+        var attempts = 0;
+        _hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                _time.Advance(TimeSpan.FromMinutes(2));
+                secondRun = Task.Run(() => second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken), cancellationToken);
+                await secondStarted.Task.WaitAsync(cancellationToken);
+                return;
+            }
+
+            secondStarted.SetResult();
+            await secondReleased.Task.WaitAsync(cancellationToken);
+            throw new InvalidOperationException("The second delivery failed.");
+        };
+
+        // Act
+        await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        secondReleased.SetResult();
+        await secondRun!;
+
+        // Assert
+        // The message is delivered. An error saying it was dead-lettered would page someone for nothing.
+        Assert.NotNull(Assert.Single(await GetMessagesAsync(first)).ProcessedAt);
+        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("dead-lettered", StringComparison.Ordinal));
+        Assert.DoesNotContain(_logger.AtLeast(LogLevel.Warning), e => e.Message.Contains("will be retried", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_delivery_that_outlives_its_lease_keeps_the_delivery_another_processor_recorded_first()
     {
         // Arrange
