@@ -270,6 +270,51 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
     }
 
     [Fact]
+    public async Task An_instance_with_a_clock_ahead_within_the_tolerance_does_not_take_a_message_whose_lease_still_runs()
+    {
+        // Arrange
+        // The second instance runs two minutes ahead. Four minutes into a five minute lease it reads six,
+        // and without the tolerance it would take the message again while the first still delivers it.
+        static void Options(OutboxOptions<ReviewDbContext> options)
+        {
+            options.LeaseDuration = TimeSpan.FromMinutes(5);
+            options.ReservationDuration = TimeSpan.FromMinutes(1);
+            options.ClockSkewTolerance = TimeSpan.FromMinutes(3);
+        }
+
+        var secondTime = new FakeTimeProvider(InitialTime.AddMinutes(2));
+        var first = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options);
+        var second = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), Options, time: secondTime);
+        await EnqueueAsync(first, [new ReviewMessage("slow")]);
+
+        OutboxBatchResult? secondResult = null;
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (secondResult is not null)
+            {
+                return;
+            }
+
+            Time.Advance(TimeSpan.FromMinutes(4));
+            secondTime.Advance(TimeSpan.FromMinutes(4));
+            secondResult = await second.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+        };
+
+        // Act
+        var firstResult = await first.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(secondResult);
+        Assert.Equal(0, secondResult.Reserved);
+        Assert.Equal(1, firstResult.Dispatched);
+        Assert.Equal(["slow"], Hooks.Handled);
+
+        var message = Assert.Single(await GetMessagesAsync(first));
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(1, message.Attempts);
+    }
+
+    [Fact]
     public async Task A_producer_still_removes_a_message_a_worker_reserved_but_has_not_started()
     {
         // Arrange

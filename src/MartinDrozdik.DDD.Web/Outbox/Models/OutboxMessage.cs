@@ -245,10 +245,16 @@ public class OutboxMessage
     /// Says nothing about whether the message is due, see <see cref="IsDue"/>.
     /// </remarks>
     /// <param name="nowUtc">The current UTC time.</param>
+    /// <param name="clockSkewTolerance">How far the clocks of two processors may differ.</param>
     /// <returns>The filter, translatable to SQL.</returns>
-    internal static Expression<Func<OutboxMessage, bool>> IsFree(DateTime nowUtc)
-        => m => (m.ClaimedUntil == null || m.ClaimedUntil < nowUtc) &&
-            (m.ReservedUntil == null || m.ReservedUntil < nowUtc);
+    internal static Expression<Func<OutboxMessage, bool>> IsFree(DateTime nowUtc, TimeSpan clockSkewTolerance)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(clockSkewTolerance, TimeSpan.Zero);
+
+        var expiredBefore = nowUtc - clockSkewTolerance;
+        return m => (m.ClaimedUntil == null || m.ClaimedUntil < expiredBefore) &&
+            (m.ReservedUntil == null || m.ReservedUntil < expiredBefore);
+    }
 
     /// <summary>
     /// Tells whether a processor run still holds its reservation of the message.

@@ -88,7 +88,7 @@ stateDiagram-v2
 |---|---|---|
 | **Tracked** | No row yet, only an `Added` entry in your context | `Outbox.AddOnSave` |
 | **Scheduled** | `AvailableAt` > now | `OutboxMessageSettings.AvailableAt`, `Outbox.Postpone…Async` |
-| **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDue`, `OutboxMessage.IsFree` |
+| **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDue`, `OutboxMessage.IsFree`, `OutboxOptions.ClockSkewTolerance` |
 | **Reserved** | `ClaimedBy` set, `ReservedUntil` > now | `OutboxProcessor.ReserveAsync`, `OutboxOptions.ReservationDuration` |
 | **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim`, `OutboxOptions.LeaseDuration` |
 | **Backing off** | `AvailableAt` > now, `LastError` set | `OutboxMessage.MarkRetrying`, `OutboxOptions.RetryDelays` |

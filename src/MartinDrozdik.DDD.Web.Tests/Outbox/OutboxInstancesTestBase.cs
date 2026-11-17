@@ -148,7 +148,7 @@ public abstract class OutboxInstancesTestBase : IDisposable
     /// Builds an instance over the shared database and creates the database if it does not exist yet.
     /// </summary>
     /// <param name="configure">The message types of its outbox.</param>
-    /// <param name="configureOptions">Its outbox options.</param>
+    /// <param name="configureOptions">Its outbox options, with <see cref="OutboxOptions{TDbContext}.ClockSkewTolerance"/> set to zero beforehand.</param>
     /// <param name="configureContext">Its context options, e.g. no tracking by default.</param>
     /// <param name="detectChangesAutomatically">Whether its context detects changes automatically.</param>
     /// <param name="time">Its own clock, instead of <see cref="Time"/>.</param>
@@ -177,7 +177,14 @@ public abstract class OutboxInstancesTestBase : IDisposable
 
             configureContext?.Invoke(options);
         });
-        builder.AddOutbox(configureOptions ?? (static _ => { }), configure);
+        builder.AddOutbox<ReviewDbContext>(
+            options =>
+            {
+                // The instances share one clock unless a test gives one its own, so a lease ends exactly when it says
+                options.ClockSkewTolerance = TimeSpan.Zero;
+                configureOptions?.Invoke(options);
+            },
+            configure);
 
         var instance = builder.Build();
         _instances.Add(instance);

@@ -165,7 +165,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         // Ignores unknown message types
         var candidates = await context.Set<OutboxMessage>()
             .Where(OutboxMessage.IsDue(now))
-            .Where(OutboxMessage.IsFree(now))
+            .Where(OutboxMessage.IsFree(now, options.Value.ClockSkewTolerance))
             .Where(m => messageTypes.Contains(m.MessageType))
             .OrderBy(m => m.AvailableAt)
             .ThenBy(m => m.Id)
@@ -182,7 +182,7 @@ internal sealed class OutboxProcessor<TDbContext>(
         // The database re-checks the IsDue and IsFree conditions on the locked row and does atomic update.
         var reserved = await context.Set<OutboxMessage>()
             .Where(OutboxMessage.IsDue(now)) // Re-check the conditions on the locked row
-            .Where(OutboxMessage.IsFree(now))
+            .Where(OutboxMessage.IsFree(now, options.Value.ClockSkewTolerance))
             .Where(m => candidates.Contains(m.Id))
             .ExecuteUpdateAsync(
                 setters => setters

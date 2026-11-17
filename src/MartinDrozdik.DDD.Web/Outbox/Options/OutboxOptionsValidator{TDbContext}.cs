@@ -36,6 +36,12 @@ internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<Out
             .When(x => x.LeaseDuration > TimeSpan.Zero)
             .WithMessage("Outbox reservation duration must not exceed the lease duration, a message waiting in a batch is held no longer than one being delivered.");
 
+        RuleFor(x => x.ClockSkewTolerance)
+            .GreaterThanOrEqualTo(TimeSpan.Zero)
+            .WithMessage("Outbox clock skew tolerance must not be negative, otherwise a lease would expire before its end.")
+            .LessThanOrEqualTo(maxDuration)
+            .WithMessage($"Outbox clock skew tolerance must not be longer than {maxDuration.TotalDays} days.");
+
         RuleFor(x => x.RetryDelays)
             .NotNull()
             .WithMessage("Outbox retry delays must not be null. Use an empty list to dead-letter on the first failure.");

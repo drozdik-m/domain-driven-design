@@ -121,7 +121,7 @@ public class OutboxMessageTests
     {
         // Arrange
         var message = CreateInState(state);
-        var isFree = OutboxMessage.IsFree(s_now.AddMinutes(minutesLater)).Compile();
+        var isFree = OutboxMessage.IsFree(s_now.AddMinutes(minutesLater), TimeSpan.Zero).Compile();
 
         // Act
         var free = isFree(message);

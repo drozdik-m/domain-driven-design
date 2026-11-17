@@ -587,6 +587,8 @@ With `AddOutboxRetention`, schedule `IOutboxRetention<TContext>.ApplyAsync(ct)` 
 
 Multiple instances may run the outbox processing, **safely!**. Each run reserves its batch up front (`BatchSize` messages for `ReservationDuration`), so instances polling together deliver separate batches. If one message of a batch takes longer than `ReservationDuration`, the rest of the batch goes to other instances and the slow run skips it.
 
+Each instance reads the leases and reservations of the others by its own clock. It takes a message over only `ClockSkewTolerance` (1 minute by default) after the lease or reservation ended, so keep the clocks of your instances synchronized (NTP) well within that. A larger skew cuts leases short and a slow delivery can run twice.
+
 May be useful for high-throughput scenarios, or when you have like horizontal scaling and stuff...
 
 #### Several contexts – an outbox each

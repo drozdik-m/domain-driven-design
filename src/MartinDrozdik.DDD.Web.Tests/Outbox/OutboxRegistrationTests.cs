@@ -420,6 +420,7 @@ public class OutboxRegistrationTests
             {
                 options.LeaseDuration = OutboxOptions<RegistrationDbContext>.MaxDuration;
                 options.ReservationDuration = OutboxOptions<RegistrationDbContext>.MaxDuration;
+                options.ClockSkewTolerance = OutboxOptions<RegistrationDbContext>.MaxDuration;
                 options.RetryDelays = [OutboxOptions<RegistrationDbContext>.MaxDuration];
             },
             config => config.WithMessage<FirstMessage, FirstMessageHandler>());
@@ -433,6 +434,7 @@ public class OutboxRegistrationTests
         // The limits leave room for the clock: adding or subtracting them from now stays representable
         var now = DateTime.UtcNow;
         Assert.True(now + OutboxOptions<RegistrationDbContext>.MaxDuration < DateTime.MaxValue);
+        Assert.True(now - OutboxOptions<RegistrationDbContext>.MaxDuration > DateTime.MinValue);
         Assert.True(now - OutboxRetentionOptions<RegistrationDbContext>.MaxRetention > DateTime.MinValue);
         await host.StopAsync(TestContext.Current.CancellationToken);
     }
@@ -460,6 +462,8 @@ public class OutboxRegistrationTests
     [InlineData(nameof(OutboxOptions<>.LeaseDuration), "lease duration")]
     [InlineData(nameof(OutboxOptions<>.ReservationDuration), "reservation duration must be greater than zero")]
     [InlineData("ReservationOverLease", "reservation duration must not exceed the lease duration")]
+    [InlineData(nameof(OutboxOptions<>.ClockSkewTolerance), "clock skew tolerance must not be negative")]
+    [InlineData("UnrepresentableClockSkewTolerance", "clock skew tolerance must not be longer")]
     [InlineData(nameof(OutboxOptions<>.RetryDelays), "retry delays must not be null")]
     [InlineData("NegativeRetryDelay", "retry delay must not be negative")]
     [InlineData(nameof(OutboxOptions<>.MaxPayloadLength), "maximum payload length")]
@@ -540,6 +544,13 @@ public class OutboxRegistrationTests
             case "ReservationOverLease":
                 options.LeaseDuration = TimeSpan.FromMinutes(1);
                 options.ReservationDuration = TimeSpan.FromMinutes(2);
+                break;
+            case nameof(OutboxOptions<>.ClockSkewTolerance):
+                options.ClockSkewTolerance = TimeSpan.FromSeconds(-1);
+                break;
+            case "UnrepresentableClockSkewTolerance":
+                // now - tolerance cannot be computed, so every poll would throw
+                options.ClockSkewTolerance = TimeSpan.MaxValue;
                 break;
             case nameof(OutboxOptions<>.RetryDelays):
                 options.RetryDelays = null!;

@@ -51,6 +51,17 @@ public sealed class OutboxOptions<TDbContext>
     public TimeSpan ReservationDuration { get; set; } = TimeSpan.FromMinutes(1);
 
     /// <summary>
+    /// Gets or sets how far the clocks of two processors may differ.
+    /// </summary>
+    /// <remarks>
+    /// Clocks may differ between consumers.
+    /// This ensures reasonable time tolerance for leases.
+    /// Keep it above the worst skew between your instances.
+    /// Can be zero for single instance.
+    /// </remarks>
+    public TimeSpan ClockSkewTolerance { get; set; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
     /// Gets or sets the backoff schedule for failed deliveries.
     /// </summary>
     /// <remarks>

@@ -311,7 +311,8 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        time.Advance(TimeSpan.FromMinutes(6));
+        // Past the lease and the default clock skew tolerance of one minute
+        time.Advance(TimeSpan.FromMinutes(7));
         var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
@@ -498,9 +499,9 @@ public class OutboxProcessorTests(ITestOutputHelper testOutputHelper)
         state.OnHandled = static _ => { };
 
         // Act
-        // The lease still holds, then it expires
+        // The lease still holds, then it expires, together with the default clock skew tolerance of one minute
         var whileLeased = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
-        time.Advance(TimeSpan.FromMinutes(6));
+        time.Advance(TimeSpan.FromMinutes(7));
         var afterLease = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
 
         // Assert
