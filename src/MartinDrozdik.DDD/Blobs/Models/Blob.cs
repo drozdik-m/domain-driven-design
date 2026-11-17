@@ -32,7 +32,7 @@ namespace MartinDrozdik.DDD.Blobs.Models;
 /// </para>
 /// </remarks>
 [DebuggerDisplay("{OriginalFileName} ({Id})")]
-public sealed class Blob
+public class Blob
 {
     /// <summary>
     /// The maximum number of characters of an <see cref="OriginalFileName"/>.
@@ -57,8 +57,9 @@ public sealed class Blob
     /// </summary>
     /// <remarks>
     /// Can be used by Entity Framework Core, see <see cref="Create"/>.
+    /// Protected unsealed, so a context with lazy-loading proxies can map it.
     /// </remarks>
-    private Blob()
+    protected Blob()
     {
     }
 

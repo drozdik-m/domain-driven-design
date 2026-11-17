@@ -402,9 +402,9 @@ shared type with another handler, throws `OutboxException` while the container i
 | Property | Default | Meaning |
 |---|---|---|
 | `BatchSize` | `100` | Messages reserved (and at most delivered) per `ProcessPendingAsync` call. |
-| `LeaseDuration` | `5 min` | How long the claim of a message being delivered is honoured, counted from the start of its attempt. Must exceed the slowest handler, or another processor takes the message mid-delivery. |
+| `LeaseDuration` | `5 min` | How long the claim of a message being delivered is honoured, counted from the start of its attempt. Must exceed the slowest handler, or another processor takes the message mid-delivery. At most `MaxDuration` (365 days). |
 | `ReservationDuration` | `1 min` | How long a run holds the messages of its batch it has not started. Once it passes, the rest of a slow batch goes to other processors. At most `LeaseDuration`. |
-| `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. |
+| `RetryDelays` | `10s, 1m, 5m, 30m` | Backoff schedule. **List length = number of retries**; empty dead-letters on the first failure. Each delay at most `MaxDuration` (365 days). |
 | `MaxPayloadLength` | `null` | Cap on serialized payload characters. `AddOnSave()` throws over it, before anything is saved. |
 | `SerializerOptions` | `JsonSerializerOptions.Strict`, enums by name, non-nullable properties required | A payload that does not fit its type exactly is dead-lettered. Changing it after rows exist can make payloads unreadable. |
 
@@ -412,7 +412,7 @@ shared type with another handler, throws `OutboxException` while the container i
 
 | Property | Default | Meaning |
 |---|---|---|
-| `Retention` | none, required | How long *delivered* messages are kept. Dead-lettered ones are never deleted automatically. |
+| `Retention` | none, required | How long *delivered* messages are kept, at most `MaxRetention` (100 years). Dead-lettered ones are never deleted automatically. |
 | `BatchSize` | `1000` | Rows per delete statement. It deletes chunk after chunk, so a large backlog never locks the table for long. |
 
 Delivery semantics, worth stating in code review:

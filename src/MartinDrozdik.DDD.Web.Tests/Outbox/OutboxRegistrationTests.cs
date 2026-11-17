@@ -377,6 +377,7 @@ public class OutboxRegistrationTests
     [Theory]
     [InlineData(nameof(OutboxRetentionOptions<>.Retention), "retention must be greater than zero")]
     [InlineData(nameof(OutboxRetentionOptions<>.BatchSize), "retention batch size")]
+    [InlineData("UnrepresentableRetention", "retention must not be longer")]
     public async Task Invalid_retention_options_fail_the_application_at_startup_naming_the_context(string invalid, string expectedFailure)
     {
         // Arrange
@@ -390,6 +391,12 @@ public class OutboxRegistrationTests
                 options.Retention = TimeSpan.FromDays(7);
                 options.BatchSize = 0;
             }
+
+            // "Keep them forever": now - Retention cannot be computed, so every run of the retention would throw
+            if (invalid == "UnrepresentableRetention")
+            {
+                options.Retention = TimeSpan.MaxValue;
+            }
         });
         using var host = builder.Build();
 
@@ -401,6 +408,33 @@ public class OutboxRegistrationTests
         var failure = Assert.Single(exception.Failures);
         Assert.Contains(expectedFailure, failure, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(nameof(RegistrationDbContext), failure, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Options_at_their_longest_durations_start_the_application()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        builder.AddOutbox<RegistrationDbContext>(
+            static options =>
+            {
+                options.LeaseDuration = OutboxOptions<RegistrationDbContext>.MaxDuration;
+                options.ReservationDuration = OutboxOptions<RegistrationDbContext>.MaxDuration;
+                options.RetryDelays = [OutboxOptions<RegistrationDbContext>.MaxDuration];
+            },
+            config => config.WithMessage<FirstMessage, FirstMessageHandler>());
+        builder.AddOutboxRetention<RegistrationDbContext>(static options => options.Retention = OutboxRetentionOptions<RegistrationDbContext>.MaxRetention);
+        using var host = builder.Build();
+
+        // Act
+        await host.StartAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The limits leave room for the clock: adding or subtracting them from now stays representable
+        var now = DateTime.UtcNow;
+        Assert.True(now + OutboxOptions<RegistrationDbContext>.MaxDuration < DateTime.MaxValue);
+        Assert.True(now - OutboxRetentionOptions<RegistrationDbContext>.MaxRetention > DateTime.MinValue);
+        await host.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -430,6 +464,8 @@ public class OutboxRegistrationTests
     [InlineData("NegativeRetryDelay", "retry delay must not be negative")]
     [InlineData(nameof(OutboxOptions<>.MaxPayloadLength), "maximum payload length")]
     [InlineData(nameof(OutboxOptions<>.SerializerOptions), "serializer options")]
+    [InlineData("UnrepresentableLease", "lease duration must not be longer")]
+    [InlineData("UnrepresentableRetryDelay", "retry delay must not be longer")]
     public async Task Invalid_options_fail_the_application_at_startup_naming_the_context(string invalid, string expectedFailure)
     {
         // Arrange
@@ -510,6 +546,14 @@ public class OutboxRegistrationTests
                 break;
             case "NegativeRetryDelay":
                 options.RetryDelays = [TimeSpan.FromSeconds(-1)];
+                break;
+            case "UnrepresentableLease":
+                // "Never take it back": now + LeaseDuration cannot be computed, so every claim would throw
+                options.LeaseDuration = TimeSpan.MaxValue;
+                break;
+            case "UnrepresentableRetryDelay":
+                // "Never retry": now + delay cannot be computed, so recording the failure would throw
+                options.RetryDelays = [TimeSpan.MaxValue];
                 break;
             case nameof(OutboxOptions<>.MaxPayloadLength):
                 options.MaxPayloadLength = 0;

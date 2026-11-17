@@ -17,7 +17,9 @@ internal sealed class OutboxRetentionOptionsValidator<TDbContext> : AbstractVali
     {
         RuleFor(x => x.Retention)
             .GreaterThan(TimeSpan.Zero)
-            .WithMessage("Outbox retention must be greater than zero. To keep delivered messages forever, do not add the retention.");
+            .WithMessage("Outbox retention must be greater than zero. To keep delivered messages forever, do not add the retention.")
+            .LessThanOrEqualTo(OutboxRetentionOptions<TDbContext>.MaxRetention)
+            .WithMessage($"Outbox retention must not be longer than {OutboxRetentionOptions<TDbContext>.MaxRetention.TotalDays} days. To keep delivered messages forever, do not add the retention.");
 
         RuleFor(x => x.BatchSize)
             .GreaterThan(0)

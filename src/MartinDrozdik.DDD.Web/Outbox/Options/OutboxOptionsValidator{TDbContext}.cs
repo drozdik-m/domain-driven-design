@@ -15,13 +15,17 @@ internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<Out
     /// </summary>
     public OutboxOptionsValidator()
     {
+        var maxDuration = OutboxOptions<TDbContext>.MaxDuration;
+
         RuleFor(x => x.BatchSize)
             .GreaterThan(0)
             .WithMessage("Outbox batch size must be greater than zero, otherwise no message would ever be delivered.");
 
         RuleFor(x => x.LeaseDuration)
             .GreaterThan(TimeSpan.Zero)
-            .WithMessage("Outbox lease duration must be greater than zero, otherwise a claim would expire the moment it is taken.");
+            .WithMessage("Outbox lease duration must be greater than zero, otherwise a claim would expire the moment it is taken.")
+            .LessThanOrEqualTo(maxDuration)
+            .WithMessage($"Outbox lease duration must not be longer than {maxDuration.TotalDays} days.");
 
         RuleFor(x => x.ReservationDuration)
             .GreaterThan(TimeSpan.Zero)
@@ -38,7 +42,9 @@ internal sealed class OutboxOptionsValidator<TDbContext> : AbstractValidator<Out
 
         RuleForEach(x => x.RetryDelays)
             .GreaterThanOrEqualTo(TimeSpan.Zero)
-            .WithMessage("Every outbox retry delay must not be negative.");
+            .WithMessage("Every outbox retry delay must not be negative.")
+            .LessThanOrEqualTo(maxDuration)
+            .WithMessage($"Every outbox retry delay must not be longer than {maxDuration.TotalDays} days. Use fewer retry delays to dead-letter sooner.");
 
         RuleFor(x => x.MaxPayloadLength)
             .GreaterThan(0)

@@ -19,7 +19,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Models;
 /// </para>
 /// </remarks>
 [DebuggerDisplay("{MessageType} ({Id})")]
-public sealed class OutboxMessage
+public class OutboxMessage
 {
     /// <summary>
     /// The maximum number of characters of <see cref="LastError"/>. Longer errors are truncated.
@@ -30,7 +30,10 @@ public sealed class OutboxMessage
     /// Initializes a new instance of the <see cref="OutboxMessage"/> class.
     /// Used by Entity Framework Core only, see <see cref="Create"/>.
     /// </summary>
-    private OutboxMessage()
+    /// <remarks>
+    /// Protected and unsealed, so a context with lazy-loading proxies can map it.
+    /// </remarks>
+    protected OutboxMessage()
     {
     }
 

@@ -19,6 +19,14 @@ public sealed class OutboxOptions<TDbContext>
     where TDbContext : DbContext
 {
     /// <summary>
+    /// Gets the longest <see cref="LeaseDuration"/>, <see cref="ReservationDuration"/> and retry delay in <see cref="RetryDelays"/> the outbox accepts: 365 days.
+    /// </summary>
+    /// <remarks>
+    /// To never retry, leave <see cref="RetryDelays"/> empty.
+    /// </remarks>
+    public static TimeSpan MaxDuration => TimeSpan.FromDays(365);
+
+    /// <summary>
     /// Gets or sets how many messages a single call to <see cref="IOutboxProcessor{TDbContext}.ProcessPendingAsync"/> reserves and may deliver.
     /// </summary>
     public int BatchSize { get; set; } = 100;
@@ -28,6 +36,7 @@ public sealed class OutboxOptions<TDbContext>
     /// Starts when the delivery of that message starts.
     /// Once it elapses, another processor may take the message (processor failed).
     /// Set it comfortably above the slowest expected handler.
+    /// Must be greater than zero and not longer than <see cref="MaxDuration"/>.
     /// </summary>
     public TimeSpan LeaseDuration { get; set; } = TimeSpan.FromMinutes(5);
 
@@ -37,7 +46,7 @@ public sealed class OutboxOptions<TDbContext>
     /// </summary>
     /// <remarks>
     /// A run reserves its whole batch up front, so processors running together deliver separate batches.
-    /// A message being delivered is held by <see cref="LeaseDuration"/> instead. Must not exceed it.
+    /// A message being delivered is held by <see cref="LeaseDuration"/> instead. Must be greater than zero and not exceed it.
     /// </remarks>
     public TimeSpan ReservationDuration { get; set; } = TimeSpan.FromMinutes(1);
 
@@ -52,6 +61,7 @@ public sealed class OutboxOptions<TDbContext>
     ///     <item>...</item>
     /// </list>
     /// An empty list dead-letters on the first failure.
+    /// No delay may be negative or longer than <see cref="MaxDuration"/>.
     /// A delay only makes the message due again. Timing also depends on the next run of the consumer (f.e. <see cref="RecurringTasks.Options.RecurringTaskOptions{TTask}.Period"/>).
     /// </remarks>
     public IReadOnlyList<TimeSpan> RetryDelays { get; set; } =

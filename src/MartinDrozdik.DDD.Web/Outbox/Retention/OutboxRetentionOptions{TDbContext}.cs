@@ -12,8 +12,16 @@ public sealed class OutboxRetentionOptions<TDbContext>
     where TDbContext : DbContext
 {
     /// <summary>
+    /// Gets the longest <see cref="Retention"/> accepted: 100 years.
+    /// </summary>
+    /// <remarks>
+    /// Anything longer is basically the same as forever -> do not add the retention at all.
+    /// </remarks>
+    public static TimeSpan MaxRetention => TimeSpan.FromDays(36500);
+
+    /// <summary>
     /// Gets or sets how long delivered messages are kept before <see cref="IOutboxRetention{TDbContext}.ApplyAsync"/> deletes them.
-    /// Has no default, it must be set.
+    /// Has no default, it must be set, greater than zero and not longer than <see cref="MaxRetention"/>.
     /// </summary>
     /// <remarks>
     /// Only delivered messages are deleted. Dead-lettered ones stay until a person has dealt with them.
