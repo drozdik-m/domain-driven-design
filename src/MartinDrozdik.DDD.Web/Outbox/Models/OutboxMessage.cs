@@ -124,6 +124,11 @@ public class OutboxMessage
     public Guid ConcurrencyStamp { get; private set; } = Guid.CreateVersion7();
 
     /// <summary>
+    /// Gets a value indicating whether the message is still pending: neither delivered nor dead-lettered.
+    /// </summary>
+    internal bool IsPending => ProcessedAt is null && FailedAt is null;
+
+    /// <summary>
     /// Creates a message.
     /// </summary>
     /// <param name="messageType">The type of the message.</param>
@@ -276,6 +281,8 @@ public class OutboxMessage
     /// <param name="availableAtUtc">The new UTC time from which it may be delivered.</param>
     internal void Postpone(DateTime availableAtUtc)
     {
+        EnsurePending(nameof(Postpone));
+
         AvailableAt = availableAtUtc;
         RotateConcurrencyStamp();
     }
@@ -286,7 +293,7 @@ public class OutboxMessage
     /// <param name="operation">The name of the attempted operation, reported in the error.</param>
     private void EnsurePending(string operation)
     {
-        if (ProcessedAt is null && FailedAt is null)
+        if (IsPending)
         {
             return;
         }

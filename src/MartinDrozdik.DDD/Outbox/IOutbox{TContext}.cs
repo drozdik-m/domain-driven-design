@@ -123,7 +123,7 @@ public interface IOutbox<TContext>
     /// <param name="ticket">The ticket of the message, as last issued.</param>
     /// <param name="availableAt">The new earliest instant the message may be delivered.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
-    /// <returns>The new ticket, valid once the caller's transaction commits, or null when the message changed since the ticket was issued - a processor has taken it.</returns>
+    /// <returns>The new ticket, valid once the caller's transaction commits, or null when the message changed since the ticket was issued - a processor has taken it - or was already delivered or dead-lettered.</returns>
     Task<OutboxTicket?> PostponeOnSaveAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken);
 
     /// <summary>
@@ -135,7 +135,7 @@ public interface IOutbox<TContext>
     /// <param name="ticket">The ticket of the message, as last issued.</param>
     /// <param name="availableAt">The new earliest instant the message may be delivered.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
-    /// <returns>The new ticket, or null when the message changed since the ticket was issued - a processor has taken it.</returns>
+    /// <returns>The new ticket, or null when the message changed since the ticket was issued - a processor has taken it - or was already delivered or dead-lettered.</returns>
     Task<OutboxTicket?> PostponeNowAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken);
 }
 #pragma warning restore S2326 // Unused type parameters should be removed

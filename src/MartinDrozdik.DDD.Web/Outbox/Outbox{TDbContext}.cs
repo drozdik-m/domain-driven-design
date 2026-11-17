@@ -110,8 +110,9 @@ internal sealed class Outbox<TDbContext>(
     public async Task<OutboxTicket?> PostponeOnSaveAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
     {
         // Try to find the message
+        // A processed or dead-lettered message is never delivered again, so there is nothing to postpone
         var entry = await FindAsync(ticket, cancellationToken);
-        if (entry is null)
+        if (entry is null || !entry.Entity.IsPending)
         {
             return null;
         }
@@ -128,11 +129,12 @@ internal sealed class Outbox<TDbContext>(
         var rotatedConcurrencyStamp = Guid.CreateVersion7();
 
         // Conditional on the stamp of the ticket to prevent race conditions
+        // A processed or dead-lettered message is never delivered again, so there is nothing to postpone
         var updated = 0;
         await InOwnUnitOfWorkAsync(async ownContext =>
         {
             updated = await ownContext.Set<OutboxMessage>()
-                        .Where(e => e.Id == ticket.Id && e.ConcurrencyStamp == ticket.ConcurrencyStamp)
+                        .Where(e => e.Id == ticket.Id && e.ConcurrencyStamp == ticket.ConcurrencyStamp && e.ProcessedAt == null && e.FailedAt == null)
                         .ExecuteUpdateAsync(
                             setters => setters
                                 .SetProperty(m => m.AvailableAt, availableAtUtc)

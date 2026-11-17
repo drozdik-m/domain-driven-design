@@ -400,6 +400,62 @@ public sealed class OutboxReviewTests : IDisposable
     }
 
     [Fact]
+    public async Task Postponing_a_dead_letter_by_its_own_ticket_reports_null()
+    {
+        // Arrange
+        // E.g. an admin screen listing dead letters and offering to postpone them
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options => options.RetryDelays = []);
+        await EnqueueAsync(instance, [new ReviewMessage("poison")]);
+        _hooks.OnHandleAsync = static (_, _) => throw new InvalidOperationException("Boom");
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var deadLetter = Assert.Single(await GetMessagesAsync(instance));
+        Assert.NotNull(deadLetter.FailedAt);
+
+        // Act
+        OutboxTicket? postponed;
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>()
+                .PostponeNowAsync(deadLetter.ToTicket(), s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        // A dead letter is never delivered again, so nothing was postponed
+        Assert.Null(postponed);
+    }
+
+    [Fact]
+    public async Task Postponing_a_dead_letter_by_its_own_ticket_on_save_reports_null_and_leaves_it_as_it_was()
+    {
+        // Arrange
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options => options.RetryDelays = []);
+        await EnqueueAsync(instance, [new ReviewMessage("poison")]);
+        _hooks.OnHandleAsync = static (_, _) => throw new InvalidOperationException("Boom");
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var deadLetter = Assert.Single(await GetMessagesAsync(instance));
+        Assert.NotNull(deadLetter.FailedAt);
+
+        // Act
+        OutboxTicket? postponed;
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>()
+                .PostponeOnSaveAsync(deadLetter.ToTicket(), s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert
+        Assert.Null(postponed);
+        var stored = Assert.Single(await GetMessagesAsync(instance));
+        Assert.Equal(deadLetter.AvailableAt, stored.AvailableAt);
+        Assert.Equal(deadLetter.ConcurrencyStamp, stored.ConcurrencyStamp);
+    }
+
+    [Fact]
     public async Task Enqueuing_a_message_whose_members_collide_in_json_throws_an_outbox_exception()
     {
         // Arrange

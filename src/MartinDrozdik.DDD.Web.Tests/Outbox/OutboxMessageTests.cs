@@ -281,6 +281,7 @@ public class OutboxMessageTests
         Assert.Throws<BusinessRuleValidationException>(() => message.MarkProcessed(s_now));
         Assert.Throws<BusinessRuleValidationException>(() => message.MarkRetrying(s_now, TimeSpan.FromSeconds(1), "Boom"));
         Assert.Throws<BusinessRuleValidationException>(() => message.MarkFailed(s_now, "Boom"));
+        Assert.Throws<BusinessRuleValidationException>(() => message.Postpone(s_now.AddMinutes(5)));
     }
 
     [Fact]
