@@ -56,9 +56,10 @@ internal static class OutboxDispatcher<TMessage>
         {
             message = JsonSerializer.Deserialize<TMessage>(payload.Value, serializerOptions);
         }
-        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
         {
             // NotSupportedException: the type cannot be created from JSON, e.g. no constructor the serializer can pick
+            // InvalidOperationException: the contract of the type is invalid, e.g. two members share a JSON name under the naming policy
             throw new OutboxException($"The stored payload of outbox message type '{TMessage.MessageType}' could not be deserialized into {typeof(TMessage).GetReadableName()}.", exception);
         }
 

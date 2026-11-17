@@ -235,10 +235,11 @@ internal sealed class Outbox<TDbContext>(
         {
             value = JsonSerializer.Serialize(message, options.Value.SerializerOptions);
         }
-        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
         {
             // NotSupportedException: System.Text.Json cannot serialize a type that does not have a public parameterless constructor, or a type that is not supported (e.g. System.Type)
             // JsonException: a reference cycle or the maximum depth exceeded
+            // InvalidOperationException: the contract of the type is invalid, e.g. two members share a JSON name under the naming policy
             throw new OutboxException($"Outbox message '{messageType}' could not be serialized. Every member must round-trip through System.Text.Json.", exception);
         }
 

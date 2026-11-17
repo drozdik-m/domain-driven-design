@@ -399,6 +399,24 @@ public sealed class OutboxReviewTests : IDisposable
         Assert.Null(save);
     }
 
+    [Fact]
+    public async Task Enqueuing_a_message_whose_members_collide_in_json_throws_an_outbox_exception()
+    {
+        // Arrange
+        // Url and URL are both "url" under the camel case naming of the web serializer options
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<CollidingMessage, CollidingMessageHandler>(),
+            static options => options.SerializerOptions = System.Text.Json.JsonSerializerOptions.Web);
+        await using var scope = instance.Services.CreateAsyncScope();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
+
+        // Act
+        var exception = Record.Exception(() => outbox.AddOnSave(new CollidingMessage("https://a.example", "https://b.example")));
+
+        // Assert
+        Assert.IsType<OutboxException>(exception);
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {

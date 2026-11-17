@@ -47,6 +47,22 @@ public class OutboxDispatcherTests
         Assert.Contains("could not be deserialized", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_message_type_whose_members_collide_in_json_throws_an_outbox_exception()
+    {
+        // Arrange
+        // Url and URL are both "url" under the camel case naming of the web serializer options
+        using var services = new ServiceCollection().BuildServiceProvider();
+
+        // Act
+        var exception = await Assert.ThrowsAsync<OutboxException>(() =>
+            OutboxDispatcher<CollidingMessage>.DispatchAsync(services, new OutboxPayload("""{"url":"https://a.example"}"""), s_serializerOptions, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+        Assert.Contains("could not be deserialized", exception.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("""{"Note":"a","Extra":1}""")]
     [InlineData("""{"Note":"a","Note":"b"}""")]
@@ -162,6 +178,11 @@ public class OutboxDispatcherTests
     private sealed record ReadableMessage(string Text) : IOutboxMessage
     {
         public static OutboxMessageType MessageType => "dispatcher.readable.v1";
+    }
+
+    private sealed record CollidingMessage(string Url, string URL) : IOutboxMessage
+    {
+        public static OutboxMessageType MessageType => "dispatcher.colliding.v1";
     }
 
     private sealed record OptionalMessage(string? Note = null, int Count = 0, OptionalKind Kind = OptionalKind.First) : IOutboxMessage
