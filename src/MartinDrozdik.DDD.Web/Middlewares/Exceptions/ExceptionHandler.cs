@@ -74,6 +74,24 @@ public abstract class ExceptionHandler(IHostEnvironment environment) : IExceptio
     }
 
     /// <summary>
+    /// Gets error detail that is safe to send to a client.
+    /// <para>
+    /// The message of a <see cref="BusinessRuleException"/> is domain text written for the client, so it is returned in every environment.
+    /// The message of any other exception can carry internals (database or driver text, file paths),
+    /// so it is returned only in Development.
+    /// Other environments get a generic text.
+    /// </para>
+    /// </summary>
+    /// <param name="exception">The exception to get detail from.</param>
+    /// <returns>Error detail string.</returns>
+    protected string GetSafeExceptionDetail(Exception exception)
+    {
+        return exception is BusinessRuleException || environment.IsDevelopment()
+            ? exception.Message
+            : ExceptionMessages.UnexpectedExceptionDetail;
+    }
+
+    /// <summary>
     /// Construct extension data for error response.
     /// Includes business details if the exception is: <see cref="BusinessRuleException"/>.
     /// </summary>

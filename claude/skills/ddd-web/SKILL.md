@@ -90,9 +90,9 @@ Converts DDD exceptions to RFC 7807 HTTP responses. Domain layer throws; middlew
 Handlers are tried in that order, so the two `BusinessRuleException` subclasses must be registered ahead of
 the base type — `AddAppErrorHandling()` already does this.
 
-Development responses add stack traces and exception details. Note that `GlobalExceptionHandler` currently
-puts the raw `exception.Message` in the response **in every environment**, so do not put anything sensitive in
-the message of an exception you expect to escape a handler.
+Development responses add stack traces and exception details. Outside Development, `GlobalExceptionHandler`
+replaces the message of an unexpected exception with a generic text. A `BusinessRuleException` keeps its message
+in every environment, so write that message for the client.
 
 ```csharp
 builder.Services.AddAppErrorHandling();

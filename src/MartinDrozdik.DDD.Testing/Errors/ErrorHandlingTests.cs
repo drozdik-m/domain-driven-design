@@ -45,16 +45,18 @@ public abstract class ErrorHandlingTests<TProgram>(TestedAppBuilder<TProgram> fa
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type),
             () => Assert.Equal("An error occurred while processing the request.", problemDetails.Title),
             () => Assert.Equal(500, problemDetails.Status),
-            () => Assert.Equal("This is a general exception", problemDetails.Detail),
             () => Assert.Null(problemDetails.Instance),
             () => Assert.True(problemDetails.Extensions.ContainsKey("traceId")));
 
+        // The message of an unexpected exception can carry internals, so only Development sends it
         if (_factory.Environment == Environments.Development)
         {
+            Assert.Equal("This is a general exception", problemDetails.Detail);
             Assert.True(problemDetails.Extensions.ContainsKey("exception"));
         }
         else
         {
+            Assert.Equal("An unexpected server error occurred.", problemDetails.Detail);
             Assert.False(problemDetails.Extensions.ContainsKey("exception"));
         }
     }

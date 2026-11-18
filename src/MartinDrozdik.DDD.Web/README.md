@@ -90,8 +90,7 @@ Automatic conversion of DDD exceptions to HTTP responses:
 
 In **development, you get detailed info** — stack traces and exception details.
 
-Note that the catch-all handler puts the raw `exception.Message` in the response in every environment, so keep anything sensitive out of the
-messages of exceptions you expect to escape a handler.
+Note that business exceptions are **domain text written for the client**. They are not internal errors, so they are returned in every environment. General exceptions are not, because they can carry internals such as database errors or file paths. The catch-all handler replaces the message of an unexpected exception with a generic text outside development.
 
 The middleware handles it:
 

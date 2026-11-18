@@ -14,4 +14,9 @@ internal static class ExceptionMessages
     /// Title of a problem details response describing a validation error.
     /// </summary>
     public const string ValidationExceptionTitle = "A validation error occurred while processing the request.";
+
+    /// <summary>
+    /// General and safe message for unexpected exceptions. Used in production and other non-development environments.
+    /// </summary>
+    public const string UnexpectedExceptionDetail = "An unexpected server error occurred.";
 }

@@ -26,7 +26,7 @@ public class KiotaErrorsTests(ITestOutputHelper testOutputHelper)
             () => Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", exception.Type),
             () => Assert.Equal("An error occurred while processing the request.", exception.Title),
             () => Assert.Equal(500, exception.ResponseStatusCode),
-            () => Assert.Equal("This is a general exception", exception.Detail),
+            () => Assert.Equal("An unexpected server error occurred.", exception.Detail),
             () => Assert.Null(exception.Instance),
             () => Assert.False(exception.AdditionalData.ContainsKey("exception")),
             () => Assert.NotNull(exception.AdditionalData["traceId"]));
