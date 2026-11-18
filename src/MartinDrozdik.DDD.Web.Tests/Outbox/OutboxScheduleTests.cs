@@ -97,6 +97,29 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public async Task Removing_a_message_not_saved_yet_from_another_context_does_not_stop_its_save()
+    {
+        // Arrange
+        // False here does not mean a processor took the message: the other context only cannot see it
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        using var addingScope = app.Services.CreateScope();
+        using var removingScope = app.Services.CreateScope();
+        var addingContext = addingScope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var removingContext = removingScope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var outbox = addingScope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
+        var ticket = outbox.AddOnSave(addingContext, new TestOutboxMessage("saved anyway"));
+
+        // Act
+        var removed = await outbox.RemoveOnSaveAsync(removingContext, ticket, TestContext.Current.CancellationToken);
+        await removingContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+        await addingContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(removed);
+        Assert.Equal(1, await CountAsync(addingContext));
+    }
+
+    [Fact]
     public async Task A_message_added_on_save_is_not_delivered_before_its_time()
     {
         // Arrange

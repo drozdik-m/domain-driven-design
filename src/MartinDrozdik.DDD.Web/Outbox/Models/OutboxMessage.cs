@@ -62,7 +62,8 @@ public class OutboxMessage
 
     /// <summary>
     /// Gets the UTC instant from which the message may be dispatched.
-    /// Equal to <see cref="OccurredAt"/> until a failed attempt pushes it forward by a retry delay.
+    /// Equal to <see cref="OccurredAt"/> unless a later instant is given on enqueue, a postponement moves it (<see cref="Postpone"/>),
+    /// or a failed attempt pushes it forward by a retry delay (<see cref="MarkRetrying"/>).
     /// </summary>
     public DateTime AvailableAt { get; private set; }
 

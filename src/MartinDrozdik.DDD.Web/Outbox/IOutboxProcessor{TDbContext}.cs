@@ -16,7 +16,8 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// </para>
 /// <para>
 /// Processors in separate scopes or application instances may run at the same time.
-/// Each reserves a batch of its own up front, and a lease plus an optimistic concurrency token on every message ensure single delivery.
+/// Each reserves a batch of its own up front, and a lease plus an optimistic concurrency token on every message keep two processors from delivering it at the same time.
+/// Delivery is still at least once: a message whose handler runs past <see cref="Options.OutboxOptions{TDbContext}.LeaseDuration"/>, or whose processor stops before recording the outcome, is delivered again, so handlers must be idempotent.
 /// </para>
 /// <para>
 /// The processor takes the <typeparamref name="TDbContext"/> of its scope for itself: resolve it from a scope of its own, not one that also serves other work.

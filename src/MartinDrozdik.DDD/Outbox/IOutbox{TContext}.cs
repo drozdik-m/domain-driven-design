@@ -55,13 +55,15 @@ public interface IOutbox<TContext>
     /// Takes a message back out, as part of the current transaction.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Loads the message to track its removal. The caller's save may still fail on <i>DbUpdateConcurrencyException</i>
     /// when a processor takes the message between this call and that save.
+    /// </para>
     /// </remarks>
     /// <param name="context">The context to track the removal in. Its save commits the removal.</param>
     /// <param name="ticket">The ticket of the message, as last issued.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
-    /// <returns>True when the removal is tracked, false when the message changed since the ticket was issued - a processor has taken it.</returns>
+    /// <returns>True when the removal is tracked, false when <paramref name="context"/> does not find the message, or finds it changed since the ticket was issued (e.g. a processor has claimed it).</returns>
     Task<bool> RemoveOnSaveAsync(TContext context, OutboxTicket ticket, CancellationToken cancellationToken);
 
     /// <summary>
@@ -80,6 +82,6 @@ public interface IOutbox<TContext>
     /// <param name="ticket">The ticket of the message, as last issued.</param>
     /// <param name="availableAt">The new earliest instant the message may be delivered.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
-    /// <returns>The new ticket, valid once the caller's transaction commits, or null when the message changed since the ticket was issued - a processor has taken it - or was already delivered or dead-lettered.</returns>
+    /// <returns>The new ticket, valid once the caller's transaction commits, or null when <paramref name="context"/> does not find the message, finds it changed since the ticket was issued (e.g. a processor has claimed it), or finds it already delivered or dead-lettered.</returns>
     Task<OutboxTicket?> PostponeOnSaveAsync(TContext context, OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken);
 }

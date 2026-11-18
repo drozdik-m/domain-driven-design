@@ -24,7 +24,7 @@ internal sealed class Outbox<TDbContext>(
     TimeProvider timeProvider) : IOutbox<TDbContext>
     where TDbContext : DbContext
 {
-    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_outboxName = OutboxName.Of<TDbContext>();
 
     /// <inheritdoc />
     public OutboxTicket AddOnSave<TMessage>(TDbContext context, TMessage message)

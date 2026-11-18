@@ -1,4 +1,3 @@
-using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -28,7 +27,7 @@ internal sealed class OutboxHealthCheck<TDbContext>(
     TimeProvider timeProvider) : IHealthCheck
     where TDbContext : DbContext
 {
-    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_outboxName = OutboxName.Of<TDbContext>();
 
     /// <inheritdoc />
     public async Task<HealthCheckResult> CheckHealthAsync(

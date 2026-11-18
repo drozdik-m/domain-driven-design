@@ -21,7 +21,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Registries;
 public sealed class OutboxRegistry<TDbContext>
     where TDbContext : DbContext
 {
-    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_outboxName = OutboxName.Of<TDbContext>();
 
     private readonly Dictionary<string, OutboxRegistration> _registrations = new(StringComparer.Ordinal);
 

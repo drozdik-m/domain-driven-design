@@ -12,7 +12,7 @@ internal sealed class OutboxRetentionOptionsValidation<TDbContext> : IValidateOp
     where TDbContext : DbContext
 {
     private static readonly OutboxRetentionOptionsValidator<TDbContext> s_validator = new();
-    private static readonly string s_contextName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_contextName = OutboxName.Of<TDbContext>();
 
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, OutboxRetentionOptions<TDbContext> options)

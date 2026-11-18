@@ -12,14 +12,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
 namespace MartinDrozdik.DDD.Web.Tests.Outbox;
 
 public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
 {
-    private const string FirstName = $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{nameof(TestDbContext)}";
-    private const string SecondName = $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{nameof(SecondTestDbContext)}";
+    private static readonly string s_firstName = $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{typeof(TestDbContext).FullName}";
+    private static readonly string s_secondName = $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{typeof(SecondTestDbContext).FullName}";
 
     private static readonly DateTimeOffset s_initialTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -30,7 +31,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         using var app = Build();
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Healthy, report.Status);
@@ -48,7 +49,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, "two");
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Degraded, report.Status);
@@ -66,7 +67,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         await ScheduleAsync(app, "next week", s_initialTime.AddDays(7));
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Healthy, report.Status);
@@ -82,12 +83,12 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         await DeadLetterAsync(app, "doomed");
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Degraded, report.Status);
         Assert.Equal(1, report.Data["deadLettered"]);
-        Assert.Contains(nameof(TestDbContext), report.Description, StringComparison.Ordinal);
+        Assert.Contains(typeof(TestDbContext).FullName!, report.Description, StringComparison.Ordinal);
         Assert.Contains("dead-lettered", report.Description, StringComparison.Ordinal);
     }
 
@@ -118,7 +119,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         await EnqueueAsync(app, "two");
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Degraded, report.Status);
@@ -138,7 +139,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         }
 
         // Act
-        var report = await CheckAsync(app, FirstName);
+        var report = await CheckAsync(app, s_firstName);
 
         // Assert
         Assert.Equal(HealthStatus.Unhealthy, report.Status);
@@ -153,8 +154,8 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         await DeadLetterAsync(app, "doomed");
 
         // Act
-        var first = await CheckAsync(app, FirstName);
-        var second = await CheckAsync(app, SecondName);
+        var first = await CheckAsync(app, s_firstName);
+        var second = await CheckAsync(app, s_secondName);
 
         // Assert
         Assert.Equal(HealthStatus.Degraded, first.Status);
@@ -162,6 +163,32 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         Assert.Equal(0, second.Data["deadLettered"]);
         Assert.Contains("ready", first.Tags);
         Assert.Contains("ready", second.Tags);
+    }
+
+    [Fact]
+    public void Contexts_with_the_same_class_name_in_different_namespaces_get_names_of_their_own()
+    {
+        // Arrange
+        // Two modules may both call their context ModuleDbContext, and the health check service rejects a name used twice
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddHealthChecks()
+                .AddOutboxHealthCheck<Billing.ModuleDbContext>()
+                .AddOutboxHealthCheck<Shipping.ModuleDbContext>();
+        using var provider = services.BuildServiceProvider();
+
+        // Act
+        var exception = Record.Exception(provider.GetRequiredService<HealthCheckService>);
+
+        // Assert
+        Assert.Null(exception);
+        var names = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations.Select(r => r.Name);
+        Assert.Equal(
+            [
+                $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{typeof(Billing.ModuleDbContext).FullName}",
+                $"{HealthChecksBuilderExtensions.DefaultNamePrefix}-{typeof(Shipping.ModuleDbContext).FullName}",
+            ],
+            names);
     }
 
     [Fact]

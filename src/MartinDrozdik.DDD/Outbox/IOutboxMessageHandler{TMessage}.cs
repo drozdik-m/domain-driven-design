@@ -5,7 +5,9 @@ namespace MartinDrozdik.DDD.Outbox;
 /// </summary>
 /// <remarks>
 /// Resolved from a fresh dependency injection scope for every message, so scoped services may be injected through the constructor.
-/// Report failure by throwing. The processor records the error, waits the next configured retry delay and tries again until it succeeds or is dead-lettered.
+/// Report failure by throwing. The processor records the error and makes the message due again after the next configured retry delay.
+/// The next processor run then tries again, until the message succeeds or is dead-lettered.
+/// The actual wait also depends on how often the processor runs.
 /// </remarks>
 /// <typeparam name="TMessage">The message this handler delivers.</typeparam>
 public interface IOutboxMessageHandler<in TMessage>

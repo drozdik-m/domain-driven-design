@@ -30,7 +30,7 @@ internal sealed class OutboxProcessor<TDbContext>(
     ILogger<OutboxProcessor<TDbContext>> logger) : IOutboxProcessor<TDbContext>
     where TDbContext : DbContext
 {
-    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_outboxName = OutboxName.Of<TDbContext>();
 
     /// <inheritdoc />
     public async Task<OutboxBatchResult> ProcessPendingAsync(CancellationToken cancellationToken)

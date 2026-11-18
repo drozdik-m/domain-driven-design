@@ -1,4 +1,3 @@
-using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
 using MartinDrozdik.DDD.Web.Databases;
@@ -99,7 +98,7 @@ public static class HostApplicationBuilderExtensions
         // The registry, options and processor exist once per context, so a second call would be silently ignored
         if (OutboxRegistry<TDbContext>.TryFind(builder.Services, out _))
         {
-            var contextName = typeof(TDbContext).GetReadableName();
+            var contextName = OutboxName.Of<TDbContext>();
             throw new OutboxException($"The outbox of {contextName} is already added. Call AddOutbox<{contextName}> once, registering every message type of that context in that call.");
         }
 
@@ -170,7 +169,7 @@ public static class HostApplicationBuilderExtensions
 
         if (!OutboxRegistry<TDbContext>.TryFind(builder.Services, out _))
         {
-            var contextName = typeof(TDbContext).GetReadableName();
+            var contextName = OutboxName.Of<TDbContext>();
             throw new OutboxException($"The outbox of {contextName} has not been added, so there is nothing for its dispatch task to deliver. Call AddOutbox<{contextName}> before AddOutboxDispatchRecurringTask<{contextName}>.");
         }
 
@@ -208,7 +207,7 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var contextName = typeof(TDbContext).GetReadableName();
+        var contextName = OutboxName.Of<TDbContext>();
         if (!OutboxRegistry<TDbContext>.TryFind(builder.Services, out _))
         {
             throw new OutboxException($"The outbox of {contextName} has not been added, so there is nothing for its retention to delete. Call AddOutbox<{contextName}> before AddOutboxRetention<{contextName}>.");
@@ -270,7 +269,7 @@ public static class HostApplicationBuilderExtensions
 
         if (!IsRetentionAdded<TDbContext>(builder.Services))
         {
-            var contextName = typeof(TDbContext).GetReadableName();
+            var contextName = OutboxName.Of<TDbContext>();
             throw new OutboxException($"The retention of the outbox of {contextName} has not been added, so its task would have nothing to run. Call AddOutboxRetention<{contextName}> before AddOutboxRetentionRecurringTask<{contextName}>.");
         }
 

@@ -1,4 +1,3 @@
-using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,7 +20,7 @@ internal sealed class OutboxRetention<TDbContext>(
     ILogger<OutboxRetention<TDbContext>> logger) : IOutboxRetention<TDbContext>
     where TDbContext : DbContext
 {
-    private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
+    private static readonly string s_outboxName = OutboxName.Of<TDbContext>();
 
     /// <inheritdoc />
     public async Task<int> ApplyAsync(CancellationToken cancellationToken)

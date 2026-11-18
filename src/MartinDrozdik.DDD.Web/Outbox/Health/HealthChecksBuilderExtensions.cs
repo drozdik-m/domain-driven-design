@@ -1,4 +1,3 @@
-using MartinDrozdik.DDD.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -11,7 +10,7 @@ namespace MartinDrozdik.DDD.Web.Outbox.Health;
 public static class HealthChecksBuilderExtensions
 {
     /// <summary>
-    /// The prefix of the name an outbox health check is reported under by default: <c>outbox-{context}</c>.
+    /// The prefix of the name an outbox health check is reported under by default: <c>outbox-{namespace}.{context}</c>.
     /// </summary>
     public const string DefaultNamePrefix = "outbox";
 
@@ -20,7 +19,7 @@ public static class HealthChecksBuilderExtensions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Reported as <c>outbox-{context}</c>, e.g. <c>outbox-InvoiceDbContext</c>, and tagged <c>ready</c>.
+    /// Reported as <c>outbox-{namespace}.{context}</c>, e.g. <c>outbox-Billing.InvoiceDbContext</c>, and tagged <c>ready</c>.
     /// </para>
     /// <para>
     /// The check is degraded while any message is dead-lettered or more than <paramref name="degradedBacklogThreshold"/> messages are overdue,
@@ -42,7 +41,7 @@ public static class HealthChecksBuilderExtensions
         int degradedBacklogThreshold = 1000)
         where TDbContext : DbContext
         => builder.AddOutboxHealthCheck<TDbContext>(
-            $"{DefaultNamePrefix}-{typeof(TDbContext).GetReadableName()}",
+            $"{DefaultNamePrefix}-{OutboxName.Of<TDbContext>()}",
             ["ready"],
             degradedBacklogThreshold);
 

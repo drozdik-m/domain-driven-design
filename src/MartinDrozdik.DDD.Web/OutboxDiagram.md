@@ -19,6 +19,7 @@ stateDiagram-v2
     state "Due<br/><small>AvailableAt reached, waits for a processor</small>" as Due
     state "never written" as Discarded
     state "row deleted" as Removed
+    state "Reserved<br/><small>in a processor's batch, not claimed yet</small>" as Reserved
     state "Delivery<br/><small>next diagram</small>" as Delivery
 
     [*] --> Tracked : (1.) AddOnSave
@@ -31,11 +32,16 @@ stateDiagram-v2
     Scheduled --> Due : (8.) PostponeOnSaveAsync to a past instant, commits
     Scheduled --> Removed : (9.) RemoveOnSaveAsync, commits
     Due --> Removed : (9.) RemoveOnSaveAsync, commits
-    Due --> Delivery : (10.) a processor reserves it
+    Due --> Reserved : (10.) a processor reserves it
+    Reserved --> Removed : (9.) RemoveOnSaveAsync, commits
+    Reserved --> Scheduled : (8.) PostponeOnSaveAsync, commits,<br/>then the run releases it (11.)
+    Reserved --> Delivery : (13.) the processor claims it
 
     classDef gone stroke-dasharray:5 4
     class Discarded,Removed,Delivery gone
 ```
+
+A reservation keeps the concurrency stamp, so a ticket still removes or postpones a Reserved row. Only the claim (13.) rotates the stamp and makes the ticket stale.
 
 ### 2. Delivery
 
@@ -58,7 +64,7 @@ stateDiagram-v2
 
     [*] --> Due : from enqueueing (3., 7.)
     Due --> Reserved : (10.) reserved with its batch<br/><small>ReserveAsync</small>
-    Reserved --> Due : (11.) reservation expired, or released at the end of the run<br/><small>ReleaseReservationsAsync</small>
+    Reserved --> Due : (11.) reservation expired, or released at the end of the run<br/><small>ReleaseReservationsAsync; Scheduled instead when postponed meanwhile (8.)</small>
     Reserved --> DeadLettered : (12.) row cannot be read<br/><small>DeadLetterUnreadableAsync</small>
     Reserved --> InFlight : (13.) claimed while the reservation stands, Attempts + 1<br/><small>OutboxMessage.Claim</small>
     InFlight --> Processed : (14.) handler returned<br/><small>MarkProcessed</small>

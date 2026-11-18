@@ -510,7 +510,7 @@ Use health check to monitor large backlogs or dead-lettered messages:
 
 ```csharp
 builder.AddAppHealthChecks(checks => checks.AddOutboxHealthCheck<InvoiceDbContext>());
-// reported as "outbox-InvoiceDbContext", tagged "ready" - or pick your own:
+// reported as "outbox-Billing.InvoiceDbContext" (namespace and class), tagged "ready" - or pick your own:
 // checks.AddOutboxHealthCheck<InvoiceDbContext>("invoice-outbox", ["ready"], degradedBacklogThreshold: 500)
 ```
 
