@@ -145,6 +145,28 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public async Task Postponing_a_message_on_save_to_an_earlier_instant_moves_its_delivery_earlier()
+    {
+        // Arrange
+        var time = new FakeTimeProvider(s_initialTime);
+        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
+        var ticket = await ScheduleAsync(app, s_initialTime.AddHours(3));
+
+        // Act
+        var postponed = await outbox.PostponeOnSaveAsync(context, ticket, s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromHours(1));
+        var dispatched = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
+
+        // Assert
+        Assert.NotNull(postponed);
+        Assert.Equal(1, dispatched);
+    }
+
+    [Fact]
     public async Task Postponing_a_message_a_processor_has_taken_on_save_does_nothing()
     {
         // Arrange

@@ -65,11 +65,16 @@ public interface IOutbox<TContext>
     Task<bool> RemoveOnSaveAsync(TContext context, OutboxTicket ticket, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Moves the delivery of a message later, as part of the current transaction.
+    /// Moves the delivery of a message to another instant, as part of the current transaction.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The new instant replaces the old one and may be earlier: an instant in the past makes the message due at once.
+    /// </para>
+    /// <para>
     /// Loads the message to track its postponement. The caller's save may still fail on <i>DbUpdateConcurrencyException</i>
     /// when a processor takes the message between this call and that save.
+    /// </para>
     /// </remarks>
     /// <param name="context">The context to track the postponement in. Its save commits the postponement.</param>
     /// <param name="ticket">The ticket of the message, as last issued.</param>

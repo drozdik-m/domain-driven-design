@@ -284,6 +284,9 @@ public class OutboxMessage
     /// <summary>
     /// Moves the delivery of the message.
     /// </summary>
+    /// <remarks>
+    /// The new time replaces the old one and may be earlier.
+    /// </remarks>
     /// <param name="availableAtUtc">The new UTC time from which it may be delivered.</param>
     internal void Postpone(DateTime availableAtUtc)
     {

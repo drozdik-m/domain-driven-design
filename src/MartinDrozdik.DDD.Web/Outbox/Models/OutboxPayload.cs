@@ -43,11 +43,6 @@ public sealed class OutboxPayload : ValueObject
     public string Value { get; }
 
     /// <summary>
-    /// Gets the number of characters of the <see cref="Value"/>.
-    /// </summary>
-    public int Length => Value.Length;
-
-    /// <summary>
     /// An implicit casting from string to <see cref="OutboxPayload"/>.
     /// </summary>
     /// <param name="value">The serialized message body.</param>

@@ -28,6 +28,7 @@ stateDiagram-v2
     Scheduled --> Due : (7.) AvailableAt reached
     Scheduled --> Scheduled : (8.) PostponeOnSaveAsync, commits
     Due --> Scheduled : (8.) PostponeOnSaveAsync, commits
+    Scheduled --> Due : (8.) PostponeOnSaveAsync to a past instant, commits
     Scheduled --> Removed : (9.) RemoveOnSaveAsync, commits
     Due --> Removed : (9.) RemoveOnSaveAsync, commits
     Due --> Delivery : (10.) a processor reserves it
