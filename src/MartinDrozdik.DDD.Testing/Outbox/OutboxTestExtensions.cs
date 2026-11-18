@@ -14,7 +14,7 @@ public static class OutboxTestExtensions
     /// Delivers one batch of pending messages of the outbox of <typeparamref name="TDbContext"/>, in a fresh dependency injection scope.
     /// </summary>
     /// <remarks>
-    /// This is a direct invocation of <see cref="IOutboxProcessor{TDbContext}"/>, not the dispatch task, which keeps going while <see cref="OutboxBatchResult.MayHaveMore"/>.
+    /// This is a direct invocation of <see cref="IOutboxProcessor{TDbContext}"/>, not the dispatch task, which drains with <see cref="OutboxProcessorExtensions.DrainAsync{TDbContext}"/>.
     /// Handler failures are still swallowed into retries and dead-letters.
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
@@ -77,7 +77,7 @@ public static class OutboxTestExtensions
     /// </summary>
     /// <remarks>
     /// Useful when a handler enqueues further messages, or when more messages are pending than one batch holds.
-    /// Keeps going while <see cref="OutboxBatchResult.MayHaveMore"/>, as the dispatch task does.
+    /// Calls <see cref="OutboxProcessorExtensions.DrainAsync{TDbContext}"/> in a fresh dependency injection scope, as the dispatch task does.
     /// Messages waiting on a retry delay are not delivered, so this terminates.
     /// </remarks>
     /// <typeparam name="TDbContext">The context that owns the outbox.</typeparam>
@@ -89,15 +89,8 @@ public static class OutboxTestExtensions
     {
         ArgumentNullException.ThrowIfNull(testedApp);
 
-        var total = 0;
-        OutboxBatchResult result;
-        do
-        {
-            result = await testedApp.Services.ProcessOutboxAsync<TDbContext>(cancellationToken);
-            total += result.Dispatched;
-        }
-        while (result.MayHaveMore);
-
-        return total;
+        await using var scope = testedApp.Services.CreateAsyncScope();
+        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor<TDbContext>>();
+        return await processor.DrainAsync(cancellationToken);
     }
 }

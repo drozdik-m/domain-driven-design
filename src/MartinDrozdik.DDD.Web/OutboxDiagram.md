@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## One processor run
 
-`ProcessPendingAsync` handles one batch per call. `OutboxDispatchRecurringTask` calls it again while `OutboxBatchResult.MayHaveMore`, so one iteration drains a backlog. The numbers in brackets refer to the transitions above.
+`ProcessPendingAsync` handles one batch per call. `OutboxDispatchRecurringTask` drains a backlog in one iteration with `OutboxProcessorExtensions.DrainAsync`: it calls again while `OutboxBatchResult.MayHaveMore`, and stops after three batches in a row that reserved nothing. The numbers in brackets refer to the transitions above.
 
 ```mermaid
 flowchart TD

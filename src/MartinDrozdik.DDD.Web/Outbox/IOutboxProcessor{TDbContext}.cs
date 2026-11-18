@@ -28,16 +28,9 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// <code>
 /// public sealed class InvoiceOutboxJob(IOutboxProcessor&lt;InvoiceDbContext&gt; processor) : IJob
 /// {
-///     public async Task Execute(IJobExecutionContext context)
-///     {
-///         // Keep going until a batch finds nothing, to drain a backlog
-///         OutboxBatchResult result;
-///         do
-///         {
-///             result = await processor.ProcessPendingAsync(context.CancellationToken);
-///         }
-///         while (result.MayHaveMore &amp;&amp; !context.CancellationToken.IsCancellationRequested);
-///     }
+///     // Keeps going until a batch finds nothing, to drain a backlog
+///     public Task Execute(IJobExecutionContext context)
+///         => processor.DrainAsync(context.CancellationToken);
 /// }
 /// </code>
 /// </example>

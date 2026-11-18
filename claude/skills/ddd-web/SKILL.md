@@ -423,8 +423,9 @@ Delivery semantics, worth stating in code review:
 - A run reserves its whole batch up front, so instances polling together deliver separate batches. Each message is
   then claimed with a lease plus an optimistic concurrency token, so concurrent processors and multiple instances are
   safe. `ProcessPendingAsync` returns an `OutboxBatchResult` (`Found`, `Reserved`, `Released`, `Dispatched`,
-  `MayHaveMore`); the dispatch task keeps calling it while `MayHaveMore`, so one iteration drains a backlog. It stops
-  once a batch finds nothing, or releases everything it found untouched.
+  `MayHaveMore`); the dispatch task drains a backlog in one iteration with `processor.DrainAsync(ct)`, which keeps
+  calling it while `MayHaveMore`. It stops once a batch finds nothing, releases everything it found untouched, or after
+  three batches in a row that reserved nothing. Call `DrainAsync` from your own scheduler too.
 - Handler throws → retried on the backoff; retries exhausted → dead-lettered (`FailedAt` set), kept for inspection,
   never delivered again.
 - A processor reads, claims and delivers only the message types of its own outbox. A row of a type it does not

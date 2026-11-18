@@ -9,7 +9,7 @@ namespace MartinDrozdik.DDD.Web.Outbox;
 /// </summary>
 /// <remarks>
 /// A deliberately thin shell over <see cref="IOutboxProcessor{TDbContext}"/>.
-/// One iteration processes batch after batch while <see cref="OutboxBatchResult.MayHaveMore"/>, so it ends once a batch finds nothing to deliver.
+/// One iteration drains a backlog with <see cref="OutboxProcessorExtensions.DrainAsync{TDbContext}"/>, so it ends once a batch finds nothing to deliver.
 /// Cancellation, e.g. by the timeout of the iteration, stops it between batches.
 /// Applications that prefer another scheduler (Quartz.NET etc.) simply never add this task and call the processor themselves.
 /// </remarks>
@@ -19,13 +19,6 @@ public sealed class OutboxDispatchRecurringTask<TDbContext>(IOutboxProcessor<TDb
     where TDbContext : DbContext
 {
     /// <inheritdoc />
-    public async Task RunAsync(CancellationToken cancellationToken)
-    {
-        OutboxBatchResult result;
-        do
-        {
-            result = await processor.ProcessPendingAsync(cancellationToken);
-        }
-        while (result.MayHaveMore && !cancellationToken.IsCancellationRequested);
-    }
+    public Task RunAsync(CancellationToken cancellationToken)
+        => processor.DrainAsync(cancellationToken);
 }

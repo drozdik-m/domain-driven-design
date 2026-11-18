@@ -14,12 +14,13 @@ public sealed record OutboxBatchResult(int Found, int Reserved, int Released, in
 {
     /// <summary>
     /// Gets a value indicating whether the batch found messages and moved at least one of them on, so more may be waiting.
-    /// Call again while it is true to drain a backlog.
+    /// <see cref="OutboxProcessorExtensions.DrainAsync{TDbContext}"/> calls again while it is true, to drain a backlog.
     /// </summary>
     /// <remarks>
     /// False once a batch finds nothing.
     /// Also false when the batch released every message it found untouched: calling again would find the same messages and spin.
-    /// A message another processor reserved first counts as moved on.
+    /// A message another processor reserved first counts as moved on, so a loop over this alone may spin on a row it can never reserve.
+    /// <see cref="OutboxProcessorExtensions.DrainAsync{TDbContext}"/> guards against that.
     /// </remarks>
     public bool MayHaveMore => Found > 0 && Released < Found;
 }

@@ -565,15 +565,9 @@ You can also inject `IRecurringTaskTrigger<OutboxDispatchRecurringTask<InvoiceDb
 ```csharp
 public sealed class InvoiceOutboxJob(IOutboxProcessor<InvoiceDbContext> processor) : IJob
 {
-    public async Task Execute(IJobExecutionContext context)
-    {
-        OutboxBatchResult result;
-        do
-        {
-            result = await processor.ProcessPendingAsync(context.CancellationToken);
-        }
-        while (result.MayHaveMore && !context.CancellationToken.IsCancellationRequested);
-    }
+    // Batch after batch until the backlog is gone
+    public Task Execute(IJobExecutionContext context)
+        => processor.DrainAsync(context.CancellationToken);
 }
 ```
 

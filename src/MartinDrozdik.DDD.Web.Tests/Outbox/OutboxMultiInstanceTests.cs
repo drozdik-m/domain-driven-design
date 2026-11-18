@@ -591,6 +591,43 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
     }
 
     [Fact]
+    public async Task A_drain_stops_on_a_row_another_writer_stored_with_a_lowercase_id()
+    {
+        // Arrange
+        // EF Core stores a GUID as uppercase text on SQLite, another writer may not.
+        // The candidate query reads the lowercase row, the reserving "Id IN (...)" never matches it.
+        var reserving = new ReserveInterceptor();
+        var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
+        await EnqueueAsync(instance, [new ReviewMessage("stuck")]);
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().Database.ExecuteSqlRawAsync(
+                """UPDATE "OutboxMessage" SET "Id" = lower("Id")""",
+                TestContext.Current.CancellationToken);
+        }
+
+        Time.Advance(TimeSpan.FromSeconds(1));
+        await EnqueueAsync(instance, [new ReviewMessage("healthy")]);
+
+        // Ends the iteration if the drain spins, so the test fails rather than hangs
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+
+        // Act
+        await using (var scope = instance.Services.CreateAsyncScope())
+        {
+            var task = new OutboxDispatchRecurringTask<ReviewDbContext>(scope.ServiceProvider.GetRequiredService<IOutboxProcessor<ReviewDbContext>>());
+            await task.RunAsync(deadline.Token);
+        }
+
+        // Assert
+        // The first batch delivers the healthy message, then three batches in a row find only the stuck one
+        Assert.False(deadline.IsCancellationRequested);
+        Assert.Equal(4, reserving.Runs);
+        Assert.Equal(["healthy"], Hooks.Handled);
+    }
+
+    [Fact]
     public async Task A_drain_stops_when_a_batch_releases_every_message_it_found_untouched()
     {
         // Arrange
