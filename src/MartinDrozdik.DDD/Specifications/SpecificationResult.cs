@@ -1,4 +1,5 @@
-﻿using MartinDrozdik.DDD.Errors;
+﻿using System.Diagnostics;
+using MartinDrozdik.DDD.Errors;
 
 namespace MartinDrozdik.DDD.Specifications;
 
@@ -12,14 +13,17 @@ public readonly struct SpecificationResult
 {
     private readonly IReadOnlyList<Error>? _errors;
 
-    private SpecificationResult(IReadOnlyList<Error>? errors)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SpecificationResult"/> struct that is not satisfied.
+    /// </summary>
+    /// <remarks>
+    /// Callers pass at least one error. An empty list would be a satisfied result, and <see cref="Satisfied"/> already is one.
+    /// </remarks>
+    /// <param name="errors">The errors explaining why the specification was not satisfied.</param>
+    private SpecificationResult(IReadOnlyList<Error> errors)
     {
+        Debug.Assert(errors.Count > 0, "A not-satisfied result needs at least one error.");
         _errors = errors;
-
-        if (_errors?.Count == 0)
-        {
-            _errors = null; // Normalize empty errors to null for consistency
-        }
     }
 
     /// <summary>
@@ -83,8 +87,12 @@ public readonly struct SpecificationResult
     /// </summary>
     /// <param name="errors">The errors explaining why the specification was not satisfied.</param>
     /// <returns>A new not-satisfied result containing the provided errors.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="errors"/> is empty.</exception>
     public static SpecificationResult NotSatisfied(IEnumerable<Error> errors)
     {
+        ArgumentNullException.ThrowIfNull(errors);
+
         var errorList = errors.ToArray();
 
         if (errorList.Length == 0)

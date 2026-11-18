@@ -29,13 +29,10 @@ public static class UrlExtensions
 
         var lastDotIndex = fileName.LastIndexOf('.');
 
-        // No extension
+        // No extension: ToUrlFriendly crops to maxLength and trims the dashes the cut leaves
         if (lastDotIndex < 0)
         {
-            var friendly = fileName.ToFriendlyFileName().ToUrlFriendly(maxLength: maxLength);
-            return friendly.Length > maxLength
-                ? friendly.Substring(0, maxLength)
-                : friendly;
+            return fileName.ToFriendlyFileName().ToUrlFriendly(maxLength);
         }
 
         var name = fileName.Substring(0, lastDotIndex);

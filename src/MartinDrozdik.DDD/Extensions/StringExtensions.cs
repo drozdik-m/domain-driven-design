@@ -4,7 +4,7 @@ using System.Text;
 namespace MartinDrozdik.DDD.Extensions;
 
 /// <summary>
-/// Extensions for currency formatting.
+/// Extensions for <see cref="string"/> manipulation.
 /// </summary>
 public static class StringExtensions
 {

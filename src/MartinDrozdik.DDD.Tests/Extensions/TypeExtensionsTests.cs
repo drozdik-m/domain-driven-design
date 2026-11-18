@@ -57,10 +57,17 @@ public class TypeExtensionsTests
         { typeof(List<int>.Enumerator), "List<Int32>.Enumerator" },
         { typeof(Dictionary<string, int>.KeyCollection), "Dictionary<String, Int32>.KeyCollection" },
 
-        // Pointers and by-refs are left alone
+        // Pointers and by-refs spell out their element the way arrays do
         { typeof(int).MakePointerType(), "Int32*" },
+        { typeof(int).MakePointerType().MakePointerType(), "Int32**" },
         { typeof(int).MakeByRefType(), "Int32&" },
-        { typeof(List<int>).MakeByRefType(), "List`1&" },
+        { typeof(List<int>).MakeByRefType(), "List<Int32>&" },
+        { typeof(int[]).MakeByRefType(), "Int32[]&" },
+        { typeof(int).MakePointerType().MakeArrayType(), "Int32*[]" },
+        { typeof(GenericOuter<int>.Inner).MakeByRefType(), "TypeExtensionsTests.GenericOuter<Int32>.Inner&" },
+        { typeof(PlainOuter.Inner).MakePointerType(), "TypeExtensionsTests.PlainOuter.Inner*" },
+        { s_listParameter.MakeByRefType(), "T&" },
+        { typeof(Dictionary<string, List<int>>).GetMethod(nameof(Dictionary<string, List<int>>.TryGetValue))!.GetParameters()[1].ParameterType, "List<Int32>&" },
     };
 
     [Theory]
@@ -316,20 +323,20 @@ public class TypeExtensionsTests
                 {
                     failures.Add($"{type}: empty name");
                 }
-                else if (IsNamedAsItIs(type))
+                else if (EndsInFunctionPointer(type))
                 {
-                    // Pointers and by-refs keep whatever Type.Name gives them, backticks included, and function pointers their ToString()
+                    // Function pointers keep their ToString(), which has no readable form to check against
                 }
                 else if (name.Contains('`', StringComparison.Ordinal))
                 {
                     failures.Add($"{type}: '{name}'");
                 }
-                else if (!type.IsGenericType && !type.IsArray && !type.IsNested && name != type.Name)
+                else if (!type.IsGenericType && !type.HasElementType && !type.IsNested && name != type.Name)
                 {
                     // Nothing to spell out, so the name must not change at all
                     failures.Add($"{type}: '{name}' instead of '{type.Name}'");
                 }
-                else if (!type.IsGenericType && !type.IsArray && type.IsNested && !type.IsGenericParameter && !name.EndsWith($".{type.Name}", StringComparison.Ordinal))
+                else if (!type.IsGenericType && !type.HasElementType && type.IsNested && !type.IsGenericParameter && !name.EndsWith($".{type.Name}", StringComparison.Ordinal))
                 {
                     // Only the declaring types are added in front
                     failures.Add($"{type}: '{name}' does not end with '.{type.Name}'");
@@ -351,19 +358,19 @@ public class TypeExtensionsTests
     private static Type TypeOf<T>(T value) => value?.GetType() ?? typeof(T);
 
     /// <summary>
-    /// Decides whether <paramref name="type"/>, or the element type its arrays end in, is one that keeps its plain name.
+    /// Decides whether <paramref name="type"/>, or the element type its arrays, pointers and by-refs end in, is a function pointer.
     /// </summary>
     /// <param name="type">The checked type.</param>
-    /// <returns><see langword="true"/> for pointers, by-refs and function pointers.</returns>
-    private static bool IsNamedAsItIs(Type type)
+    /// <returns><see langword="true"/> for function pointers and the types made of them.</returns>
+    private static bool EndsInFunctionPointer(Type type)
     {
         var element = type;
-        while (element.IsArray && element.GetElementType() is { } inner)
+        while (element.HasElementType && element.GetElementType() is { } inner)
         {
             element = inner;
         }
 
-        return element.IsPointer || element.IsByRef || element.IsFunctionPointer;
+        return element.IsFunctionPointer;
     }
 
     private static IEnumerable<Type> FieldTypes(Type type)
@@ -398,7 +405,7 @@ public class TypeExtensionsTests
     }
 
     /// <summary>
-    /// The type itself, plus the arrays and closed generics that can be made of it.
+    /// The type itself, plus the arrays, pointers, by-refs and closed generics that can be made of it.
     /// </summary>
     /// <param name="type">A type defined in an assembly.</param>
     /// <returns>The type and every variant of it the runtime agrees to make.</returns>
@@ -410,6 +417,8 @@ public class TypeExtensionsTests
         {
             () => type.MakeArrayType(),
             () => type.MakeArrayType(2),
+            () => type.MakePointerType(),
+            () => type.MakeByRefType(),
             () => type.MakeGenericType(Enumerable.Repeat(typeof(object), type.GetGenericArguments().Length).ToArray()),
         })
         {

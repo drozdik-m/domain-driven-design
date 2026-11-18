@@ -291,20 +291,25 @@ public class SkuId(string key)    : StringIdentity<SkuId>(key);
 ```
 
 EF Core mapping. The library ships `IdentityConverter<TIdentity, TKey>` plus the
-`IdentityConverter.CreateGuid<T>(fromKey)` factory:
+`IdentityConverter.CreateGuid<T>(fromKey)`, `CreateInt<T>(fromKey)` and `CreateString<T>(fromKey)` factories:
 
 ```csharp
 builder.Property(e => e.Id)
     .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
+
+builder.Property(e => e.OrderId)
+    .HasIdentityConvertor(IdentityConverter.CreateInt(key => new OrderId(key)));
 ```
 
 > `HasIdentityConvertor` is **not** library API — it is a small `PropertyBuilder<T>` extension each app writes
 > once. Copy it from the demo (`src/MartinDrozdik.DDD.Demo/Context/EntityFrameworkExtensions.cs`) before use.
 
-For `int`/`string` keys there is no factory; construct the converter with both expressions:
+For any other key type, such as `long`, construct the converter with both expressions:
 
 ```csharp
-new IdentityConverter<OrderId, int>(id => id.Key, key => new OrderId(key));
+public class TicketId(long key) : Identity<TicketId, long>(key);
+
+new IdentityConverter<TicketId, long>(id => id.Key, key => new TicketId(key));
 ```
 
 ### Enumeration

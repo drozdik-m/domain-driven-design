@@ -64,7 +64,40 @@ public static class IdentityConverter
     public static IdentityConverter<TGuidIdentity, Guid> CreateGuid<TGuidIdentity>(Expression<Func<Guid, TGuidIdentity>> fromKey)
         where TGuidIdentity : Identity<TGuidIdentity, Guid>
     {
-        return new IdentityConverter<TGuidIdentity, Guid>(
+        return Create<TGuidIdentity, Guid>(fromKey);
+    }
+
+    /// <summary>
+    /// Creates an <see cref="IdentityConverter{TIdentity, TKey}"/> for int based identity types.
+    /// </summary>
+    /// <typeparam name="TIntIdentity">The <see cref="Identity{TSelf, TKey}"/> type.</typeparam>
+    /// <param name="fromKey">Expression to convert underlying key value into an <see cref="Identity{TSelf, TKey}"/>.</param>
+    /// <returns>An <see cref="IdentityConverter{TIdentity, TKey}"/> for int based identity types.</returns>
+    public static IdentityConverter<TIntIdentity, int> CreateInt<TIntIdentity>(Expression<Func<int, TIntIdentity>> fromKey)
+        where TIntIdentity : Identity<TIntIdentity, int>
+    {
+        return Create<TIntIdentity, int>(fromKey);
+    }
+
+    /// <summary>
+    /// Creates an <see cref="IdentityConverter{TIdentity, TKey}"/> for string based identity types.
+    /// </summary>
+    /// <typeparam name="TStringIdentity">The <see cref="Identity{TSelf, TKey}"/> type.</typeparam>
+    /// <param name="fromKey">Expression to convert underlying key value into an <see cref="Identity{TSelf, TKey}"/>.</param>
+    /// <returns>An <see cref="IdentityConverter{TIdentity, TKey}"/> for string based identity types.</returns>
+    public static IdentityConverter<TStringIdentity, string> CreateString<TStringIdentity>(Expression<Func<string, TStringIdentity>> fromKey)
+        where TStringIdentity : Identity<TStringIdentity, string>
+    {
+        return Create<TStringIdentity, string>(fromKey);
+    }
+
+    private static IdentityConverter<TIdentity, TKey> Create<TIdentity, TKey>(Expression<Func<TKey, TIdentity>> fromKey)
+        where TIdentity : Identity<TIdentity, TKey>
+        where TKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(fromKey);
+
+        return new IdentityConverter<TIdentity, TKey>(
             identity => identity.Key,
             fromKey);
     }

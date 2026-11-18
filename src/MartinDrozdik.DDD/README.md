@@ -137,7 +137,7 @@ EF Core support:
 
 ```csharp
 builder.Property(e => e.Id)
-    .HasIdentityConvertor(new IdentityConverter<InvoiceId, Guid>());
+    .HasIdentityConvertor(IdentityConverter.CreateGuid(key => new InvoiceId(key)));
 ```
 
 ### Enumerations

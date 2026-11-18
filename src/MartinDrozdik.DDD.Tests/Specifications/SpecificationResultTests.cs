@@ -50,6 +50,19 @@ public class SpecificationResultTests
     }
 
     [Fact]
+    public void Should_throw_when_errors_are_null()
+    {
+        // Arrange
+        IEnumerable<Error>? errors = null;
+
+        // Act
+        var exception = Record.Exception(() => SpecificationResult.NotSatisfied(errors!));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(exception);
+    }
+
+    [Fact]
     public void NotSatisfied_should_be_false()
     {
         var result = SpecificationResult.NotSatisfied(SomeError());

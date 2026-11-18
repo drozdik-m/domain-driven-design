@@ -60,7 +60,7 @@ MartinDrozdik.DDD.Testing  ← xUnit test helpers (depends on Web)
 | `Identities` | Strongly-typed ID wrappers: `GuidIdentity<T>`, `IntIdentity<T>`, `StringIdentity<T>` + EF Core converters |
 | `Specifications` | `ISpecification<TContext>` returning `SpecificationResult`; composable via `And`/`Or`/`Not`/`Tautology`/`Contradiction` |
 | `Errors` | `Error`, `ErrorBuilder` (fluent), `Result<T>` |
-| `Exceptions` | `BusinessRuleException`, `ValidationException` |
+| `Exceptions` | `BusinessRuleException`, `BusinessRuleValidationException`, `BusinessNotFoundException` |
 | `Enumerations` | `Enumeration` base class — object-oriented enums with behavior and properties; `ToStructEnum`/`FromStructEnum` map to and from a plain .NET `enum` for API contracts |
 | `Mediator` | `ICommand<TResponse>` + `ICommandHandler`, `IQuery<TResponse>` + `IQueryHandler`; pipeline integrators: `LoggingPipelineIntegrator`, `ValidationPipelineIntegrator` |
 | `Blobs` | Contracts for file storage: `Stores/` holds `IBlobStore` (bytes only) with its write options, receipt, entry and the shared `BlobContentCopier`; `BlobKey` (`{container}/{blobId}`)/`BlobContainer`, `BlobName` (a sanitized copy of the original name, kept only in the catalogue), `BlobMetadata`, `Checksums/` with `BlobChecksum` and the `ChecksumAlgorithm` enumeration, the `Blob` catalogue model, the `IBlobStorage<TContext>` façade with its request record and the `BlobUpload` of step 1, `Sweepers/` with `IBlobSweeper` and `BlobSweepResult`, and the `DeleteBlobMessage` outbox message. The implementations (EF Core mapping, `FileBlobStore`, `BlobStorage<TDbContext>`, the sweeper) live in `.Web` |

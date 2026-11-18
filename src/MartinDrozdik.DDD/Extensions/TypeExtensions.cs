@@ -8,7 +8,7 @@ namespace MartinDrozdik.DDD.Extensions;
 public static class TypeExtensions
 {
     /// <summary>
-    /// How deep generic arguments, array elements and declaring types are followed.
+    /// How deep generic arguments, element types and declaring types are followed.
     /// </summary>
     /// <remarks>
     /// Real types never come close. It only gives a malformed <see cref="Type"/> that refers to itself its plain name instead of overflowing the stack.
@@ -23,7 +23,8 @@ public static class TypeExtensions
     /// Same as <see cref="MemberInfo.Name"/>, except that generic arguments are spelled out instead of the arity suffix, and nested types are prefixed with their declaring types.
     /// </para>
     /// <para>
-    /// Pointers, by-refs and generic parameters keep their <see cref="MemberInfo.Name"/>, and so does a type the formatting fails on, such as a modified or signature type.
+    /// Arrays, pointers and by-refs spell out their element type, so <c>ref List&lt;int&gt;</c> reads <c>List&lt;Int32&gt;&amp;</c>.
+    /// Generic parameters keep their <see cref="MemberInfo.Name"/>, and so does a type the formatting fails on, such as a modified or signature type.
     /// Where the name is empty, as for function pointers, <see cref="Type.ToString"/> is used instead.
     /// </para>
     /// </remarks>
@@ -46,23 +47,23 @@ public static class TypeExtensions
     }
 
     /// <summary>
-    /// Formats <paramref name="type"/>, spelling out generic arguments and the element types of arrays.
+    /// Formats <paramref name="type"/>, spelling out generic arguments and the element types of arrays, pointers and by-refs.
     /// </summary>
     /// <param name="type">The type to format.</param>
-    /// <param name="depth">How many generic arguments, array elements or declaring types deep this type sits.</param>
+    /// <param name="depth">How many generic arguments, element types or declaring types deep this type sits.</param>
     /// <returns>The formatted name.</returns>
     private static string Format(Type type, int depth)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(depth, MaxDepth);
 
-        if (type.IsArray)
+        if (type.HasElementType)
         {
-            // The name ends with the brackets right after the name of the element: [], [,] or [*]
+            // Arrays, pointers and by-refs: the name ends with a suffix right after the name of the element: [], [,], [*], * or &
             var element = type.GetElementType()!;
             return Format(element, depth + 1) + type.Name[element.Name.Length..];
         }
 
-        if (type.HasElementType || type.IsFunctionPointer || type.IsGenericParameter)
+        if (type.IsFunctionPointer || type.IsGenericParameter)
         {
             return PlainName(type);
         }
@@ -78,7 +79,7 @@ public static class TypeExtensions
     /// </summary>
     /// <param name="type">The type to format. For a declaring type, the open generic definition.</param>
     /// <param name="arguments">The generic arguments <paramref name="type"/> is closed with, including those of its declaring types.</param>
-    /// <param name="depth">How many generic arguments, array elements or declaring types deep this type sits.</param>
+    /// <param name="depth">How many generic arguments, element types or declaring types deep this type sits.</param>
     /// <returns>The formatted name.</returns>
     private static string FormatNamed(Type type, Type[] arguments, int depth)
     {
