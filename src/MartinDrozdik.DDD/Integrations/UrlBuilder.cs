@@ -18,6 +18,8 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
 
     private bool Relative { get; init; }
 
+    private bool TrailingSlash { get; init; }
+
     private string? Fragment { get; init; }
 
     private string? Domain { get; init; }
@@ -40,8 +42,14 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     /// Supports both absolute and relative URLs.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Completely ignores {parameters}.
     /// The new builder will not contain any {parameters} from the original URL, even if they were present in the path, query or fragment.
+    /// </para>
+    /// <para>
+    /// A domain is read only after "://" ("https://example.com") or a leading "//" ("//example.com").
+    /// Anything else is a path, so "docs/intro" is a relative path, not the domain "docs".
+    /// </para>
     /// </remarks>
     /// <param name="url">The url string to parse.</param>
     /// <returns>New <see cref="UrlBuilder"/> with information from the original <paramref name="url"/>.</returns>
@@ -54,30 +62,31 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
 
         var workingUrl = url;
 
-        // 1. Extract Fragment
+        // 1. Extract Fragment: everything after the first '#', which may itself contain '#' or '?'
         const char fragmentDelimiter = '#';
         string? fragment = null;
-        var hashIndex = workingUrl.LastIndexOf(fragmentDelimiter);
+        var hashIndex = workingUrl.IndexOf(fragmentDelimiter);
         if (hashIndex >= 0)
         {
             fragment = Uri.UnescapeDataString(workingUrl[(hashIndex + 1)..]);
             workingUrl = workingUrl[..hashIndex];
         }
 
-        // 2. Extract Query
+        // 2. Extract Query: everything after the first '?', which may itself contain '?'
         var queryPart = string.Empty;
-        var queryIndex = workingUrl.LastIndexOf('?');
+        var queryIndex = workingUrl.IndexOf('?');
         if (queryIndex >= 0)
         {
             queryPart = workingUrl[(queryIndex + 1)..];
             workingUrl = workingUrl[..queryIndex];
         }
 
-        // 3. Extract Scheme
+        // 3. Extract Scheme: only when "://" comes before any other '/'
         const string schemeDelimiter = "://";
         string? scheme = null;
         var schemeIndex = workingUrl.IndexOf(schemeDelimiter);
-        if (schemeIndex >= 0)
+        var hasScheme = schemeIndex >= 0 && workingUrl.IndexOf('/') == schemeIndex + 1;
+        if (hasScheme)
         {
             scheme = workingUrl[..schemeIndex];
             workingUrl = workingUrl[(schemeIndex + schemeDelimiter.Length)..];
@@ -88,18 +97,28 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
             }
         }
 
-        // 4. Extract Domain and Port
+        // 4. Extract Domain and Port: only after "://" or a leading "//"
+        const string authorityDelimiter = "//";
         string? authority = null;
-        var firstSlash = workingUrl.IndexOf('/');
-        if (firstSlash > 0)
+        var hasAuthority = hasScheme || workingUrl.StartsWith(authorityDelimiter, StringComparison.Ordinal);
+        if (hasAuthority)
         {
-            authority = workingUrl[..firstSlash];
-            workingUrl = workingUrl[firstSlash..];
-        }
-        else if (firstSlash != 0)
-        {
-            authority = workingUrl;
-            workingUrl = string.Empty;
+            if (!hasScheme)
+            {
+                workingUrl = workingUrl[authorityDelimiter.Length..];
+            }
+
+            var firstSlash = workingUrl.IndexOf('/');
+            if (firstSlash >= 0)
+            {
+                authority = workingUrl[..firstSlash];
+                workingUrl = workingUrl[firstSlash..];
+            }
+            else
+            {
+                authority = workingUrl;
+                workingUrl = string.Empty;
+            }
         }
 
         int? port = null;
@@ -137,7 +156,7 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
         }
 
         // 5. Extract path
-        var isRelative = !workingUrl.StartsWith('/') && string.IsNullOrEmpty(domain);
+        var isRelative = !hasAuthority && !workingUrl.StartsWith('/');
         var pathSegments = workingUrl
             .Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(Uri.UnescapeDataString);
@@ -150,12 +169,16 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
             QueryParameters = [.. ParseQuery(queryPart)],
             Fragment = fragment,
             Relative = isRelative,
+            TrailingSlash = workingUrl.EndsWith('/'),
         };
     }
 
     /// <summary>
     /// Parses an URL query section.
     /// </summary>
+    /// <remarks>
+    /// A '+' decodes as a space, as in an HTML form. A parameter without '=' (?flag) keeps a <see langword="null"/> value.
+    /// </remarks>
     /// <param name="query">The query to parse. May start with "?" and contain queries joined via "&amp;".</param>
     /// <returns>List of parsed <see cref="QueryParameter"/>.</returns>
     private static IEnumerable<QueryParameter> ParseQuery(string query)
@@ -173,17 +196,20 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
 
             if (idx >= 0)
             {
-                var name = Uri.UnescapeDataString(pair[..idx]);
-                var value = Uri.UnescapeDataString(pair[(idx + 1)..]);
+                var name = UnescapeQueryText(pair[..idx]);
+                var value = UnescapeQueryText(pair[(idx + 1)..]);
                 yield return new QueryParameter(name, value);
             }
             else
             {
                 // key without value (?flag)
-                var name = Uri.UnescapeDataString(pair);
-                yield return new QueryParameter(name, string.Empty);
+                var name = UnescapeQueryText(pair);
+                yield return new QueryParameter(name, null);
             }
         }
+
+        static string UnescapeQueryText(string text) =>
+            Uri.UnescapeDataString(text.Replace('+', ' '));
     }
 
     /// <summary>
@@ -192,11 +218,21 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     /// <example>
     /// If the current URL is "/api/users" and you call <see cref="WithPath(IEnumerable{string})"/> with segments ["{id}", "details"], the resulting URL will be "/api/users/{id}/details".
     /// </example>
-    /// <remarks>Supports bracketed {parameters}.</remarks>
+    /// <remarks>
+    /// Supports bracketed {parameters}.
+    /// Adding a segment drops the trailing slash a URL parsed by <see cref="FromUrl(string)"/> ended with, so "/blog/" with "post" builds "/blog/post".
+    /// </remarks>
     /// <param name="segments">Segments to add.</param>
     /// <returns>A new <see cref="UrlBuilder"/> with the segments appended.</returns>
-    public UrlBuilder WithPath(params IEnumerable<string> segments) =>
-        this with { Segments = Segments.AddRange(segments) };
+    public UrlBuilder WithPath(params IEnumerable<string> segments)
+    {
+        var added = Segments.AddRange(segments);
+        return this with
+        {
+            Segments = added,
+            TrailingSlash = TrailingSlash && added.Count == Segments.Count,
+        };
+    }
 
     /// <summary>
     /// Adds a query parameter to the resulting URL.
@@ -207,6 +243,15 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     /// <returns>A new <see cref="UrlBuilder"/> with the query parameter added.</returns>
     public UrlBuilder WithQueryParameter(string name, string value) =>
         this with { QueryParameters = QueryParameters.Add(new QueryParameter(name, value)) };
+
+    /// <summary>
+    /// Adds a query parameter without a value to the resulting URL, written as "?name" with no '='.
+    /// </summary>
+    /// <remarks>Supports bracketed {parameters}.</remarks>
+    /// <param name="name">Key of the query parameter.</param>
+    /// <returns>A new <see cref="UrlBuilder"/> with the query parameter added.</returns>
+    public UrlBuilder WithQueryParameter(string name) =>
+        this with { QueryParameters = QueryParameters.Add(new QueryParameter(name, null)) };
 
     /// <summary>
     /// Replaces parameters in format {parameterName} in the URL with the provided value.
@@ -233,7 +278,10 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
     /// <summary>
     /// Sets the domain and optionally the port of the resulting URL.
     /// </summary>
-    /// <remarks>Supports bracketed {parameters}.</remarks>
+    /// <remarks>
+    /// Supports bracketed {parameters}.
+    /// Without <see cref="WithScheme(string)"/>, the URL starts with "//" ("//example.com/api"), which keeps the scheme of the current page.
+    /// </remarks>
     /// <param name="domain">The domain.</param>
     /// <param name="port">The port.</param>
     /// <returns>A new <see cref="UrlBuilder"/> with the domain and port set.</returns>
@@ -303,12 +351,14 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
         // Scheme + domain + port
         if (Domain is not null)
         {
+            // Without a scheme, "//" marks a network-path reference; "example.com/api" alone would be a relative path
             if (Scheme is not null)
             {
                 result.Append(Scheme);
-                result.Append("://");
+                result.Append(':');
             }
 
+            result.Append("//");
             result.Append(ApplyParameters(Domain));
 
             if (Port is not null)
@@ -327,8 +377,13 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
             }
 
             result.AppendJoin('/', ApplyParametersTexts(Segments).Select(Uri.EscapeDataString));
+
+            if (TrailingSlash)
+            {
+                result.Append('/');
+            }
         }
-        else if (!Relative && Domain is null)
+        else if (!Relative && (Domain is null || TrailingSlash))
         {
             result.Append('/');
         }
@@ -336,19 +391,27 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
         // Query string
         if (QueryParameters.Count > 0)
         {
-            var queryPairs = QueryParameters.Select(q => $"{Uri.EscapeDataString(ApplyParameters(q.Name))}={Uri.EscapeDataString(ApplyParameters(q.Value))}");
+            var queryPairs = QueryParameters.Select(BuildQueryPair);
             result.Append('?');
             result.AppendJoin('&', queryPairs);
         }
 
         // Fragment
-        if (Fragment is not null && !string.IsNullOrEmpty(Fragment))
+        if (!string.IsNullOrEmpty(Fragment))
         {
             result.Append('#');
-            result.Append(Uri.EscapeDataString(ApplyParameters(Fragment)));
+            result.Append(EscapeFragment(ApplyParameters(Fragment)));
         }
 
         return result.ToString();
+
+        string BuildQueryPair(QueryParameter parameter)
+        {
+            var name = Uri.EscapeDataString(ApplyParameters(parameter.Name));
+            return parameter.Value is null
+                ? name
+                : $"{name}={Uri.EscapeDataString(ApplyParameters(parameter.Value))}";
+        }
 
         string ApplyParameters(string text)
         {
@@ -373,7 +436,31 @@ public record UrlBuilder(params IEnumerable<string> initialSegments)
         return Build();
     }
 
-    private record struct QueryParameter(string Name, string Value);
+    /// <summary>
+    /// Escapes a fragment, leaving the characters RFC 3986 allows there as they are: '/', '?', ':', '@' and the sub-delimiters "!$&amp;'()*+,;=".
+    /// A hash-routed link such as "#/products?tab=2" stays readable.
+    /// </summary>
+    /// <param name="fragment">The unescaped fragment.</param>
+    /// <returns>The escaped fragment.</returns>
+    private static string EscapeFragment(string fragment)
+    {
+        var result = new StringBuilder(fragment.Length);
+        var start = 0;
+        for (var i = 0; i < fragment.Length; i++)
+        {
+            if (fragment[i] is '/' or '?' or ':' or '@' or '!' or '$' or '&' or '\'' or '(' or ')' or '*' or '+' or ',' or ';' or '=')
+            {
+                result.Append(Uri.EscapeDataString(fragment[start..i]));
+                result.Append(fragment[i]);
+                start = i + 1;
+            }
+        }
+
+        result.Append(Uri.EscapeDataString(fragment[start..]));
+        return result.ToString();
+    }
+
+    private record struct QueryParameter(string Name, string? Value);
 
     private record struct ValueParameter(string Key, string Value);
 }

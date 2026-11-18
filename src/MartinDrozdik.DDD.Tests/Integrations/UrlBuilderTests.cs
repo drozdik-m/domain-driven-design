@@ -104,8 +104,8 @@ public class UrlBuilderTests
     }
 
     [Theory]
-    [InlineData("example.com", null, null, "example.com")]
-    [InlineData("example.com", 8080, null, "example.com:8080")]
+    [InlineData("example.com", null, null, "//example.com")]
+    [InlineData("example.com", 8080, null, "//example.com:8080")]
     [InlineData("example.com", null, "https", "https://example.com")]
     [InlineData("example.com", 443, "https", "https://example.com:443")]
     [InlineData("example.com", 80, "http", "http://example.com:80")]
@@ -439,14 +439,17 @@ public class UrlBuilderTests
     [InlineData("https://example.com:8080/api/users?page=1")]
     [InlineData("https://example.com:8080/api/users?page=1#section")]
     [InlineData("https://example.com/api%20space?q=hello%20world#frag%20ment")]
-    [InlineData("example.com")]
-    [InlineData("example.com/api")]
-    [InlineData("example.com:8080")]
-    [InlineData("example.com:80/api")]
-    [InlineData("example.com:80/api/users")]
-    [InlineData("example.com:8080/api/users?page=1")]
-    [InlineData("example.com:8080/api/users?page=1#section")]
-    [InlineData("example.com/api%20space?q=hello%20world#frag%20ment")]
+    [InlineData("https://example.com/")]
+    [InlineData("https://example.com/api/")]
+    [InlineData("http://example.com:8080/api/users/?page=1#section")]
+    [InlineData("//example.com")]
+    [InlineData("//example.com/api")]
+    [InlineData("//example.com:8080")]
+    [InlineData("//example.com:80/api")]
+    [InlineData("//example.com:80/api/users")]
+    [InlineData("//example.com:8080/api/users?page=1")]
+    [InlineData("//example.com:8080/api/users?page=1#section")]
+    [InlineData("//example.com/api%20space?q=hello%20world#frag%20ment")]
     [InlineData("/")]
     [InlineData("/api")]
     [InlineData("/api/users")]
@@ -460,6 +463,16 @@ public class UrlBuilderTests
     [InlineData("#section")]
     [InlineData("/api?a=1&b=2")]
     [InlineData("/api?a=1&a=2")]
+    [InlineData("/api/")]
+    [InlineData("api/")]
+    [InlineData("/api/users/?page=1")]
+    [InlineData("/api?flag")]
+    [InlineData("/api?flag&a=1")]
+    [InlineData("/api?q=a%2Bb")]
+    [InlineData("/app#/products/1")]
+    [InlineData("/app#/products/1?tab=2")]
+    [InlineData("/app#user@example.com:8080")]
+    [InlineData("docs/intro")]
     public void FromUrl_roundtrip_urls(string url)
     {
         // Act
@@ -472,26 +485,113 @@ public class UrlBuilderTests
     [Theory]
     [InlineData("/api?key=", "/api?key=")]
     [InlineData("/api?key= ", "/api?key=%20")]
-    [InlineData("/api?flag", "/api?flag=")]
     [InlineData("//", "/")]
     [InlineData("/?#", "/")]
-    [InlineData("/api/", "/api")]
-    [InlineData("api/", "api")]
     [InlineData("/api#", "/api")]
     [InlineData("/api# ", "/api#%20")]
-    [InlineData("/api/#", "/api")]
+    [InlineData("/api/#", "/api/")]
+    [InlineData("/api//users/", "/api/users/")]
+    [InlineData("/search?q=a+b", "/search?q=a%20b")]
+    [InlineData("/search?a+b=c", "/search?a%20b=c")]
+    [InlineData("/login?returnUrl=/a?b=c", "/login?returnUrl=%2Fa%3Fb%3Dc")]
+    [InlineData("/login?returnUrl=/a?b=c#top", "/login?returnUrl=%2Fa%3Fb%3Dc#top")]
+    [InlineData("/page#a#b", "/page#a%23b")]
+    [InlineData("/page#a?b=c", "/page#a?b=c")]
+    [InlineData("example.com:8080/api", "example.com%3A8080/api")]
+    [InlineData("files/http://example.com", "files/http%3A/example.com")]
     [InlineData("/api#hello%20world", "/api#hello%20world")]
     [InlineData("/api//users///details", "/api/users/details")]
     [InlineData("/api/{id}/details", "/api/%7Bid%7D/details")]
     [InlineData("/api?filter={value}", "/api?filter=%7Bvalue%7D")]
     [InlineData("/api#{section}", "/api#%7Bsection%7D")]
-    [InlineData("example.com:8080/api/users/?page=1#section", "example.com:8080/api/users?page=1#section")]
-    [InlineData("http://example.com:8080/api/users/?page=1#section", "http://example.com:8080/api/users?page=1#section")]
     public void FromUrl_roundtrip_urls_with_cleaning(string input, string expected)
     {
+        // Act
         var result = UrlBuilder.FromUrl(input).Build();
 
+        // Assert
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("docs/intro")]
+    [InlineData("example.com/api")]
+    public void FromUrl_reads_path_without_scheme_or_leading_slashes_as_relative_path(string input)
+    {
+        // Arrange
+        var builder = UrlBuilder.FromUrl(input);
+
+        // Act
+        var relative = builder.AsRelative().Build();
+        var absolute = builder.AsAbsolute().Build();
+
+        // Assert
+        Assert.Equal(input, relative);
+        Assert.Equal($"/{input}", absolute);
+        Assert.Throws<InvalidOperationException>(builder.WithScheme("https").Build);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/api")]
+    [InlineData("//example.com/api")]
+    public void FromUrl_reads_domain_after_scheme_or_leading_slashes(string input)
+    {
+        // Arrange
+        var builder = UrlBuilder.FromUrl(input);
+
+        // Act
+        var url = builder.WithScheme("http").Build();
+
+        // Assert
+        Assert.Equal("http://example.com/api", url);
+        Assert.Throws<InvalidOperationException>(builder.AsRelative().Build);
+    }
+
+    [Fact]
+    public void FromUrl_trailing_slash_is_dropped_when_path_is_extended()
+    {
+        // Arrange
+        var builder = UrlBuilder.FromUrl("/blog/");
+
+        // Act
+        var extended = builder.WithPath("post").Build();
+        var unchanged = builder.WithPath().Build();
+
+        // Assert
+        Assert.Equal("/blog/post", extended);
+        Assert.Equal("/blog/", unchanged);
+    }
+
+    [Fact]
+    public void Build_writes_valueless_query_parameter_without_equals_sign()
+    {
+        // Arrange
+        var builder = new UrlBuilder("api")
+            .WithQueryParameter("flag")
+            .WithQueryParameter("empty", string.Empty);
+
+        // Act
+        var url = builder.Build();
+
+        // Assert
+        Assert.Equal("/api?flag&empty=", url);
+    }
+
+    [Theory]
+    [InlineData("/products/1", "/#/products/1")]
+    [InlineData("/products?tab=2", "/#/products?tab=2")]
+    [InlineData("user@example.com:8080", "/#user@example.com:8080")]
+    [InlineData("a#b %", "/#a%23b%20%25")]
+    public void Build_keeps_characters_allowed_in_fragment(string fragment, string expectedUrl)
+    {
+        // Arrange
+        var builder = new UrlBuilder().WithFragment(fragment);
+
+        // Act
+        var url = builder.Build();
+
+        // Assert
+        Assert.Equal(expectedUrl, url);
     }
 
     [Theory]
