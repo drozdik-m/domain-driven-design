@@ -1,9 +1,8 @@
-using System.Transactions;
 using MartinDrozdik.DDD.Outbox;
+using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Tests.App;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -11,118 +10,12 @@ using Microsoft.Extensions.Time.Testing;
 namespace MartinDrozdik.DDD.Web.Tests.Outbox;
 
 /// <summary>
-/// Verifies scheduled messages: committed on their own, delivered later, and taken back by the transaction
+/// Verifies scheduled messages: delivered later, and taken back by the transaction
 /// whose commit makes them unnecessary - unless a processor got to them first.
 /// </summary>
 public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
 {
     private static readonly DateTimeOffset s_initialTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-    [Fact]
-    public async Task A_scheduled_message_survives_a_rollback_of_the_callers_transaction()
-    {
-        // Arrange
-        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        using var scope = app.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-
-        // Deferred, because SQLite has a single writer and an immediate transaction would hold the write lock the
-        // schedule needs - see the SQLite note on *NowAsync in the outbox section of the Web README
-        await context.Database.OpenConnectionAsync(TestContext.Current.CancellationToken);
-        var connection = (SqliteConnection)context.Database.GetDbConnection();
-
-        // Act
-        await using (var transaction = connection.BeginTransaction(deferred: true))
-        {
-            await context.Database.UseTransactionAsync(transaction, TestContext.Current.CancellationToken);
-            await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-            await transaction.RollbackAsync(TestContext.Current.CancellationToken);
-        }
-
-        await context.Database.UseTransactionAsync(null, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(1, await CountAsync(context));
-    }
-
-    [Fact]
-    public async Task A_scheduled_message_survives_an_ambient_transaction_that_is_never_completed()
-    {
-        // Arrange
-        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        using var scope = app.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-
-        // Act
-        using (new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
-        {
-            await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-        }
-
-        // Assert
-        Assert.Equal(1, await CountAsync(context));
-    }
-
-    [Fact]
-    public async Task A_scheduled_message_is_not_delivered_before_its_time()
-    {
-        // Arrange
-        var time = new FakeTimeProvider(s_initialTime);
-        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
-        using var scope = app.Services.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
-
-        // Act
-        var early = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
-        time.Advance(TimeSpan.FromHours(1));
-        var onTime = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
-
-        // Assert
-        Assert.Equal(0, early);
-        Assert.Equal(1, onTime);
-    }
-
-    [Fact]
-    public async Task Postponing_a_message_moves_its_delivery_later()
-    {
-        // Arrange
-        var time = new FakeTimeProvider(s_initialTime);
-        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
-        using var scope = app.Services.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
-
-        // Act
-        var postponed = await outbox.PostponeNowAsync(ticket, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
-        time.Advance(TimeSpan.FromHours(2));
-        var delivered = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
-
-        // Assert
-        Assert.NotNull(postponed);
-        Assert.NotEqual(ticket.ConcurrencyStamp, postponed.Value.ConcurrencyStamp);
-        Assert.Equal(0, delivered);
-    }
-
-    [Fact]
-    public async Task Postponing_a_message_a_processor_has_taken_does_nothing()
-    {
-        // Arrange
-        var time = new FakeTimeProvider(s_initialTime);
-        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
-        using var scope = app.Services.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Act
-        var postponed = await outbox.PostponeNowAsync(ticket, s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(postponed);
-    }
 
     [Fact]
     public async Task Removing_a_scheduled_message_on_save_removes_it_with_the_callers_commit()
@@ -132,10 +25,10 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = DateTimeOffset.MaxValue }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, DateTimeOffset.MaxValue);
 
         // Act
-        var removed = await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        var removed = await outbox.RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
         var beforeSave = await CountAsync(context);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -152,12 +45,13 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime);
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var removed = await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        var removed = await outbox.RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(removed);
@@ -173,8 +67,8 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-        await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime);
+        await outbox.RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
@@ -192,10 +86,10 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = outbox.AddOnSave(new TestOutboxMessage("never"));
+        var ticket = outbox.AddOnSave(context, new TestOutboxMessage("never"));
 
         // Act
-        await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        await outbox.RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -211,7 +105,7 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        outbox.AddOnSave(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) });
+        outbox.AddOnSave(context, new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -225,44 +119,6 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task Removing_a_message_now_deletes_it_at_once()
-    {
-        // Arrange
-        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        using var scope = app.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = DateTimeOffset.MaxValue }, TestContext.Current.CancellationToken);
-
-        // Act
-        var removed = await outbox.RemoveNowAsync(ticket, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(removed);
-        Assert.Equal(0, await CountAsync(context));
-    }
-
-    [Fact]
-    public async Task Removing_a_message_a_processor_has_taken_now_does_nothing()
-    {
-        // Arrange
-        var time = new FakeTimeProvider(s_initialTime);
-        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
-        using var scope = app.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
-
-        // Act
-        var removed = await outbox.RemoveNowAsync(ticket, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.False(removed);
-        Assert.Equal(1, await CountAsync(context));
-    }
-
-    [Fact]
     public async Task Postponing_a_message_on_save_moves_its_delivery_later_with_the_callers_commit()
     {
         // Arrange
@@ -271,10 +127,10 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime.AddHours(1));
 
         // Act
-        var postponed = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
+        var postponed = await outbox.PostponeOnSaveAsync(context, ticket, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         time.Advance(TimeSpan.FromHours(2));
         var early = (await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken)).Dispatched;
@@ -295,12 +151,13 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime);
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var postponed = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
+        var postponed = await outbox.PostponeOnSaveAsync(context, ticket, s_initialTime.AddHours(1), TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Null(postponed);
@@ -315,8 +172,8 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime }, TestContext.Current.CancellationToken);
-        await outbox.PostponeOnSaveAsync(ticket, s_initialTime, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime);
+        await outbox.PostponeOnSaveAsync(context, ticket, s_initialTime, TestContext.Current.CancellationToken);
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Act
@@ -334,12 +191,12 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, s_initialTime.AddHours(1));
 
         // Act
         // The second postponement goes by the ticket the first one issued, before anything is saved
-        var first = await outbox.PostponeOnSaveAsync(ticket, s_initialTime.AddHours(2), TestContext.Current.CancellationToken);
-        var second = await outbox.PostponeOnSaveAsync(first!.Value, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
+        var first = await outbox.PostponeOnSaveAsync(context, ticket, s_initialTime.AddHours(2), TestContext.Current.CancellationToken);
+        var second = await outbox.PostponeOnSaveAsync(context, first!.Value, s_initialTime.AddHours(3), TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -358,11 +215,11 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = DateTimeOffset.MaxValue.AddDays(-1) }, TestContext.Current.CancellationToken);
-        var postponed = await outbox.PostponeOnSaveAsync(ticket, DateTimeOffset.MaxValue, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, DateTimeOffset.MaxValue.AddDays(-1));
+        var postponed = await outbox.PostponeOnSaveAsync(context, ticket, DateTimeOffset.MaxValue, TestContext.Current.CancellationToken);
 
         // Act
-        var removed = await outbox.RemoveOnSaveAsync(postponed!.Value, TestContext.Current.CancellationToken);
+        var removed = await outbox.RemoveOnSaveAsync(context, postponed!.Value, TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -378,17 +235,50 @@ public class OutboxScheduleTests(ITestOutputHelper testOutputHelper)
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("later"), new() { AvailableAt = DateTimeOffset.MaxValue.AddDays(-1) }, TestContext.Current.CancellationToken);
+        var ticket = await ScheduleAsync(app, DateTimeOffset.MaxValue.AddDays(-1));
         await context.Set<OutboxMessage>().SingleAsync(TestContext.Current.CancellationToken);
-        var postponed = await outbox.PostponeNowAsync(ticket, DateTimeOffset.MaxValue, TestContext.Current.CancellationToken);
+        var postponed = await PostponeElsewhereAsync(app, ticket, DateTimeOffset.MaxValue);
 
         // Act
-        var removed = await outbox.RemoveOnSaveAsync(postponed!.Value, TestContext.Current.CancellationToken);
+        var removed = await outbox.RemoveOnSaveAsync(context, postponed!.Value, TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(removed);
         Assert.Equal(0, await CountAsync(context));
+    }
+
+    /// <summary>
+    /// Commits a message for later in a scope of its own, so the context of the test does not track it.
+    /// </summary>
+    /// <param name="app">The app to commit through.</param>
+    /// <param name="availableAt">When the message becomes due.</param>
+    /// <returns>The ticket of the message.</returns>
+    private static async Task<OutboxTicket> ScheduleAsync(TestedApp<Program> app, DateTimeOffset availableAt)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var ticket = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>()
+            .AddOnSave(context, new TestOutboxMessage("later"), new() { AvailableAt = availableAt });
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return ticket;
+    }
+
+    /// <summary>
+    /// Postpones a message and commits it in a scope of its own, behind the back of the context of the test.
+    /// </summary>
+    /// <param name="app">The app to commit through.</param>
+    /// <param name="ticket">The ticket of the message.</param>
+    /// <param name="availableAt">The new time the message becomes due.</param>
+    /// <returns>The new ticket, or null when nothing was postponed.</returns>
+    private static async Task<OutboxTicket?> PostponeElsewhereAsync(TestedApp<Program> app, OutboxTicket ticket, DateTimeOffset availableAt)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>()
+            .PostponeOnSaveAsync(context, ticket, availableAt, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return postponed;
     }
 
     /// <summary>

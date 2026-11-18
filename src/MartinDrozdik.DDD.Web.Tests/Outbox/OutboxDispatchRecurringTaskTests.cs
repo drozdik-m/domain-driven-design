@@ -99,8 +99,9 @@ public class OutboxDispatchRecurringTaskTests(ITestOutputHelper testOutputHelper
 
             enqueued = true;
             using var scope = app.Services.CreateScope();
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("late"));
-            scope.ServiceProvider.GetRequiredService<TestDbContext>().SaveChanges();
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("late"));
+            context.SaveChanges();
         };
 
         // Act
@@ -161,13 +162,14 @@ public class OutboxDispatchRecurringTaskTests(ITestOutputHelper testOutputHelper
     private static async Task EnqueueAsync(TestedApp<Program> app, int count)
     {
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
         for (var i = 0; i < count; i++)
         {
-            outbox.AddOnSave(new TestOutboxMessage($"message-{i}"));
+            outbox.AddOnSave(context, new TestOutboxMessage($"message-{i}"));
         }
 
-        await scope.ServiceProvider.GetRequiredService<TestDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>

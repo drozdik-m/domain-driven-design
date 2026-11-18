@@ -5,7 +5,7 @@ namespace MartinDrozdik.DDD.Blobs.Sweepers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The sweep only finds what has expired and hands it to the outbox, exactly as <see cref="IBlobStorage.DeleteOnSaveAsync"/>.
+/// The sweep only finds what has expired and hands it to the outbox, exactly as <see cref="IBlobStorage{TContext}.DeleteOnSaveAsync"/>.
 /// </para>
 /// </remarks>
 public interface IBlobSweeper

@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 /// </summary>
 /// <param name="context">The context holding the invoices.</param>
 /// <param name="blobStorage">Reads the scan.</param>
-public class GetInvoiceScanQueryHandler(InvoiceDbContext context, IBlobStorage blobStorage)
+public class GetInvoiceScanQueryHandler(InvoiceDbContext context, IBlobStorage<InvoiceDbContext> blobStorage)
     : IQueryHandler<GetInvoiceScanQuery, BlobContent>
 {
     /// <inheritdoc />
@@ -28,7 +28,7 @@ public class GetInvoiceScanQueryHandler(InvoiceDbContext context, IBlobStorage b
             throw new BusinessNotFoundException($"The invoice '{query.InvoiceId}' has no scan attached.");
         }
 
-        var result = await blobStorage.OpenReadAsync(scanId, cancellationToken);
+        var result = await blobStorage.OpenReadAsync(context, scanId, cancellationToken);
         if (!result.IsSuccess)
         {
             throw new BusinessNotFoundException(result.Error.Message);

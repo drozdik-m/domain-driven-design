@@ -16,7 +16,7 @@ internal static partial class BlobLogging
     [LoggerMessage(Level = LogLevel.Information, Message = "Blob storage swept {ExpiredCount} expired blobs; the outbox removes their content.")]
     internal static partial void LogSwept(ILogger logger, int expiredCount);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Blob storage abandoned the upload to {BlobKey}: it outlasted the grace period and its content is being removed.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Blob storage abandoned the upload to {BlobKey}: it outlasted the grace period and its content was removed.")]
     internal static partial void LogUploadReclaimed(ILogger logger, string blobKey);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Blob storage let go of {Count} expired blobs someone else removed or changed first; any still expired are swept again later.")]

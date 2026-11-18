@@ -235,9 +235,8 @@ Two tests earn their place in most apps: **the message is enqueued by the same t
 caused it (call the endpoint, then read the row without processing), and **processing delivers it** (call the
 endpoint, `ProcessOutboxAsync`, assert `ProcessedAt` is set and the side effect happened).
 
-The first one is also the only check that the handler enqueues on the **same context instance** that saves the
-aggregate — the types (`IOutbox<TContext>`) catch a wrong context, but not a second instance of the right one (e.g.
-from `IDbContextFactory`). Assert the aggregate row and the message row appear together, and where a request can
+The first one is also the only check that the handler passes the outbox the **same context instance** that saves
+the aggregate — the types (`IOutbox<TContext>`) catch a wrong context, but not a second instance of the right one. Assert the aggregate row and the message row appear together, and where a request can
 fail after enqueueing, that neither appears.
 
 ### Outbox smoke tests — write one for every outbox context

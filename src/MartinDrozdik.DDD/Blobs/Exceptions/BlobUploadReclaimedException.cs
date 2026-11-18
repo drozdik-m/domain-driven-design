@@ -1,7 +1,7 @@
 namespace MartinDrozdik.DDD.Blobs.Exceptions;
 
 /// <summary>
-/// Reports that an upload took longer than the grace period, so its content is being removed as an orphan.
+/// Reports that an upload took longer than the grace period, so its content was removed as an orphan.
 /// </summary>
 public class BlobUploadReclaimedException : BlobException
 {
@@ -40,6 +40,6 @@ public class BlobUploadReclaimedException : BlobException
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        return new($"The upload to '{key.Path}' outlasted the grace period and its content is being removed. Upload it again.");
+        return new($"The upload to '{key.Path}' outlasted the grace period and its content was removed. Upload it again.");
     }
 }

@@ -449,14 +449,14 @@ public class InvoiceDraftedMessageHandler(IEmailSender sender) : IOutboxMessageH
 }
 ```
 
-`IOutbox<TContext>.AddOnSave()` enqueues it into the current transaction of `TContext`. **Every context has its own outbox.**
+`IOutbox<TContext>.AddOnSave(context, message)` enqueues it into the context you pass in, and your save commits it. **Every context has its own outbox.**
 
 ``` csharp
 // DDD aggregate changes...
 
 // Enqueue a message to be sent ONLY IF the changes commit
 var message = new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName);
-outbox.AddOnSave(message);
+outbox.AddOnSave(context, message);
 
 // Save changes to the database
 await context.SaveChangesAsync(cancellationToken); // the aggregate and the message, both or neither
@@ -484,6 +484,6 @@ var key = BlobKey.Create(
 
 `IBlobStore` moves bytes and knows nothing about a database/catalogue. Safe for concurrent access with idempotent operations. It can move files, Ceph blobs, S3, Azure Blob Storage, etc.
 
-`IBlobStorage` is a main entry catalogue that keeps track of `Blob` objects and their respective bytes stored via `IBlobStore`. It keeps the Blobs and their respective bytes in sync. No lingering files or rows with no content.
+`IBlobStorage<TContext>` is a main entry catalogue that keeps track of `Blob` objects and their respective bytes stored via `IBlobStore`. It keeps the Blobs and their respective bytes in sync. No lingering files or rows with no content.
 
 See the [MartinDrozdik.DDD.Web README](../MartinDrozdik.DDD.Web/README.md#blob-storage) for the catalogue, the file store, transactional deletion and the sweep.

@@ -21,7 +21,7 @@ namespace MartinDrozdik.DDD.Web.Tests.Blobs;
 /// a transaction that never committed is removed, and content whose row did commit never is.
 /// </summary>
 /// <remarks>
-/// Every upload schedules the removal of its own content through the outbox before writing it, and cancels that
+/// Every upload saves the removal of its own content through the outbox before writing it, and cancels that
 /// removal in the commit that catalogues the blob.
 /// </remarks>
 public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
@@ -36,10 +36,11 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
 
         // Act
         time.Advance(GracePeriod(scope) + TimeSpan.FromMinutes(1));
@@ -57,10 +58,11 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
 
         // Act
         time.Advance(TimeSpan.FromMinutes(1));
@@ -78,10 +80,10 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
 
         // Act
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -94,27 +96,27 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task An_upload_that_outlasts_the_grace_period_keeps_its_content()
+    public async Task An_upload_that_outlasts_the_grace_period_keeps_its_content_when_saved_before_the_cleanup_runs()
     {
         // Arrange
-        // A large upload over a slow link: by the time its last byte arrives, the removal scheduled when it
-        // started would already be due, and the row has not been saved yet
+        // A large upload over a slow link: by the time its last byte arrives, the cleanup is already due
         var time = new FakeTimeProvider(s_initialTime);
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var uploadTime = GracePeriod(scope) + TimeSpan.FromMinutes(10);
 
-        var added = await storage.AddOnSaveAsync(
-            CreateRequest() with { Content = new SlowStream(Encoding.UTF8.GetBytes("hello"), time, uploadTime) },
-            TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest() with { Content = new SlowStream(Encoding.UTF8.GetBytes("hello"), time, uploadTime) });
 
         // Act
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(await store.ExistsAsync(added.Value.Key, TestContext.Current.CancellationToken));
+        Assert.Equal(1, await context.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -131,10 +133,10 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         time.Advance(TimeSpan.FromHours(3));
         await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
 
@@ -158,7 +160,7 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var gracePeriod = GracePeriod(scope);
         var request = CreateRequest() with
@@ -171,13 +173,11 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         };
 
         // Act
-        var upload = () => storage.AddOnSaveAsync(request, TestContext.Current.CancellationToken);
+        var upload = () => storage.UploadAsync(context, request);
 
         // Assert
+        // The content that did arrive is removed at once, since nothing will ever point at it
         await Assert.ThrowsAsync<BlobUploadReclaimedException>(upload);
-
-        // The content that did arrive is not lost track of - a second removal, due at once, takes it away
-        await app.ProcessOutboxAsync<TestDbContext>(TestContext.Current.CancellationToken);
         Assert.Equal(0, store.Count);
         Assert.Equal(0, await CountMessagesAsync(context));
     }
@@ -192,11 +192,11 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var request = CreateRequest() with { CreatedBy = new string('a', Blob.CreatedByMaxLength + 1) };
 
-        await Assert.ThrowsAsync<BusinessRuleValidationException>(() => storage.AddOnSaveAsync(request, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<BusinessRuleValidationException>(() => storage.UploadAsync(context, request));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -217,12 +217,12 @@ public class BlobOrphanTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-        await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+        await storage.DeleteOnSaveAsync(context, added.Value, TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         store.FailOn(added.Value.Key, new IOException("The file is locked."));

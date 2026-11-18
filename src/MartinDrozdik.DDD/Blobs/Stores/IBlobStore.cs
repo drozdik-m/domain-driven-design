@@ -19,7 +19,7 @@ public interface IBlobStore
     /// </para>
     /// <para>
     /// An address that is already taken is refused.
-    /// It's recommended to schedule the removal of the content first, so that a failed write/transaction is removed - <see cref="IBlobStorage"/> does it through the outbox.
+    /// It's recommended to schedule the removal of the content first, so that a failed write/transaction is removed - <see cref="IBlobStorage{TContext}"/> does it through the outbox.
     /// </para>
     /// </remarks>
     /// <param name="key">The address to write to.</param>

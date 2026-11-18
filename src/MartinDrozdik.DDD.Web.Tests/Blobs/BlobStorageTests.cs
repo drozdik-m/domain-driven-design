@@ -27,10 +27,10 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest());
 
         // Assert
         result.IsSuccess();
@@ -46,11 +46,12 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         // rather than a row pointing at nothing, which nothing ever cleans up
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest());
 
         // Assert
         var blob = result.Value;
@@ -64,11 +65,11 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
+        var result = await storage.UploadAsync(context, CreateRequest());
         context.SomeEntities.Add(new SomeAggregateRoot());
-        var result = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -84,10 +85,10 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(originalFileName: "Faktura 2026 (final).pdf"), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest(originalFileName: "Faktura 2026 (final).pdf"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -105,11 +106,12 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var first = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
-        var second = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var first = await storage.UploadAsync(context, CreateRequest());
+        var second = await storage.UploadAsync(context, CreateRequest());
 
         // Assert
         Assert.Equal(first.Value.Name, second.Value.Name);
@@ -124,15 +126,15 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithTestingLogger(out var logger).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await store.DeleteAsync(added.Value.Key, TestContext.Current.CancellationToken);
 
         // Act
-        var result = await storage.OpenReadAsync(added.Value.Id, TestContext.Current.CancellationToken);
+        var result = await storage.OpenReadAsync(context, added.Value.Id, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsFailure();
@@ -148,14 +150,14 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
-        await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+        await storage.DeleteOnSaveAsync(context, added.Value, TestContext.Current.CancellationToken);
 
         // Assert
         // Nothing has happened yet - the row, the message and the content are all still exactly as they were
@@ -177,10 +179,11 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.GetAsync(BlobId.New(), TestContext.Current.CancellationToken);
+        var result = await storage.GetAsync(context, BlobId.New(), TestContext.Current.CancellationToken);
 
         // Assert
         result.IsFailure();
@@ -194,11 +197,11 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-        var added = await storage.AddOnSaveAsync(
-            CreateRequest() with { Metadata = BlobMetadata.Empty.With("width", "1920").Value.With("height", "1080").Value },
-            TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(
+            context,
+            CreateRequest() with { Metadata = BlobMetadata.Empty.With("width", "1920").Value.With("height", "1080").Value });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -217,9 +220,9 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -240,10 +243,10 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(originalFileName: "README"), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest(originalFileName: "README"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -262,10 +265,10 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -286,10 +289,10 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -310,10 +313,11 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
                 options => options.AllowedExtensions = new HashSet<string>(StringComparer.Ordinal) { "pdf" }))
             .Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var result = await storage.AddOnSaveAsync(CreateRequest(originalFileName: "README"), TestContext.Current.CancellationToken);
+        var result = await storage.UploadAsync(context, CreateRequest(originalFileName: "README"));
 
         // Assert
         // Nothing to match means nothing allows it
@@ -329,16 +333,93 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
 
         // Act
-        var upload = () => storage.AddOnSaveAsync(CreateRequest(container: "invoice"), TestContext.Current.CancellationToken);
+        var upload = () => storage.UploadAsync(context, CreateRequest(container: "invoice"));
 
         // Assert
         await Assert.ThrowsAsync<InvalidOperationException>(upload);
         Assert.Equal(0, store.Count);
         Assert.Equal(0, await context.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Preparing_an_upload_writes_nothing_until_the_caller_saves()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper).WithInMemoryBlobStore().Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+        var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
+
+        // Act
+        var upload = storage.PrepareUpload(context, CreateRequest());
+        var beforeSave = await context.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        upload.IsSuccess();
+        Assert.Equal(0, beforeSave);
+        var cleanup = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(upload.Value.Cleanup, cleanup.ToTicket());
+        Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
+    public async Task Writing_the_content_before_its_cleanup_is_saved_is_refused()
+    {
+        // Arrange
+        // A rollback would take the unsaved cleanup with it and leave the content behind for good
+        using var app = new TestedWebAppBuilder(testOutputHelper).WithInMemoryBlobStore().Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+        var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
+        var upload = storage.PrepareUpload(context, CreateRequest());
+
+        // Act
+        var write = () => storage.AddOnSaveAsync(context, upload.Value, TestContext.Current.CancellationToken);
+
+        // Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(write);
+        Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
+    public async Task An_upload_through_a_context_pointed_at_another_database_stays_in_that_database()
+    {
+        // Arrange
+        // E.g. a database per tenant, chosen by a connection string set on the context at runtime
+        var tenantBuilder = new TestedWebAppBuilder(testOutputHelper);
+        using var tenant = tenantBuilder.Build();
+        _ = tenant.Services; // starts the app, which creates its database
+
+        using var app = new TestedWebAppBuilder(testOutputHelper).WithInMemoryBlobStore().Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        context.Database.SetConnectionString(tenantBuilder.ConnectionString);
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest());
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The blob is catalogued in the tenant's database, and its cleanup was cancelled there
+        result.IsSuccess();
+        using var tenantScope = tenant.Services.CreateScope();
+        var tenantContext = tenantScope.ServiceProvider.GetRequiredService<TestDbContext>();
+        Assert.Equal(1, await tenantContext.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, await tenantContext.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
+
+        // Nothing reached the registered database
+        using var registeredScope = app.Services.CreateScope();
+        var registeredContext = registeredScope.ServiceProvider.GetRequiredService<TestDbContext>();
+        Assert.Equal(0, await registeredContext.Set<Blob>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, await registeredContext.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -348,11 +429,12 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         // Only the avatars carry a size limit, and the content is larger than it
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
         // Act
-        var avatar = await storage.AddOnSaveAsync(CreateRequest(container: TestBlobContainers.Avatars), TestContext.Current.CancellationToken);
-        var invoice = await storage.AddOnSaveAsync(CreateRequest(container: TestBlobContainers.Invoices), TestContext.Current.CancellationToken);
+        var avatar = await storage.UploadAsync(context, CreateRequest(container: TestBlobContainers.Avatars));
+        var invoice = await storage.UploadAsync(context, CreateRequest(container: TestBlobContainers.Invoices));
 
         // Assert
         avatar.IsFailure();

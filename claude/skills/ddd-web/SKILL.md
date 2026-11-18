@@ -339,7 +339,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
         await context.Invoices.AddAsync(invoice, cancellationToken);
 
-        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(context, new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         await context.SaveChangesAsync(cancellationToken);   // aggregate + message, both or neither
         return invoice.Id;
@@ -349,7 +349,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<
 
 `AddOnSave()` **only tracks the row — it never saves**, and it throws `OutboxException` when the type is not registered
 with the outbox of that context or the payload exceeds `MaxPayloadLength`. Never call `SaveChangesAsync` just to flush
-a message. `AddOnSave(message, new OutboxMessageSettings { AvailableAt = later })` delivers it later.
+a message. `AddOnSave(context, message, new OutboxMessageSettings { AvailableAt = later })` delivers it later.
 
 #### Same context as the aggregate — always check
 
@@ -362,9 +362,9 @@ instance. Getting this wrong loses messages silently. Check every time you wire 
   (otherwise it throws).
 - **One outbox per context** — call `AddOutbox<TDbContext>` once per context, registering every message type of that
   context in that call. A second call for the same context throws; other contexts get outboxes of their own.
-- **Handlers** — inject `IOutbox<InvoiceDbContext>` next to `InvoiceDbContext` and save with that context. Never pair
-  it with a context from `IDbContextFactory`, a hand-rented pool instance or `new` — same type, different instance,
-  and its save never sees the tracked message. Types cannot catch that one.
+- **Handlers** — pass the outbox the context you save: `outbox.AddOnSave(context, message)`, then
+  `context.SaveChangesAsync()`. A context from `IDbContextFactory` or a tenant's database works the same way. Passing
+  one instance and saving another loses the message, and types cannot catch that one.
 - **Several contexts** — each bounded context enqueues into its own outbox (`IOutbox<ShippingDbContext>` next to
   `ShippingDbContext`). If the aggregate lives in a context without an outbox, add one to that context; never add a
   second save on another context "for the message".

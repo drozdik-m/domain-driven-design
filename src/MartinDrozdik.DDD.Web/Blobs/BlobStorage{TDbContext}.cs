@@ -8,6 +8,7 @@ using MartinDrozdik.DDD.Errors;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Results;
 using MartinDrozdik.DDD.Web.Blobs.Options;
+using MartinDrozdik.DDD.Web.Outbox.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,78 +16,85 @@ using Microsoft.Extensions.Options;
 namespace MartinDrozdik.DDD.Web.Blobs;
 
 /// <summary>
-/// Coordinates the blob catalogue in <typeparamref name="TDbContext"/> with the content in an <see cref="IBlobStore"/>.
+/// Coordinates the blob catalogue with the content in an <see cref="IBlobStore"/>.
 /// </summary>
 /// <typeparam name="TDbContext">The context that owns the catalogue table.</typeparam>
-/// <param name="context">The context holding the catalogue.</param>
 /// <param name="store">The store holding the content.</param>
-/// <param name="outbox">Delivers every removal of content: after a delete commits, or after an upload fails to.</param>
+/// <param name="outbox">Delivers every removal of content: after a delete commits, or after an upload is not completed in time.</param>
 /// <param name="containers">The registered containers; nothing is stored in any other.</param>
 /// <param name="containerOptions">The configured behaviour of each container.</param>
 /// <param name="timeProvider">Tells the time a blob was catalogued.</param>
 /// <param name="logger">Records the drift that was tolerated.</param>
 internal sealed class BlobStorage<TDbContext>(
-    TDbContext context,
     IBlobStore store,
     IOutbox<TDbContext> outbox,
     BlobContainerRegistry containers,
     IOptionsMonitor<BlobContainerOptions> containerOptions,
     TimeProvider timeProvider,
-    ILogger<BlobStorage<TDbContext>> logger) : IBlobStorage
+    ILogger<BlobStorage<TDbContext>> logger) : IBlobStorage<TDbContext>
     where TDbContext : DbContext
 {
     /// <inheritdoc />
-    public async Task<IResult<Blob, Error>> AddOnSaveAsync(BlobUploadRequest request, CancellationToken cancellationToken)
+    public IResult<BlobUpload, Error> PrepareUpload(TDbContext context, BlobUploadRequest request)
     {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(request);
 
-        // Missing container configuration
-        if (!containers.Contains(request.Container))
-        {
-            throw new InvalidOperationException($"Blob container '{request.Container}' is not registered. Register it with {nameof(BlobsConfig)}.{nameof(BlobsConfig.WithContainer)}.");
-        }
-
-        var options = containerOptions.Get(request.Container.Name);
+        var options = GetContainerOptions(request.Container);
 
         // Validate content
         if (CheckAllowedContent(request.ContentType, BlobName.FromFileName(request.OriginalFileName), options) is { } refusal)
         {
-            return Result.Failure<Blob, Error>(refusal);
+            return Result.Failure<BlobUpload, Error>(refusal);
         }
 
         var key = BlobKey.Create(request.Container, BlobId.New());
-        var writeOptions = new BlobWriteOptions(options.ComputeChecksum, options.MaxSize);
 
-        // Immediately schedule content removal
-        // Cleans up content in case of a rollback/failure after the grace period
-        var graceRemovalMessageSettings = new OutboxMessageSettings { AvailableAt = GetEndOfGracePeriod(options) };
-        var graceRemovalTicket = await outbox.AddNowAsync(DeleteBlobMessage.For(key), graceRemovalMessageSettings, cancellationToken);
+        // Only tracked - the caller commits it, before any content is written
+        // It removes the content once the grace period ends, unless AddOnSaveAsync cancels it and confirms the upload
+        var cleanupSettings = new OutboxMessageSettings { AvailableAt = timeProvider.GetUtcNow() + options.OrphanGracePeriod };
+        var cleanup = outbox.AddOnSave(context, DeleteBlobMessage.For(key), cleanupSettings);
+
+        var blobUpload = new BlobUpload
+        {
+            Request = request,
+            Key = key,
+            Cleanup = cleanup,
+        };
+        return Result.Success<BlobUpload, Error>(blobUpload);
+    }
+
+    /// <inheritdoc />
+    public async Task<IResult<Blob, Error>> AddOnSaveAsync(TDbContext context, BlobUpload upload, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(upload);
+
+        var request = upload.Request;
+        var key = upload.Key;
+        var options = GetContainerOptions(key.Container);
+
+        // Validate a cleanup is not still pending insertion
+        // Without a saved cleanup, an error / rollback would leave the content behind
+        if (context.Set<OutboxMessage>().Local.FindEntry(upload.Cleanup.Id) is { State: EntityState.Added })
+        {
+            throw new InvalidOperationException($"The upload to '{key.Path}' is not saved yet. Save the context after {nameof(PrepareUpload)} and before {nameof(AddOnSaveAsync)}.");
+        }
 
         // Write the content to the store
+        // On any failure the saved cleanup removes whatever was written
         BlobWriteReceipt receipt;
         try
         {
-            receipt = await store.WriteAsync(key, request.Content, writeOptions, cancellationToken);
+            receipt = await store.WriteAsync(key, request.Content, new BlobWriteOptions(options.ComputeChecksum, options.MaxSize), cancellationToken);
         }
         catch (BlobTooLargeException exception)
         {
             return Result.Failure<Blob, Error>(BlobErrors.TooLarge(exception.MaxSize ?? options.MaxSize ?? 0));
         }
 
-        // Postponed once the content is saved, so the grace period counts from here rather than from when the upload started
-        var postponedTicket = await outbox.PostponeNowAsync(graceRemovalTicket, GetEndOfGracePeriod(options), cancellationToken);
-
-        // Check if the removal message was already processed
-        // The grace period probably expired before the content was saved or the outbox was unable to postpone the removal for some reason (e.g. concurrency issues)
-        if (postponedTicket is null)
-        {
-            // Schedule content removal to be absolutely sure about cleanup
-            await outbox.AddNowAsync(DeleteBlobMessage.For(key), cancellationToken);
-            BlobLogging.LogUploadReclaimed(logger, key.Path);
-            throw BlobUploadReclaimedException.For(key);
-        }
-
-        // Create the blob record before anything is tracked, so an error leaves the grace removal in place
+        // Create the blob record
+        // Done before anything is tracked, so an error leaves the cleanup message in place and the content will be removed
         var blob = Blob.Create(new CreateBlobParams
         {
             Key = key,
@@ -100,30 +108,31 @@ internal sealed class BlobStorage<TDbContext>(
             ExpiresAtUtc = request.ExpiresAt?.UtcDateTime,
         });
 
-        // Start tracking removal of the scheduled outbox removal message
-        // Grace removal is stopped on save along atomic insert of the blob
-        var stopGraceRemovalScheduled = await outbox.RemoveOnSaveAsync(postponedTicket.Value, cancellationToken);
-        if (!stopGraceRemovalScheduled)
+        // Cancel the cleanup
+        // Cancelled along insertion of the blob, so they commit or roll back together
+        if (!await outbox.RemoveOnSaveAsync(context, upload.Cleanup, cancellationToken))
         {
-            // Schedule content removal to be absolutely sure about cleanup
-            await outbox.AddNowAsync(DeleteBlobMessage.For(key), cancellationToken);
+            // The grace period ran out and a processor took the cleanup, possibly before the content was written
+            // Nothing will ever point at this content, so remove it right away
+            await store.DeleteAsync(key, cancellationToken);
             BlobLogging.LogUploadReclaimed(logger, key.Path);
             throw BlobUploadReclaimedException.For(key);
         }
 
         // Only tracked
-        // The caller's own SaveChanges commits the blob together with removal of the grace period message, or rolls back both
+        // The caller's save commits the blob together with the cancelled cleanup, or rolls back both
         context.Set<Blob>().Add(blob);
 
         return Result.Success<Blob, Error>(blob);
     }
 
     /// <inheritdoc />
-    public async Task<IResult<Blob, Error>> GetAsync(BlobId id, CancellationToken cancellationToken)
+    public async Task<IResult<Blob, Error>> GetAsync(TDbContext context, BlobId id, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(id);
 
-        var blob = await FindBlobOrDefaultAsync(id, cancellationToken);
+        var blob = await FindBlobOrDefaultAsync(context, id, cancellationToken);
 
         return blob is null
             ? Result.Failure<Blob, Error>(BlobErrors.NotFound(id))
@@ -131,12 +140,13 @@ internal sealed class BlobStorage<TDbContext>(
     }
 
     /// <inheritdoc />
-    public async Task<IResult<BlobContent, Error>> OpenReadAsync(BlobId id, CancellationToken cancellationToken)
+    public async Task<IResult<BlobContent, Error>> OpenReadAsync(TDbContext context, BlobId id, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(id);
 
         // Find the blob
-        var blob = await FindBlobOrDefaultAsync(id, cancellationToken);
+        var blob = await FindBlobOrDefaultAsync(context, id, cancellationToken);
         if (blob is null)
         {
             return Result.Failure<BlobContent, Error>(BlobErrors.NotFound(id));
@@ -155,13 +165,14 @@ internal sealed class BlobStorage<TDbContext>(
     }
 
     /// <inheritdoc />
-    public Task DeleteOnSaveAsync(Blob blob, CancellationToken cancellationToken)
+    public Task DeleteOnSaveAsync(TDbContext context, Blob blob, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(blob);
 
         // Both or neither is committed
         context.Set<Blob>().Remove(blob);
-        outbox.AddOnSave(blob.ToDeleteMessage());
+        outbox.AddOnSave(context, blob.ToDeleteMessage());
 
         return Task.CompletedTask;
     }
@@ -191,9 +202,22 @@ internal sealed class BlobStorage<TDbContext>(
         return null;
     }
 
-    private DateTimeOffset GetEndOfGracePeriod(BlobContainerOptions options)
-        => timeProvider.GetUtcNow() + options.OrphanGracePeriod;
+    private static Task<Blob?> FindBlobOrDefaultAsync(TDbContext context, BlobId id, CancellationToken cancellationToken)
+    => context.Set<Blob>().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
 
-    private Task<Blob?> FindBlobOrDefaultAsync(BlobId id, CancellationToken cancellationToken)
-        => context.Set<Blob>().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+    /// <summary>
+    /// Reads the configured behaviour of a registered container.
+    /// </summary>
+    /// <param name="container">The container.</param>
+    /// <returns>Its options.</returns>
+    /// <exception cref="InvalidOperationException">The container is not registered.</exception>
+    private BlobContainerOptions GetContainerOptions(BlobContainer container)
+    {
+        if (!containers.Contains(container))
+        {
+            throw new InvalidOperationException($"Blob container '{container}' is not registered. Register it with {nameof(BlobsConfig)}.{nameof(BlobsConfig.WithContainer)}.");
+        }
+
+        return containerOptions.Get(container.Name);
+    }
 }

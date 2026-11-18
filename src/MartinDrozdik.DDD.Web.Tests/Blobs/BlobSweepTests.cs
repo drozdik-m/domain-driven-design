@@ -35,13 +35,13 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        var added = await storage.AddOnSaveAsync(
-            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) },
-            TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(
+            context,
+            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -63,12 +63,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        await storage.AddOnSaveAsync(
-            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(5) },
-            TestContext.Current.CancellationToken);
+        await storage.UploadAsync(
+            context,
+            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(5) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -88,10 +88,10 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -112,11 +112,11 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await store.DeleteAsync(added.Value.Key, TestContext.Current.CancellationToken);
 
@@ -136,13 +136,13 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).WithInMemoryBlobStore().Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        var added = await storage.AddOnSaveAsync(
-            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) },
-            TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(
+            context,
+            CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         store.FailOn(added.Value.Key, new IOException("The file is locked."));
 
@@ -173,14 +173,14 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
         var keys = new List<BlobKey>();
         for (var i = 0; i < 5; i++)
         {
-            var added = await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+            var added = await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
             keys.Add(added.Value.Key);
         }
 
@@ -220,12 +220,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
         for (var i = 0; i < 2; i++)
         {
-            await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+            await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         }
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -257,12 +257,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
         for (var i = 0; i < 4; i++)
         {
-            await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+            await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         }
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -289,11 +289,11 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         context.ChangeTracker.Clear();
 
@@ -324,11 +324,11 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var store = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        var added = await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+        var added = await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         context.ChangeTracker.Clear();
 
@@ -361,12 +361,12 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
         for (var i = 0; i < 5; i++)
         {
-            await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+            await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         }
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -393,11 +393,11 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
             .Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
-        await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
+        await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
+        await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         context.ChangeTracker.Clear();
 
@@ -419,11 +419,11 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
         var sweeper = scope.ServiceProvider.GetRequiredService<IBlobSweeper>();
 
-        await storage.AddOnSaveAsync(CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) }, TestContext.Current.CancellationToken);
-        var kept = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+        await storage.UploadAsync(context, CreateRequest() with { ExpiresAt = s_initialTime.AddHours(1) });
+        var kept = await storage.UploadAsync(context, CreateRequest());
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         context.ChangeTracker.Clear();
 
@@ -538,49 +538,32 @@ public class BlobSweepTests(ITestOutputHelper testOutputHelper)
         }
 
         /// <inheritdoc />
-        public OutboxTicket AddOnSave<TMessage>(TMessage message)
+        public OutboxTicket AddOnSave<TMessage>(TestDbContext context, TMessage message)
             where TMessage : IOutboxMessage
-            => AddOnSave(message, OutboxMessageSettings.Default);
+            => AddOnSave(context, message, OutboxMessageSettings.Default);
 
         /// <inheritdoc />
-        public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings settings)
+        public OutboxTicket AddOnSave<TMessage>(TestDbContext context, TMessage message, OutboxMessageSettings settings)
             where TMessage : IOutboxMessage
         {
-            if (!_competed && message is DeleteBlobMessage delete)
+            // An upload schedules its cleanup for later, while the sweep removes content at once
+            if (!_competed && message is DeleteBlobMessage delete && settings.AvailableAt is null)
             {
                 _competed = true;
                 using var scope = services.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-                compete(context, new BlobId(Guid.Parse(delete.BlobId)));
+                var otherContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+                compete(otherContext, new BlobId(Guid.Parse(delete.BlobId)));
             }
 
-            return inner.AddOnSave(message, settings);
+            return inner.AddOnSave(context, message, settings);
         }
 
         /// <inheritdoc />
-        public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
-            where TMessage : IOutboxMessage
-            => inner.AddNowAsync(message, cancellationToken);
+        public Task<bool> RemoveOnSaveAsync(TestDbContext context, OutboxTicket ticket, CancellationToken cancellationToken)
+            => inner.RemoveOnSaveAsync(context, ticket, cancellationToken);
 
         /// <inheritdoc />
-        public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings settings, CancellationToken cancellationToken)
-            where TMessage : IOutboxMessage
-            => inner.AddNowAsync(message, settings, cancellationToken);
-
-        /// <inheritdoc />
-        public Task<bool> RemoveOnSaveAsync(OutboxTicket ticket, CancellationToken cancellationToken)
-            => inner.RemoveOnSaveAsync(ticket, cancellationToken);
-
-        /// <inheritdoc />
-        public Task<bool> RemoveNowAsync(OutboxTicket ticket, CancellationToken cancellationToken)
-            => inner.RemoveNowAsync(ticket, cancellationToken);
-
-        /// <inheritdoc />
-        public Task<OutboxTicket?> PostponeOnSaveAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
-            => inner.PostponeOnSaveAsync(ticket, availableAt, cancellationToken);
-
-        /// <inheritdoc />
-        public Task<OutboxTicket?> PostponeNowAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
-            => inner.PostponeNowAsync(ticket, availableAt, cancellationToken);
+        public Task<OutboxTicket?> PostponeOnSaveAsync(TestDbContext context, OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
+            => inner.PostponeOnSaveAsync(context, ticket, availableAt, cancellationToken);
     }
 }

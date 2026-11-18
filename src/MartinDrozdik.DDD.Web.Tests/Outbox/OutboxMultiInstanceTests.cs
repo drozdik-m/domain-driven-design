@@ -325,10 +325,11 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         Dictionary<string, OutboxTicket> tickets = [];
         await using (var scope = producer.Services.CreateAsyncScope())
         {
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            tickets["first"] = outbox.AddOnSave(new ReviewMessage("first"));
-            tickets["second"] = outbox.AddOnSave(new ReviewMessage("second"));
-            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+            tickets["first"] = outbox.AddOnSave(context, new ReviewMessage("first"));
+            tickets["second"] = outbox.AddOnSave(context, new ReviewMessage("second"));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // While the worker delivers one message, the producer takes back the other one
@@ -341,8 +342,10 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
             }
 
             await using var scope = producer.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            removed = await outbox.RemoveNowAsync(tickets[text == "first" ? "second" : "first"], cancellationToken);
+            removed = await outbox.RemoveOnSaveAsync(context, tickets[text == "first" ? "second" : "first"], cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         };
 
         // Act
@@ -381,8 +384,10 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
 
             postponedText = text == "first" ? "second" : "first";
             await using var scope = producer.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            postponed = await outbox.PostponeNowAsync(tickets[postponedText], later, cancellationToken);
+            postponed = await outbox.PostponeOnSaveAsync(context, tickets[postponedText], later, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         };
 
         // Act
@@ -423,8 +428,10 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         reserving.BeforeReserveAsync = async cancellationToken =>
         {
             await using var scope = producer.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            postponed = await outbox.PostponeNowAsync(ticket, InitialTime.AddHours(1), cancellationToken);
+            postponed = await outbox.PostponeOnSaveAsync(context, ticket, InitialTime.AddHours(1), cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         };
 
         // Act
@@ -457,19 +464,19 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         reserving.AfterReserveAsync = async cancellationToken =>
         {
             await using var scope = producer.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            postponed = await outbox.PostponeNowAsync(ticket, later, cancellationToken);
+            postponed = await outbox.PostponeOnSaveAsync(context, ticket, later, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         };
 
         // Act
         var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Assert
-        // The producer was told the message is postponed...
+        // The producer's transaction committed the postponement, so the message waits for its new time
         Assert.NotNull(postponed);
         Assert.Equal(1, result.Reserved);
-
-        // ...so the worker must not deliver it now
         Assert.Empty(Hooks.Handled);
         Assert.Equal(0, result.Dispatched);
 
@@ -479,41 +486,6 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         Assert.Equal(later.UtcDateTime, message.AvailableAt);
         Assert.Equal(postponed.Value, message.ToTicket());
         Assert.Null(message.ReservedUntil);
-    }
-
-    [Fact]
-    public async Task A_postponement_committed_after_a_worker_reserved_the_message_is_not_delivered_before_its_new_time()
-    {
-        // Arrange
-        // The same, with the postponement tracked by the producer and committed by its own save
-        var reserving = new ReserveInterceptor();
-        var worker = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(), interceptor: reserving);
-        var producer = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
-        var ticket = await EnqueueWithTicketAsync(producer, new ReviewMessage("postponed"));
-
-        var later = InitialTime.AddHours(1);
-        OutboxTicket? postponed = null;
-        reserving.AfterReserveAsync = async cancellationToken =>
-        {
-            await using var scope = producer.Services.CreateAsyncScope();
-            var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            postponed = await outbox.PostponeOnSaveAsync(ticket, later, cancellationToken);
-            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(cancellationToken);
-        };
-
-        // Act
-        var result = await worker.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
-
-        // Assert
-        // The producer's transaction committed the postponement, so the message waits for its new time
-        Assert.NotNull(postponed);
-        Assert.Empty(Hooks.Handled);
-        Assert.Equal(0, result.Dispatched);
-
-        var message = Assert.Single(await GetMessagesAsync(worker));
-        Assert.Null(message.ProcessedAt);
-        Assert.Equal(0, message.Attempts);
-        Assert.Equal(later.UtcDateTime, message.AvailableAt);
     }
 
     [Fact]
@@ -530,8 +502,10 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         reserving.AfterReserveAsync = async cancellationToken =>
         {
             await using var scope = producer.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-            removed = await outbox.RemoveNowAsync(ticket, cancellationToken);
+            removed = await outbox.RemoveOnSaveAsync(context, ticket, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         };
 
         // Act

@@ -36,7 +36,7 @@ public class BlobRegistrationTests
 
         // Assert
         using var scope = host.Services.CreateScope();
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IBlobStorage>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IBlobStorage<CatalogueDbContext>>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IBlobSweeper>());
     }
 

@@ -117,7 +117,8 @@ public static class HostApplicationBuilderExtensions
         var registry = new OutboxRegistry<TDbContext>();
         builder.Services.AddSingleton(registry);
 
-        builder.Services.AddScoped<IOutbox<TDbContext>, Outbox<TDbContext>>();
+        // Stateless: the caller passes the context to track in
+        builder.Services.AddSingleton<IOutbox<TDbContext>, Outbox<TDbContext>>();
         builder.Services.AddScoped<IOutboxProcessor<TDbContext>, OutboxProcessor<TDbContext>>();
 
         // Registered whether or not the built-in dispatch task is used, so the interceptor always has something to trigger.

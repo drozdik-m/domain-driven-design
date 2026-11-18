@@ -39,7 +39,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOptions
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
 
         // Announce the draft via outbox pattern
-        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(context, new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         // Save invoice
         await context.Invoices.AddAsync(invoice, cancellationToken);

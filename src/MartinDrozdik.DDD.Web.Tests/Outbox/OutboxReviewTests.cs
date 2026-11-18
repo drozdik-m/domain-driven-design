@@ -87,10 +87,11 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         // ImpostorMessage is registered nowhere, it only reuses the key of ReviewMessage
         var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
 
         // Act
-        var exception = Record.Exception(() => outbox.AddOnSave(new ImpostorMessage(42)));
+        var exception = Record.Exception(() => outbox.AddOnSave(context, new ImpostorMessage(42)));
 
         // Assert
         Assert.IsType<OutboxException>(exception);
@@ -147,10 +148,11 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         // Arrange
         var instance = await CreateInstanceAsync(static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>());
         await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
 
         // Act
-        var exception = Record.Exception(() => outbox.AddOnSave(new ReviewMessage(null!)));
+        var exception = Record.Exception(() => outbox.AddOnSave(context, new ReviewMessage(null!)));
 
         // Assert
         Assert.IsType<OutboxException>(exception);
@@ -231,8 +233,9 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         bool removed;
         await using (var scope = instance.Services.CreateAsyncScope())
         {
-            removed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
-            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
+            removed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -254,8 +257,9 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         OutboxTicket? postponed;
         await using (var scope = instance.Services.CreateAsyncScope())
         {
-            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().PostponeOnSaveAsync(ticket, later, TestContext.Current.CancellationToken);
-            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
+            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().PostponeOnSaveAsync(context, ticket, later, TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -348,12 +352,12 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         await using var scope = instance.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-        var ticket = outbox.AddOnSave(new ReviewMessage("delivered"));
+        var ticket = outbox.AddOnSave(context, new ReviewMessage("delivered"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var removed = await outbox.RemoveOnSaveAsync(ticket, TestContext.Current.CancellationToken);
+        var removed = await outbox.RemoveOnSaveAsync(context, ticket, TestContext.Current.CancellationToken);
         var save = await RecordAsync(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
 
         // Assert
@@ -371,44 +375,17 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         await using var scope = instance.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
-        var ticket = outbox.AddOnSave(new ReviewMessage("delivered"));
+        var ticket = outbox.AddOnSave(context, new ReviewMessage("delivered"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
 
         // Act
-        var postponed = await outbox.PostponeOnSaveAsync(ticket, InitialTime.AddHours(1), TestContext.Current.CancellationToken);
+        var postponed = await outbox.PostponeOnSaveAsync(context, ticket, InitialTime.AddHours(1), TestContext.Current.CancellationToken);
         var save = await RecordAsync(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
 
         // Assert
         Assert.Null(postponed);
         Assert.Null(save);
-    }
-
-    [Fact]
-    public async Task Postponing_a_dead_letter_by_its_own_ticket_reports_null()
-    {
-        // Arrange
-        // E.g. an admin screen listing dead letters and offering to postpone them
-        var instance = await CreateInstanceAsync(
-            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
-            static options => options.RetryDelays = []);
-        await EnqueueAsync(instance, [new ReviewMessage("poison")]);
-        Hooks.OnHandleAsync = static (_, _) => throw new InvalidOperationException("Boom");
-        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
-        var deadLetter = Assert.Single(await GetMessagesAsync(instance));
-        Assert.NotNull(deadLetter.FailedAt);
-
-        // Act
-        OutboxTicket? postponed;
-        await using (var scope = instance.Services.CreateAsyncScope())
-        {
-            postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>()
-                .PostponeNowAsync(deadLetter.ToTicket(), InitialTime.AddHours(1), TestContext.Current.CancellationToken);
-        }
-
-        // Assert
-        // A dead letter is never delivered again, so nothing was postponed
-        Assert.Null(postponed);
     }
 
     [Fact]
@@ -428,9 +405,10 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         OutboxTicket? postponed;
         await using (var scope = instance.Services.CreateAsyncScope())
         {
+            var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
             postponed = await scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>()
-                .PostponeOnSaveAsync(deadLetter.ToTicket(), InitialTime.AddHours(1), TestContext.Current.CancellationToken);
-            await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+                .PostponeOnSaveAsync(context, deadLetter.ToTicket(), InitialTime.AddHours(1), TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -488,10 +466,11 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
             static config => config.WithMessage<CollidingMessage, CollidingMessageHandler>(),
             static options => options.SerializerOptions = System.Text.Json.JsonSerializerOptions.Web);
         await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
 
         // Act
-        var exception = Record.Exception(() => outbox.AddOnSave(new CollidingMessage("https://a.example", "https://b.example")));
+        var exception = Record.Exception(() => outbox.AddOnSave(context, new CollidingMessage("https://a.example", "https://b.example")));
 
         // Assert
         Assert.IsType<OutboxException>(exception);

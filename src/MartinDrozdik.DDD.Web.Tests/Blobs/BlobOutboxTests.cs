@@ -31,13 +31,13 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-            var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+            var added = await storage.UploadAsync(context, CreateRequest());
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             key = added.Value.Key;
-            await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+            await storage.DeleteOnSaveAsync(context, added.Value, TestContext.Current.CancellationToken);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -60,12 +60,12 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-            var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+            var added = await storage.UploadAsync(context, CreateRequest());
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+            await storage.DeleteOnSaveAsync(context, added.Value, TestContext.Current.CancellationToken);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -92,17 +92,17 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-            var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+            var added = await storage.UploadAsync(context, CreateRequest());
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             var message = added.Value.ToDeleteMessage();
             var outbox = scope.ServiceProvider.GetRequiredService<MartinDrozdik.DDD.Outbox.IOutbox<TestDbContext>>();
 
             // The same deletion, enqueued twice - what a redelivery amounts to
-            outbox.AddOnSave(message);
-            outbox.AddOnSave(message);
+            outbox.AddOnSave(context, message);
+            outbox.AddOnSave(context, message);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -132,7 +132,7 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             var outbox = scope.ServiceProvider.GetRequiredService<MartinDrozdik.DDD.Outbox.IOutbox<TestDbContext>>();
 
-            outbox.AddOnSave(new DeleteBlobMessage("invoices", BlobId.New().ToString()));
+            outbox.AddOnSave(context, new DeleteBlobMessage("invoices", BlobId.New().ToString()));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -161,14 +161,14 @@ public class BlobOutboxTests(ITestOutputHelper testOutputHelper)
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+            var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
 
-            var added = await storage.AddOnSaveAsync(CreateRequest(), TestContext.Current.CancellationToken);
+            var added = await storage.UploadAsync(context, CreateRequest());
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             key = added.Value.Key;
 
             // Act
-            await storage.DeleteOnSaveAsync(added.Value, TestContext.Current.CancellationToken);
+            await storage.DeleteOnSaveAsync(context, added.Value, TestContext.Current.CancellationToken);
 
             // ... and the transaction never commits
         }

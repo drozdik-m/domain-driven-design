@@ -66,13 +66,14 @@ public abstract class OutboxInstancesTestBase : IDisposable
         where TMessage : IOutboxMessage
     {
         await using var scope = instance.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>();
         foreach (var message in messages)
         {
-            outbox.AddOnSave(message);
+            outbox.AddOnSave(context, message);
         }
 
-        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>
@@ -86,8 +87,9 @@ public abstract class OutboxInstancesTestBase : IDisposable
         where TMessage : IOutboxMessage
     {
         await using var scope = instance.Services.CreateAsyncScope();
-        var ticket = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().AddOnSave(message);
-        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().SaveChangesAsync(TestContext.Current.CancellationToken);
+        var context = scope.ServiceProvider.GetRequiredService<ReviewDbContext>();
+        var ticket = scope.ServiceProvider.GetRequiredService<IOutbox<ReviewDbContext>>().AddOnSave(context, message);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         return ticket;
     }
 

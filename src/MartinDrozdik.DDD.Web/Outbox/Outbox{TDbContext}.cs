@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Transactions;
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Outbox.Exceptions;
@@ -8,23 +7,18 @@ using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Outbox.Registries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace MartinDrozdik.DDD.Web.Outbox;
 
 /// <summary>
-/// Enqueues and manages messages in <typeparamref name="TDbContext"/>.
+/// Enqueues and manages messages.
 /// </summary>
 /// <typeparam name="TDbContext">The context that owns the outbox table.</typeparam>
-/// <param name="context">The caller's context, which the message is added to.</param>
-/// <param name="scopeFactory">Creates the scope a unit of work of its own is resolved from.</param>
 /// <param name="registry">The message types of this outbox, used to reject unregistered messages early.</param>
 /// <param name="options">Options carrying the serializer configuration and the payload limit.</param>
 /// <param name="timeProvider">Source of the enqueue time.</param>
 internal sealed class Outbox<TDbContext>(
-    TDbContext context,
-    IServiceScopeFactory scopeFactory,
     OutboxRegistry<TDbContext> registry,
     IOptions<OutboxOptions<TDbContext>> options,
     TimeProvider timeProvider) : IOutbox<TDbContext>
@@ -33,14 +27,15 @@ internal sealed class Outbox<TDbContext>(
     private static readonly string s_outboxName = typeof(TDbContext).GetReadableName();
 
     /// <inheritdoc />
-    public OutboxTicket AddOnSave<TMessage>(TMessage message)
+    public OutboxTicket AddOnSave<TMessage>(TDbContext context, TMessage message)
         where TMessage : IOutboxMessage
-        => AddOnSave(message, OutboxMessageSettings.Default);
+        => AddOnSave(context, message, OutboxMessageSettings.Default);
 
     /// <inheritdoc />
-    public OutboxTicket AddOnSave<TMessage>(TMessage message, OutboxMessageSettings settings)
+    public OutboxTicket AddOnSave<TMessage>(TDbContext context, TMessage message, OutboxMessageSettings settings)
         where TMessage : IOutboxMessage
     {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(settings);
 
         var outboxMessage = CreateOutboxMessage(message, settings);
@@ -52,33 +47,12 @@ internal sealed class Outbox<TDbContext>(
     }
 
     /// <inheritdoc />
-    public Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
-        where TMessage : IOutboxMessage
-        => AddNowAsync(message, OutboxMessageSettings.Default, cancellationToken);
-
-    /// <inheritdoc />
-    public async Task<OutboxTicket> AddNowAsync<TMessage>(TMessage message, OutboxMessageSettings settings, CancellationToken cancellationToken)
-        where TMessage : IOutboxMessage
+    public async Task<bool> RemoveOnSaveAsync(TDbContext context, OutboxTicket ticket, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(context);
 
-        var outboxMessage = CreateOutboxMessage(message, settings);
-
-        // Committed on its own right now
-        await InOwnUnitOfWorkAsync(async ownContext =>
-        {
-            ownContext.Set<OutboxMessage>().Add(outboxMessage);
-            await ownContext.SaveChangesAsync(cancellationToken);
-        });
-
-        return outboxMessage.ToTicket();
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> RemoveOnSaveAsync(OutboxTicket ticket, CancellationToken cancellationToken)
-    {
         // Try to find the message
-        var entry = await FindAsync(ticket, cancellationToken);
+        var entry = await FindAsync(context, ticket, cancellationToken);
         if (entry is null)
         {
             return false;
@@ -92,26 +66,13 @@ internal sealed class Outbox<TDbContext>(
     }
 
     /// <inheritdoc />
-    public async Task<bool> RemoveNowAsync(OutboxTicket ticket, CancellationToken cancellationToken)
+    public async Task<OutboxTicket?> PostponeOnSaveAsync(TDbContext context, OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
     {
-        // Conditional on the stamp of the ticket to prevent race conditions
-        var deleted = 0;
-        await InOwnUnitOfWorkAsync(async ownContext =>
-        {
-            deleted = await ownContext.Set<OutboxMessage>()
-                        .Where(m => m.Id == ticket.Id && m.ConcurrencyStamp == ticket.ConcurrencyStamp)
-                        .ExecuteDeleteAsync(cancellationToken);
-        });
+        ArgumentNullException.ThrowIfNull(context);
 
-        return deleted > 0;
-    }
-
-    /// <inheritdoc />
-    public async Task<OutboxTicket?> PostponeOnSaveAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
-    {
         // Try to find the message
         // A processed or dead-lettered message is never delivered again, so there is nothing to postpone
-        var entry = await FindAsync(ticket, cancellationToken);
+        var entry = await FindAsync(context, ticket, cancellationToken);
         if (entry is null || !entry.Entity.IsPending)
         {
             return null;
@@ -120,31 +81,6 @@ internal sealed class Outbox<TDbContext>(
         // Postpone it in the caller's context
         entry.Entity.Postpone(availableAt.UtcDateTime);
         return entry.Entity.ToTicket();
-    }
-
-    /// <inheritdoc />
-    public async Task<OutboxTicket?> PostponeNowAsync(OutboxTicket ticket, DateTimeOffset availableAt, CancellationToken cancellationToken)
-    {
-        var availableAtUtc = availableAt.UtcDateTime;
-        var rotatedConcurrencyStamp = Guid.CreateVersion7();
-
-        // Conditional on the stamp of the ticket to prevent race conditions
-        // A processed or dead-lettered message is never delivered again, so there is nothing to postpone
-        var updated = 0;
-        await InOwnUnitOfWorkAsync(async ownContext =>
-        {
-            updated = await ownContext.Set<OutboxMessage>()
-                        .Where(e => e.Id == ticket.Id && e.ConcurrencyStamp == ticket.ConcurrencyStamp && e.ProcessedAt == null && e.FailedAt == null)
-                        .ExecuteUpdateAsync(
-                            setters => setters
-                                .SetProperty(m => m.AvailableAt, availableAtUtc)
-                                .SetProperty(m => m.ConcurrencyStamp, rotatedConcurrencyStamp),
-                            cancellationToken);
-        });
-
-        return updated > 0
-            ? ticket with { ConcurrencyStamp = rotatedConcurrencyStamp }
-            : null;
     }
 
     /// <summary>
@@ -158,10 +94,11 @@ internal sealed class Outbox<TDbContext>(
     /// A tracked copy without changes is reloaded first: a processor may have claimed, delivered or removed the row since.
     /// </para>
     /// </remarks>
+    /// <param name="context">The caller's context.</param>
     /// <param name="ticket">The ticket of the message.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>The entry of the message, or null when it is gone, being removed, or changed since the ticket was issued.</returns>
-    private async Task<EntityEntry<OutboxMessage>?> FindAsync(OutboxTicket ticket, CancellationToken cancellationToken)
+    private static async Task<EntityEntry<OutboxMessage>?> FindAsync(TDbContext context, OutboxTicket ticket, CancellationToken cancellationToken)
     {
         var entry = context.Set<OutboxMessage>().Local.FindEntry(ticket.Id);
         if (entry is null)
@@ -252,24 +189,5 @@ internal sealed class Outbox<TDbContext>(
         }
 
         return new OutboxPayload(value);
-    }
-
-    /// <summary>
-    /// Runs work on a fresh context, outside every transaction of the caller.
-    /// </summary>
-    /// <remarks>
-    /// A new scope gives a new instance of <typeparamref name="TDbContext"/> with a connection of its own.
-    /// Suppressing the ambient <see cref="TransactionScope"/> keeps that connection from enlisting in the caller's one.
-    /// </remarks>
-    /// <param name="work">The work to do.</param>
-    /// <returns>A task completing once the work is committed.</returns>
-    private async Task InOwnUnitOfWorkAsync(Func<TDbContext, Task> work)
-    {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var ownContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
-
-        using var suppressed = new TransactionScope(TransactionScopeOption.Suppress, TransactionScopeAsyncFlowOption.Enabled);
-        await work(ownContext);
-        suppressed.Complete();
     }
 }

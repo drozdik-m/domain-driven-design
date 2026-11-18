@@ -28,11 +28,33 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
-        outbox.AddOnSave(new TestOutboxMessage("hello"));
+        outbox.AddOnSave(context, new TestOutboxMessage("hello"));
 
         // Assert
         var stored = await context.Set<OutboxMessage>().AsNoTracking().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, stored);
+    }
+
+    [Fact]
+    public async Task A_message_is_committed_by_the_save_of_the_context_passed_in_even_from_another_scope()
+    {
+        // Arrange
+        // E.g. a context from IDbContextFactory, a background job or a tenant's database
+        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
+        using var outboxScope = app.Services.CreateScope();
+        using var otherScope = app.Services.CreateScope();
+        var outbox = outboxScope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
+        var scopedContext = outboxScope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var otherContext = otherScope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+        // Act
+        var ticket = outbox.AddOnSave(otherContext, new TestOutboxMessage("hello"));
+        await otherContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        var stored = await scopedContext.Set<OutboxMessage>().AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(ticket, stored.ToTicket());
+        Assert.False(scopedContext.ChangeTracker.HasChanges());
     }
 
     [Fact]
@@ -47,7 +69,7 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
 
         // Act
         context.SomeEntities.Add(new SomeAggregateRoot());
-        outbox.AddOnSave(new TestOutboxMessage("hello"));
+        outbox.AddOnSave(context, new TestOutboxMessage("hello"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
@@ -72,7 +94,7 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         // Act
         await using (var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken))
         {
-            outbox.AddOnSave(new TestOutboxMessage("hello"));
+            outbox.AddOnSave(context, new TestOutboxMessage("hello"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             await transaction.RollbackAsync(TestContext.Current.CancellationToken);
         }
@@ -93,11 +115,12 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
             .WithServices(services => services.Configure<OutboxOptions<TestDbContext>>(options => options.MaxPayloadLength = 16))
             .Build();
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
         var exception = Assert.Throws<OutboxException>(
-            () => outbox.AddOnSave(new TestOutboxMessage(new string('a', 500))));
+            () => outbox.AddOnSave(context, new TestOutboxMessage(new string('a', 500))));
 
         // Assert
         Assert.Contains("16", exception.Message, StringComparison.Ordinal);
@@ -110,11 +133,12 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
         // Rejected right away rather than stored and dead-lettered later
-        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new UnregisteredMessage()));
+        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(context, new UnregisteredMessage()));
 
         // Assert
         Assert.Contains(UnregisteredMessage.MessageType.Key, exception.Message, StringComparison.Ordinal);
@@ -130,10 +154,11 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         builder.AddOutbox<SerializationDbContext>(config => config.WithMessage<UnserializableMessage, UnserializableMessageHandler>());
         using var host = builder.Build();
         using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<SerializationDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<SerializationDbContext>>();
 
         // Act
-        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new UnserializableMessage(typeof(string))));
+        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(context, new UnserializableMessage(typeof(string))));
 
         // Assert
         Assert.Contains(UnserializableMessage.MessageType.Key, exception.Message, StringComparison.Ordinal);
@@ -149,6 +174,7 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         builder.AddOutbox<SerializationDbContext>(config => config.WithMessage<CyclicMessage, CyclicMessageHandler>());
         using var host = builder.Build();
         using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<SerializationDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<SerializationDbContext>>();
 
         var items = new List<object>();
@@ -156,7 +182,7 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
 
         // Act
         // System.Text.Json reports a reference cycle as a JsonException, which must arrive wrapped
-        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new CyclicMessage(items)));
+        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(context, new CyclicMessage(items)));
 
         // Assert
         Assert.Contains(CyclicMessage.MessageType.Key, exception.Message, StringComparison.Ordinal);
@@ -173,34 +199,13 @@ public class OutboxEnqueueTests(ITestOutputHelper testOutputHelper)
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
-        outbox.AddOnSave(new TestOutboxMessage("later"), new OutboxMessageSettings { AvailableAt = s_initialTime.AddHours(1) });
+        outbox.AddOnSave(context, new TestOutboxMessage("later"), new OutboxMessageSettings { AvailableAt = s_initialTime.AddHours(1) });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
         var message = await context.Set<OutboxMessage>().AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
         Assert.Equal(s_initialTime.UtcDateTime, message.OccurredAt);
         Assert.Equal(s_initialTime.AddHours(1).UtcDateTime, message.AvailableAt);
-    }
-
-    [Fact]
-    public async Task Adding_a_message_now_without_settings_commits_it_available_at_once()
-    {
-        // Arrange
-        var time = new FakeTimeProvider(s_initialTime);
-        using var app = new TestedWebAppBuilder(testOutputHelper).WithFakeTime(time).Build();
-        using var scope = app.Services.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
-
-        // Act
-        var ticket = await outbox.AddNowAsync(new TestOutboxMessage("now"), TestContext.Current.CancellationToken);
-
-        // Assert
-        // Read in a scope of its own: committed without the caller ever saving
-        using var verificationScope = app.Services.CreateScope();
-        var verification = verificationScope.ServiceProvider.GetRequiredService<TestDbContext>();
-        var message = await verification.Set<OutboxMessage>().AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(ticket, message.ToTicket());
-        Assert.Equal(s_initialTime.UtcDateTime, message.AvailableAt);
     }
 
     private sealed record UnregisteredMessage : IOutboxMessage

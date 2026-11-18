@@ -277,7 +277,7 @@ Free tests that verify blob storage is wired up correctly. Pass every container 
 
 ```csharp
 public class MyAppBlobSmokeTests(ITestOutputHelper output)
-    : BlobSmokeTests<Program>(new MyAppBuilder(output), InvoiceScans.Container, Avatars.Container) { }
+    : BlobSmokeTests<Program, MyAppDbContext>(new MyAppBuilder(output), InvoiceScans.Container, Avatars.Container) { }
 ```
 
 It **stores nothing**, don't worry.

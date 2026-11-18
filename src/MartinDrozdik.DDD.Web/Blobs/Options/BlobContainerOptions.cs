@@ -49,12 +49,11 @@ public sealed class BlobContainerOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Keep it comfortably longer than the slowest transaction that could be holding a blob.
+    /// The period starts at <see cref="IBlobStorage{TContext}.PrepareUpload"/>.
+    /// Make it longer than your slowest upload plus the transaction that persists it.
     /// </para>
     /// <para>
     /// This is what protects an upload whose transaction has not committed yet.
-    /// The file is written before the row is, so every upload schedules the removal of its content through the outbox first in case the transaction fails.
-    /// Saving the transaction removes the scheduled removal.
     /// </para>
     /// </remarks>
     public TimeSpan OrphanGracePeriod { get; set; } = TimeSpan.FromHours(24);

@@ -191,7 +191,7 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage(text));
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage(text));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
@@ -206,10 +206,12 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
     private static async Task ScheduleAsync(TestedApp<Program> app, string text, DateTimeOffset availableAt)
     {
         using var scope = app.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddNowAsync(
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(
+            context,
             new TestOutboxMessage(text),
-            new OutboxMessageSettings { AvailableAt = availableAt },
-            TestContext.Current.CancellationToken);
+            new OutboxMessageSettings { AvailableAt = availableAt });
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     private TestedApp<Program> Build(int degradedBacklogThreshold = 1000)

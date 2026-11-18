@@ -32,7 +32,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("prompt"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("prompt"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -55,7 +55,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("in-transaction"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("in-transaction"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             // Whatever else the transaction does before it commits. Inside an explicit transaction SaveChanges is not the
@@ -81,7 +81,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
-        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("in-transaction"));
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("in-transaction"));
 
         // Act
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -111,7 +111,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             await using var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("rolled-back"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("rolled-back"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             await transaction.RollbackAsync(TestContext.Current.CancellationToken);
 
@@ -140,7 +140,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             await using (await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken))
             {
-                scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("abandoned"));
+                scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("abandoned"));
                 await context.SaveChangesAsync(TestContext.Current.CancellationToken);
             }
 
@@ -259,40 +259,18 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         // Act
         using (var scope = app.Services.CreateScope())
         {
-            await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddNowAsync(
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(
+                context,
                 new TestOutboxMessage("later"),
-                new() { AvailableAt = DateTimeOffset.UtcNow.AddHours(1) },
-                TestContext.Current.CancellationToken);
+                new() { AvailableAt = DateTimeOffset.UtcNow.AddHours(1) });
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
         using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             async () => await concrete.WaitAsync(timeout.Token));
-    }
-
-    [Fact]
-    public async Task Adding_a_message_now_triggers_the_dispatch_task()
-    {
-        // Arrange
-        // Committed by a context of its own, resolved from a scope of its own - which carries an interceptor of its own
-        using var app = new TestedWebAppBuilder(testOutputHelper).Build();
-        var concrete = Assert.IsType<RecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>(
-            app.Services.GetRequiredService<IRecurringTaskTrigger<OutboxDispatchRecurringTask<TestDbContext>>>());
-
-        // Act
-        using (var scope = app.Services.CreateScope())
-        {
-            await scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddNowAsync(
-                new TestOutboxMessage("now"),
-                TestContext.Current.CancellationToken);
-        }
-
-        // Assert
-        // Bounded, so a trigger that never arrives fails the test instead of hanging the suite
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        await concrete.WaitAsync(timeout.Token);
     }
 
     [Fact]
@@ -307,7 +285,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("prompt"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("prompt"));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -356,7 +334,7 @@ public class OutboxTaskTriggerInterceptorTests(ITestOutputHelper testOutputHelpe
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage("sync"));
+            scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage("sync"));
 #pragma warning disable S6966 // Await SaveChangesAsync instead - the synchronous path is what is under test
             context.SaveChanges();
 #pragma warning restore S6966

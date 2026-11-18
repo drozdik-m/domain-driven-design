@@ -22,16 +22,14 @@ stateDiagram-v2
     state "Delivery<br/><small>next diagram</small>" as Delivery
 
     [*] --> Tracked : (1.) AddOnSave
-    [*] --> Due : (5.) AddNowAsync
-    [*] --> Scheduled : (6.) AddNowAsync, later AvailableAt
     Tracked --> Discarded : (2.) rollback or RemoveOnSaveAsync
     Tracked --> Due : (3.) your SaveChangesAsync commits
     Tracked --> Scheduled : (4.) commits, later AvailableAt
     Scheduled --> Due : (7.) AvailableAt reached
-    Scheduled --> Scheduled : (8.) Postpone…Async
-    Due --> Scheduled : (8.) Postpone…Async
-    Scheduled --> Removed : (9.) Remove…Async
-    Due --> Removed : (9.) Remove…Async
+    Scheduled --> Scheduled : (8.) PostponeOnSaveAsync, commits
+    Due --> Scheduled : (8.) PostponeOnSaveAsync, commits
+    Scheduled --> Removed : (9.) RemoveOnSaveAsync, commits
+    Due --> Removed : (9.) RemoveOnSaveAsync, commits
     Due --> Delivery : (10.) a processor reserves it
 
     classDef gone stroke-dasharray:5 4
@@ -57,7 +55,7 @@ stateDiagram-v2
     state "Dead-lettered<br/><small>FailedAt set, terminal, kept forever</small>" as DeadLettered
     state "row deleted" as Deleted
 
-    [*] --> Due : from enqueueing (3., 5., 7.)
+    [*] --> Due : from enqueueing (3., 7.)
     Due --> Reserved : (10.) reserved with its batch<br/><small>ReserveAsync</small>
     Reserved --> Due : (11.) reservation expired, or released at the end of the run<br/><small>ReleaseReservationsAsync</small>
     Reserved --> DeadLettered : (12.) row cannot be read<br/><small>DeadLetterUnreadableAsync</small>
@@ -87,7 +85,7 @@ stateDiagram-v2
 | State | The row | Where to look |
 |---|---|---|
 | **Tracked** | No row yet, only an `Added` entry in your context | `Outbox.AddOnSave` |
-| **Scheduled** | `AvailableAt` > now | `OutboxMessageSettings.AvailableAt`, `Outbox.Postpone…Async` |
+| **Scheduled** | `AvailableAt` > now | `OutboxMessageSettings.AvailableAt`, `Outbox.PostponeOnSaveAsync` |
 | **Due** | `AvailableAt` ≤ now, neither reserved nor claimed | `OutboxMessage.IsDue`, `OutboxMessage.IsFree`, `OutboxOptions.ClockSkewTolerance` |
 | **Reserved** | `ClaimedBy` set, `ReservedUntil` > now | `OutboxProcessor.ReserveAsync`, `OutboxOptions.ReservationDuration` |
 | **In flight** | Claimed, `ClaimedUntil` > now | `OutboxMessage.Claim`, `OutboxOptions.LeaseDuration` |

@@ -467,7 +467,7 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<
         var invoice = Invoice.CreateDraft(issuer, recipient, invoiceNumber);
         await context.Invoices.AddAsync(invoice, cancellationToken);
 
-        outbox.AddOnSave(new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
+        outbox.AddOnSave(context, new InvoiceDraftedMessage(invoice.Id.Key, invoiceNumber.ToString(), recipient.FullName));
 
         await context.SaveChangesAsync(cancellationToken); // both, or neither
         return invoice.Id;
@@ -477,32 +477,28 @@ public class CreateInvoiceDraftCommandHandler(InvoiceDbContext context, IOutbox<
 
 `AddOnSave()` only tracks the row. **It never saves.** You save it all along with your aggregate.
 
-`IOutbox<TContext>` names the context it tracks in, so an outbox can't be paired with another context's save by mistake.
-
 `IOutbox<TContext>`, `IOutboxMessage`, `IOutboxMessageHandler<T>` and `OutboxMessageType` contracts live in the core [MartinDrozdik.DDD](../MartinDrozdik.DDD) package, so a business layer can be implemented without further dependencies.
 
 #### Scheduled messages - undo what a rollback leaves behind
 
-`AddOnSave()` covers "do this once my transaction commits". `AddNowAsync()` with a later `AvailableAt` covers the "undo this unless my transaction commits":
+`AddOnSave()` covers "do this once my transaction commits". The same method with a later `AvailableAt` covers "undo this unless my transaction commits":
 
 ```csharp
 var settings = new OutboxMessageSettings {
     AvailableAt = now + TimeSpan.FromHours(1) // schedule for later with grace period 1h
-}; 
-var removal = await outbox.AddNowAsync(new DeleteFileMessage(path), settings, ct); // committed at once
+};
+var removal = outbox.AddOnSave(context, new DeleteFileMessage(path), settings);
+await context.SaveChangesAsync(ct); // save 1: the removal, before the side effect
+
 await WriteFileAsync(path, ct); // a side effect
-if (!await outbox.RemoveOnSaveAsync(removal, ct)) // tracked
+if (!await outbox.RemoveOnSaveAsync(context, removal, ct)) // tracked
 {
     // The grace period ran out and a processor took the removal, so the file is gone or about to be
     throw new FileReclaimedException(path); // don't save changes that point at it
 }
 
-await context.SaveChangesAsync(ct); // removes it with your changes
+await context.SaveChangesAsync(ct); // save 2: cancels the removal with your changes
 ```
-
-The `*NowAsync` messages are committed at once through a fresh instance of your context from a scope. Your transactions, explicit or ambient, are left exactly as they were. `*OnSaveAsync()` work in your commit.
-
-Committing on its own connection may work differently on some databases. F.e. SQLite starts transactions as immediate , and an `AddNowAsync()` inside it then waits for its own transaction until it times out. Best to call `*NowAsync()` before beginning your transaction, or begin a deferred one (`connection.BeginTransaction(deferred: true)` with `Database.UseTransaction`) and call it before its first save.
 
 Set you preferred options for the outbox, like batch size, retry delays, and so on:
 
@@ -630,7 +626,7 @@ Three components:
 |---|---|---|
 | Store | `IBlobStore` | Files, in-memory testing, the byte stuff |
 | Catalogue | the `Blob` table | the row, the metadata, the transaction |
-| Facade | `IBlobStorage` | coordinates both, applies policies, main interface for you |
+| Facade | `IBlobStorage<TContext>` | coordinates both, applies policies, main interface for you |
 
 **Blob storage requires the outbox of the same context.** Every removal of content is an outbox message: after a delete commits, after a blob expires, and after an upload that never committed its row.
 
@@ -675,30 +671,36 @@ builder.AddBlobSweepRecurringTask(taskOptions =>
 
 **Containers are separate, isolated entities.** Each one is registered on its own with `WithContainer`, with its own `BlobContainerOptions` (`MaxSize`, `AllowedContentTypes`, `AllowedExtensions`, `ComputeChecksum`, `OrphanGracePeriod`) and its own folder.
 
-Storing a file is a step in a transaction, not a transaction of its own:
+Storing a file requires two steps:
 
 ```csharp
-var result = await blobStorage.AddOnSaveAsync(
-    new BlobUploadRequest
-    {
-        Container = "invoice-scans",
-        Content = file.OpenReadStream(),
-        OriginalFileName = file.FileName,
-        ContentType = file.ContentType,
-    },
-    cancellationToken);
+// Step 1: plan to remove the file later (prevent orphaned files, stopped on success)
+var upload = blobStorage.PrepareUpload(context, new BlobUploadRequest
+{
+    Container = "invoice-scans",
+    Content = file.OpenReadStream(),
+    OriginalFileName = file.FileName,
+    ContentType = file.ContentType,
+});
+await context.SaveChangesAsync(cancellationToken);
 
+// Step 2: write the file and cancel the planned removal
+var result = await blobStorage.AddOnSaveAsync(context, upload.Value, cancellationToken);
 invoice.AttachScan(result.Value.Id);
 await context.SaveChangesAsync(cancellationToken); // the row and the aggregate, both or neither
 ```
 
-`AddOnSaveAsync()` only tracks the row. **It never saves.** If the save rolls back, the file is later cleaned up (after the grace period ends). Keep the grace period comfortably longer than the slowest transaction that could be holding a blob.
+1. `PrepareUpload()` tracks an outbox message that removes the file once the grace period ends.
+2. `AddOnSaveAsync()` writes the file, tracks the row and cancels that removal message.
+3. If the second save never happens (errors somewhere), the lease message removes the file.
+
+The grace period starts at `PrepareUpload()`. Make it longer than your slowest upload plus DB transaction overhead.
 
 Deleting works the same way:
 
 ```csharp
 context.Invoices.Remove(invoice);
-await blobStorage.DeleteOnSaveAsync(scan, cancellationToken);
+await blobStorage.DeleteOnSaveAsync(context, scan, cancellationToken);
 await context.SaveChangesAsync(cancellationToken); // both, or neither
 ```
 

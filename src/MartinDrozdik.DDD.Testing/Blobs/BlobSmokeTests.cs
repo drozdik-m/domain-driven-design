@@ -4,6 +4,7 @@ using MartinDrozdik.DDD.Blobs.Sweepers;
 using MartinDrozdik.DDD.Extensions;
 using MartinDrozdik.DDD.Web.Blobs;
 using MartinDrozdik.DDD.Web.Blobs.Options;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -17,11 +18,13 @@ namespace MartinDrozdik.DDD.Testing.Blobs;
 /// Wiring checks only.
 /// </remarks>
 /// <typeparam name="TProgram">Type of the app entrypoint class.</typeparam>
-public abstract class BlobSmokeTests<TProgram> : IDisposable
+/// <typeparam name="TDbContext">The context the blob storage is added over.</typeparam>
+public abstract class BlobSmokeTests<TProgram, TDbContext> : IDisposable
     where TProgram : class
+    where TDbContext : DbContext
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="BlobSmokeTests{TProgram}"/> class.
+    /// Initializes a new instance of the <see cref="BlobSmokeTests{TProgram, TDbContext}"/> class.
     /// </summary>
     /// <param name="builder">App builder under test.</param>
     /// <param name="expectedContainers">Every container the application stores into - no more, no less.</param>
@@ -72,7 +75,7 @@ public abstract class BlobSmokeTests<TProgram> : IDisposable
         using var scope = App.Services.CreateScope();
 
         // Act
-        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TDbContext>>();
 
         // Assert
         Assert.NotNull(storage);

@@ -143,7 +143,7 @@ public class OutboxRetentionTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(message);
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, message);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

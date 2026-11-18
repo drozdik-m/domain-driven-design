@@ -133,7 +133,7 @@ public class OutboxConcurrencyTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(new TestOutboxMessage(Guid.NewGuid().ToString()));
+        scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>().AddOnSave(context, new TestOutboxMessage(Guid.NewGuid().ToString()));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 }

@@ -12,7 +12,7 @@ namespace MartinDrozdik.DDD.Demo.Requests.Invoices;
 /// </summary>
 /// <param name="context">The context holding the invoices and the catalogue.</param>
 /// <param name="blobStorage">Removes the scan.</param>
-public class RemoveInvoiceScanCommandHandler(InvoiceDbContext context, IBlobStorage blobStorage)
+public class RemoveInvoiceScanCommandHandler(InvoiceDbContext context, IBlobStorage<InvoiceDbContext> blobStorage)
     : ICommandHandler<RemoveInvoiceScanCommand>
 {
     /// <inheritdoc />
@@ -30,10 +30,10 @@ public class RemoveInvoiceScanCommandHandler(InvoiceDbContext context, IBlobStor
             return;
         }
 
-        var scan = await blobStorage.GetAsync(removed, cancellationToken);
+        var scan = await blobStorage.GetAsync(context, removed, cancellationToken);
         if (scan.IsSuccess)
         {
-            await blobStorage.DeleteOnSaveAsync(scan.Value, cancellationToken);
+            await blobStorage.DeleteOnSaveAsync(context, scan.Value, cancellationToken);
         }
 
         await context.SaveChangesAsync(cancellationToken);

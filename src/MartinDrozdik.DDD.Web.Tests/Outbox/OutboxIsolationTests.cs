@@ -79,10 +79,11 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
         // Arrange
         using var app = new TestedWebAppBuilder(testOutputHelper).Build();
         using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutbox<TestDbContext>>();
 
         // Act
-        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(new SecondContextOutboxMessage(1)));
+        var exception = Assert.Throws<OutboxException>(() => outbox.AddOnSave(context, new SecondContextOutboxMessage(1)));
 
         // Assert
         Assert.Contains(SecondContextOutboxMessage.MessageType.Key, exception.Message, StringComparison.Ordinal);
@@ -196,7 +197,7 @@ public class OutboxIsolationTests(ITestOutputHelper testOutputHelper)
     {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TContext>();
-        scope.ServiceProvider.GetRequiredService<IOutbox<TContext>>().AddOnSave(message);
+        scope.ServiceProvider.GetRequiredService<IOutbox<TContext>>().AddOnSave(context, message);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

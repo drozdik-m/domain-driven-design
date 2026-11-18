@@ -104,7 +104,7 @@ internal sealed class BlobSweeper<TDbContext>(
     {
         context.Set<Blob>().Remove(blob);
         var deleteMessage = blob.ToDeleteMessage();
-        var outboxTicket = outbox.AddOnSave(deleteMessage);
+        var outboxTicket = outbox.AddOnSave(context, deleteMessage);
         return new Removal(blob, outboxTicket);
     }
 
@@ -182,7 +182,7 @@ internal sealed class BlobSweeper<TDbContext>(
         entry.State = EntityState.Detached;
 
         // Take back the outbox
-        if (!await outbox.RemoveOnSaveAsync(removals[index].Ticket, cancellationToken))
+        if (!await outbox.RemoveOnSaveAsync(context, removals[index].Ticket, cancellationToken))
         {
             throw new InvalidOperationException($"Could not take back the outbox message for blob {removals[index].Blob.Id}.");
         }

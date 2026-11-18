@@ -97,8 +97,7 @@ public static class HostApplicationBuilderExtensions
         // Normally already registered by AddAppServices, but this module stays usable on its own
         builder.Services.TryAddSingleton(TimeProvider.System);
 
-        // Scoped, because it works inside the caller's transaction
-        builder.Services.TryAddScoped<IBlobStorage, BlobStorage<TDbContext>>();
+        builder.Services.TryAddScoped<IBlobStorage<TDbContext>, BlobStorage<TDbContext>>();
         builder.Services.TryAddScoped<IBlobSweeper, BlobSweeper<TDbContext>>();
 
         return builder;
