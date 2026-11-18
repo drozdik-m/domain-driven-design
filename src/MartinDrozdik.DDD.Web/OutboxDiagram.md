@@ -70,6 +70,7 @@ stateDiagram-v2
     Reserved --> DeadLettered : (20.) abandoned, no retry left<br/><small>DeadLetterAbandonedAsync</small>
     Processed --> Deleted : (21.) older than Retention<br/><small>IOutboxRetention.ApplyAsync, in chunks</small>
     DeadLettered --> Deleted : (22.) deleted by hand
+    DeadLettered --> Due : (24.) re-driven by hand<br/><small>see Re-driving a dead letter</small>
     Abandoned --> Processed : (23.) the delivery that outlived its lease returned<br/><small>RecordLateSuccessAsync</small>
     Backoff --> Processed : (23.) the delivery that outlived its lease returned
     DeadLettered --> Processed : (23.) the delivery that outlived its lease returned
@@ -139,3 +140,20 @@ flowchart TD
 Two checks prevent a double delivery. The update that reserves the batch repeats the "due and free" filter, and the database checks it again on each row it locks. A row another processor reserved, claimed or postponed after the ids were read is skipped. Without that check, the read-back would pick up the stamp of the other processor's claim, and this run's claim would succeed as well. The claim is saved against the concurrency stamp, so of two processors holding the same stamp, only one claims.
 
 A handler that runs past `LeaseDuration` can be delivered twice: the message is taken again once the lease expires. When the slow delivery returns, its success is recorded anyway (23.), over a retry or a dead letter recorded in the meantime. Only an earlier recorded delivery is kept.
+
+## Re-driving a dead letter
+
+You fix the cause, then clear `FailedAt`, `LastError` and `Attempts` and rotate the concurrency stamp in one update (24.). The message is due again at once and gets its full retries. Old tickets go stale with the stamp.
+
+```csharp
+await context.Set<OutboxMessage>()
+    .Where(m => m.Id == messageId && m.FailedAt != null)
+    .ExecuteUpdateAsync(setters => setters
+        .SetProperty(m => m.FailedAt, (DateTime?)null)
+        .SetProperty(m => m.LastError, (string?)null)
+        .SetProperty(m => m.Attempts, 0)
+        .SetProperty(m => m.ConcurrencyStamp, Guid.CreateVersion7()),
+        cancellationToken);
+```
+
+Re-drive only after the earlier attempts have ended.

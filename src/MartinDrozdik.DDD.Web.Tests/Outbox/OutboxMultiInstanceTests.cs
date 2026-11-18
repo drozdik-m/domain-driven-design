@@ -756,6 +756,47 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
     }
 
     [Fact]
+    public async Task A_dead_letter_re_driven_while_its_abandoned_attempt_runs_is_marked_processed_by_that_attempt()
+    {
+        // Arrange
+        // OutboxDiagram.md says to re-drive only after the earlier attempts have ended (24.). This is why:
+        // waiting the lease out bounds nothing, the slow attempt returns later and its success lands on the re-driven row
+        var instance = await CreateInstanceAsync(
+            static config => config.WithMessage<ReviewMessage, ReviewMessageHandler>(),
+            static options =>
+            {
+                options.LeaseDuration = TimeSpan.FromMinutes(1);
+                options.RetryDelays = [];
+            });
+        await EnqueueAsync(instance, [new ReviewMessage("slow")]);
+
+        var attempts = 0;
+        Hooks.OnHandleAsync = async (_, cancellationToken) =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                // The next run dead-letters the abandoned attempt, then the dead letter is re-driven past the lease
+                Time.Advance(TimeSpan.FromMinutes(2));
+                await instance.Services.ProcessOutboxAsync<ReviewDbContext>(cancellationToken);
+                await ReDriveAsync(instance, cancellationToken);
+                Time.Advance(TimeSpan.FromMinutes(2));
+            }
+        };
+
+        // Act
+        await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+        var afterReDrive = await instance.Services.ProcessOutboxAsync<ReviewDbContext>(TestContext.Current.CancellationToken);
+
+        // Assert
+        // The re-drive is used up by the slow attempt: the row is processed and the new delivery never happens
+        Assert.Equal(1, attempts);
+        Assert.Equal(0, afterReDrive.Dispatched);
+        var message = Assert.Single(await GetMessagesAsync(instance));
+        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(0, message.Attempts);
+    }
+
+    [Fact]
     public async Task A_delivery_that_outlives_its_lease_rejects_the_failure_of_the_attempt_that_retook_the_message()
     {
         // Arrange
@@ -1068,6 +1109,27 @@ public sealed class OutboxMultiInstanceTests : OutboxInstancesTestBase
         // Assert
         Assert.Equal(1, retry.Dispatched);
         Assert.Equal(2, slowAttempts);
+    }
+
+    /// <summary>
+    /// Re-drives every dead letter the way OutboxDiagram.md describes (24.).
+    /// </summary>
+    /// <param name="instance">The instance to update through.</param>
+    /// <param name="cancellationToken">Cancellation token of the test.</param>
+    /// <returns>A <see cref="Task"/> that completes once the rows are updated.</returns>
+    private static async Task ReDriveAsync(IHost instance, CancellationToken cancellationToken)
+    {
+        await using var scope = instance.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
+            .Set<OutboxMessage>()
+            .Where(m => m.FailedAt != null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(m => m.FailedAt, (DateTime?)null)
+                    .SetProperty(m => m.LastError, (string?)null)
+                    .SetProperty(m => m.Attempts, 0)
+                    .SetProperty(m => m.ConcurrencyStamp, Guid.CreateVersion7()),
+                cancellationToken);
     }
 
     /// <summary>

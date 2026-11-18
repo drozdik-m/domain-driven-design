@@ -432,12 +432,14 @@ public sealed class OutboxReviewTests : OutboxInstancesTestBase
         Assert.NotNull(Assert.Single(await GetMessagesAsync(instance)).FailedAt);
 
         // Act
-        // The cause is fixed, then the row is re-driven as OutboxDiagram.md describes
+        // The cause is fixed, then the row is re-driven as OutboxDiagram.md describes (24.)
+        // The one attempt recorded its failure, so nothing can return late
         failing = false;
         await using (var scope = instance.Services.CreateAsyncScope())
         {
             await scope.ServiceProvider.GetRequiredService<ReviewDbContext>()
                 .Set<OutboxMessage>()
+                .Where(m => m.FailedAt != null)
                 .ExecuteUpdateAsync(
                     setters => setters
                         .SetProperty(m => m.FailedAt, (DateTime?)null)
