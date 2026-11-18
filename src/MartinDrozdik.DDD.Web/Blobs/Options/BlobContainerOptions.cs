@@ -1,4 +1,6 @@
 using MartinDrozdik.DDD.Blobs;
+using MartinDrozdik.DDD.Blobs.Errors;
+using MartinDrozdik.DDD.Blobs.Signatures;
 
 namespace MartinDrozdik.DDD.Web.Blobs.Options;
 
@@ -24,9 +26,26 @@ public sealed class BlobContainerOptions
     /// </summary>
     /// <remarks>
     /// Compared against the type the caller supplied.
-    /// The library never inspects content to guess what it is.
+    /// The library never inspects content to guess what it is; <see cref="ContentSignatures"/> checks that the content matches the declared type.
     /// </remarks>
     public IReadOnlySet<string>? AllowedContentTypes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the media types that may be stored.
+    /// Each uploaded file is checked against the list of signatures for its type, if any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Off by default.
+    /// <see cref="ContentSignature.Common"/> covers the usual formats.
+    /// To accept a format that has no signature, such as <c>text/plain</c>, list it with a lone <c>??</c>, which accepts any content of at least one byte.
+    /// </para>
+    /// <para>
+    /// The signatures are a white-list.
+    /// Only the first few bytes are compared.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyCollection<ContentSignature>? ContentSignatures { get; set; }
 
     /// <summary>
     /// Gets or sets the file extensions that may be stored, lowercase and without the leading dot, or null to accept any.

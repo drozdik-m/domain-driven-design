@@ -1,3 +1,5 @@
+using MartinDrozdik.DDD.Blobs.Signatures;
+
 namespace MartinDrozdik.DDD.Blobs.Stores;
 
 /// <summary>
@@ -12,7 +14,11 @@ namespace MartinDrozdik.DDD.Blobs.Stores;
 /// Enforced during writing.
 /// Oversized content is refused.
 /// </param>
-public sealed record BlobWriteOptions(bool ComputeChecksum = true, long? MaxSize = null)
+/// <param name="ContentSignatures">
+/// The signatures the content has to start with, one of them at least, or null to write it unchecked.
+/// Checked on the first read, before anything is written; an empty list refuses all content.
+/// </param>
+public sealed record BlobWriteOptions(bool ComputeChecksum = true, long? MaxSize = null, IReadOnlyCollection<ContentSignature>? ContentSignatures = null)
 {
     /// <summary>
     /// Writes with hashing and no size limit.

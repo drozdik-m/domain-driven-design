@@ -15,7 +15,7 @@ public static class BlobContentCopier
     /// <summary>
     /// The number of bytes moved per read.
     /// </summary>
-    private const int BufferSize = 81920;
+    internal const int BufferSize = 81920;
 
     /// <summary>
     /// Copies content from one stream to another, measuring its size and hashing it as it goes.
@@ -27,6 +27,7 @@ public static class BlobContentCopier
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>What was written.</returns>
     /// <exception cref="BlobTooLargeException">The content exceeded <see cref="BlobWriteOptions.MaxSize"/>.</exception>
+    /// <exception cref="BlobContentMismatchException">The content matched none of <see cref="BlobWriteOptions.ContentSignatures"/>; nothing was written.</exception>
     public static async Task<BlobWriteReceipt> CopyAsync(
         Stream source,
         Stream destination,
@@ -48,8 +49,18 @@ public static class BlobContentCopier
 
         try
         {
-            int read;
-            while ((read = await source.ReadAsync(buffer.AsMemory(), cancellationToken)) > 0)
+            // Get longest signature length, read at least that many bytes (or less if the stream is shorter)
+            var signatures = options.ContentSignatures;
+            var headerLength = signatures?.Select(s => s.Length).DefaultIfEmpty().Max() ?? 0;
+            var read = await source.ReadAtLeastAsync(buffer.AsMemory(), Math.Max(headerLength, 1), throwOnEndOfStream: false, cancellationToken);
+
+            // Check if the content matches any of the signatures, if any were specified
+            if (signatures?.Any(s => s.Matches(buffer.AsSpan(0, read))) == false)
+            {
+                throw BlobContentMismatchException.ForSignatures(signatures);
+            }
+
+            while (read > 0)
             {
                 size += read;
 
@@ -60,6 +71,8 @@ public static class BlobContentCopier
 
                 hash?.AppendData(buffer, 0, read);
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+
+                read = await source.ReadAsync(buffer.AsMemory(), cancellationToken);
             }
         }
         finally

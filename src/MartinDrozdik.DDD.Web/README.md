@@ -662,7 +662,21 @@ builder.AddBlobSweepRecurringTask(taskOptions =>
 });
 ```
 
-**Containers are separate, isolated entities.** Each one is registered on its own with `WithContainer`, with its own `BlobContainerOptions` (`MaxSize`, `AllowedContentTypes`, `AllowedExtensions`, `ComputeChecksum`, `OrphanGracePeriod`) and its own folder.
+**Containers are separate, isolated entities.** Each one is registered on its own with `WithContainer`, with its own `BlobContainerOptions` (`MaxSize`, `AllowedContentTypes`, `AllowedExtensions`, `ContentSignatures`, `ComputeChecksum`, `OrphanGracePeriod`) and its own folder.
+
+Trusting the media type is a security issue. To check that the content matches it, set `ContentSignatures`:
+
+```csharp
+containerOptions.ContentSignatures = ContentSignature.Common; // common documents, images, audio, video, archives and fonts
+containerOptions.ContentSignatures =
+[
+    .. ContentSignature.Common,
+    new ContentSignature("image/bmp", "42 4D"),
+    new ContentSignature("text/plain", "??"), // no signature to check: any content of at least one byte
+];
+```
+
+The signatures are a white-list. Everything is checked in `AddOnSaveAsync()` during first batch of bytes read.
 
 Storing a file requires two steps:
 

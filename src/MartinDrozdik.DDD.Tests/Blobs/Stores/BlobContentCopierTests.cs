@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
+using System.Text;
 using MartinDrozdik.DDD.Blobs.Checksums;
 using MartinDrozdik.DDD.Blobs.Exceptions;
+using MartinDrozdik.DDD.Blobs.Signatures;
 using MartinDrozdik.DDD.Blobs.Stores;
 using Microsoft.Extensions.Time.Testing;
 
@@ -12,6 +14,10 @@ public class BlobContentCopierTests
     private const int MultiBufferSize = 200_000;
 
     private static readonly DateTimeOffset s_now = new(2026, 9, 25, 12, 0, 0, TimeSpan.Zero);
+
+    private static readonly ContentSignature s_pdf = new("application/pdf", "25 50 44 46 2D");
+
+    private static readonly ContentSignature s_png = new("image/png", "89 50 4E 47 0D 0A 1A 0A");
 
     [Fact]
     public async Task CopyAsync_copies_the_content_byte_for_byte()
@@ -147,6 +153,101 @@ public class BlobContentCopierTests
     }
 
     [Fact]
+    public async Task CopyAsync_copies_content_that_starts_with_one_of_the_signatures()
+    {
+        // Arrange
+        var content = WithHeader("%PDF-", MultiBufferSize);
+        using var source = new MemoryStream(content);
+        using var destination = new MemoryStream();
+
+        // Act
+        var receipt = await CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [s_png, s_pdf]));
+
+        // Assert
+        Assert.Equal(content, destination.ToArray());
+        Assert.Equal(content.Length, receipt.Size);
+    }
+
+    [Fact]
+    public async Task CopyAsync_checks_the_whole_header_when_the_source_hands_it_over_in_small_reads()
+    {
+        // Arrange
+        // Three bytes per read, so the five byte header of a PDF spans two reads
+        var content = WithHeader("%PDF-", 1_000);
+        using var source = new SmallReadStream(content);
+        using var destination = new MemoryStream();
+
+        // Act
+        var receipt = await CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [s_pdf]));
+
+        // Assert
+        Assert.Equal(content, destination.ToArray());
+        Assert.Equal(content.Length, receipt.Size);
+    }
+
+    [Fact]
+    public async Task CopyAsync_accepts_content_shorter_than_a_longer_signature_it_does_not_need()
+    {
+        // Arrange
+        // The PNG signature is eight bytes, the content only the five of a PDF header
+        var content = Encoding.ASCII.GetBytes("%PDF-");
+        using var source = new MemoryStream(content);
+        using var destination = new MemoryStream();
+
+        // Act
+        var receipt = await CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [s_png, s_pdf]));
+
+        // Assert
+        Assert.Equal(content, destination.ToArray());
+        Assert.Equal(content.Length, receipt.Size);
+    }
+
+    [Fact]
+    public async Task CopyAsync_throws_for_content_that_starts_with_none_of_the_signatures_before_writing_anything()
+    {
+        // Arrange
+        using var source = new MemoryStream(WithHeader("<html>", MultiBufferSize));
+        using var destination = new MemoryStream();
+
+        // Act
+        await Assert.ThrowsAsync<BlobContentMismatchException>(
+            () => CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [s_pdf])));
+
+        // Assert
+        Assert.Equal(0, destination.Length);
+    }
+
+    [Fact]
+    public async Task CopyAsync_throws_for_content_shorter_than_the_signature()
+    {
+        // Arrange
+        using var source = new MemoryStream(Encoding.ASCII.GetBytes("%PDF"));
+        using var destination = new MemoryStream();
+
+        // Act
+        await Assert.ThrowsAsync<BlobContentMismatchException>(
+            () => CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [s_pdf])));
+
+        // Assert
+        Assert.Equal(0, destination.Length);
+    }
+
+    [Fact]
+    public async Task CopyAsync_throws_for_an_empty_list_of_signatures()
+    {
+        // Arrange
+        using var source = new MemoryStream(WithHeader("%PDF-", 100));
+        using var destination = new MemoryStream();
+
+        // Act
+        await Assert.ThrowsAsync<BlobContentMismatchException>(
+            () => CopyAsync(source, destination, new BlobWriteOptions(ContentSignatures: [])));
+
+        // Assert
+        Assert.Equal(0, destination.Length);
+    }
+
+    [Fact]
     public async Task CopyAsync_stamps_the_receipt_with_the_current_time()
     {
         // Arrange
@@ -218,6 +319,19 @@ public class BlobContentCopierTests
         var content = new byte[length];
         new Random(length).NextBytes(content);
         return content;
+    }
+
+    private static byte[] WithHeader(string header, int length)
+    {
+        var content = CreateContent(length);
+        Encoding.ASCII.GetBytes(header).CopyTo(content, 0);
+        return content;
+    }
+
+    private sealed class SmallReadStream(byte[] content) : MemoryStream(content)
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => base.ReadAsync(buffer[..Math.Min(buffer.Length, 3)], cancellationToken);
     }
 
     private sealed class FlushTrackingStream : MemoryStream

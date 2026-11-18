@@ -27,7 +27,9 @@ public interface IBlobStore
     /// <param name="options">How to write it.</param>
     /// <param name="cancellationToken">Cancelled when the caller gives up.</param>
     /// <returns>What was written.</returns>
-    /// <exception cref="Exceptions.BlobException">The address is already taken, the content exceeded the allowed size, or the store failed.</exception>
+    /// <exception cref="Exceptions.BlobException">
+    /// The address is already taken, the content exceeded the allowed size or matched none of the signatures, or the store failed.
+    /// </exception>
     Task<BlobWriteReceipt> WriteAsync(BlobKey key, Stream content, BlobWriteOptions options, CancellationToken cancellationToken);
 
     /// <summary>

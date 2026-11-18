@@ -75,6 +75,22 @@ public static class BlobErrors
     }
 
     /// <summary>
+    /// Reports that content does not start the way files of its declared media type do.
+    /// </summary>
+    /// <param name="contentType">The media type the content was declared as.</param>
+    /// <returns>The <see cref="Error"/>.</returns>
+    public static Error ContentMismatch(MediaType contentType)
+    {
+        ArgumentNullException.ThrowIfNull(contentType);
+
+        return new ErrorBuilder()
+            .WithCode(BlobErrorCodes.BlobContentMismatch)
+            .WithMessage($"The content is not a file of type '{contentType}'.")
+            .WithDetail(nameof(MediaType), contentType.Value)
+            .Build();
+    }
+
+    /// <summary>
     /// Reports that an extension is not among the allowed ones.
     /// </summary>
     /// <param name="extension">The extension that was refused, without the leading dot, or null when the name had none.</param>

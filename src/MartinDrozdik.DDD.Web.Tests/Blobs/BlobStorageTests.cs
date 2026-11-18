@@ -3,6 +3,7 @@ using MartinDrozdik.DDD.Blobs;
 using MartinDrozdik.DDD.Blobs.Checksums;
 using MartinDrozdik.DDD.Blobs.Errors;
 using MartinDrozdik.DDD.Blobs.Models;
+using MartinDrozdik.DDD.Blobs.Signatures;
 using MartinDrozdik.DDD.Blobs.Stores;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Blobs;
@@ -442,18 +443,195 @@ public class BlobStorageTests(ITestOutputHelper testOutputHelper)
         invoice.IsSuccess();
     }
 
+    [Fact]
+    public async Task A_file_that_does_not_start_like_its_declared_type_is_refused_before_anything_is_written()
+    {
+        // Arrange
+        // HTML declared as a PDF would otherwise be served back as application/pdf
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithInMemoryBlobStore()
+            .WithServices(services => services.Configure<BlobContainerOptions>(
+                TestBlobContainers.Invoices,
+                options => options.ContentSignatures = ContentSignature.Common))
+            .Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+        var store = (InMemoryBlobStore)scope.ServiceProvider.GetRequiredService<IBlobStore>();
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest(content: "<html><body>not a pdf</body></html>"));
+
+        // Assert
+        result.IsFailure();
+        Assert.Equal(BlobErrorCodes.BlobContentMismatch, result.Error.Code);
+        Assert.Equal(0, store.Count);
+        Assert.Empty(context.Set<Blob>().Local);
+    }
+
+    [Fact]
+    public async Task An_empty_file_declared_as_a_type_with_a_signature_is_refused()
+    {
+        // Arrange
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithInMemoryBlobStore()
+            .WithServices(services => services.Configure<BlobContainerOptions>(
+                TestBlobContainers.Invoices,
+                options => options.ContentSignatures = ContentSignature.Common))
+            .Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest(content: string.Empty));
+
+        // Assert
+        result.IsFailure();
+        Assert.Equal(BlobErrorCodes.BlobContentMismatch, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task A_file_that_starts_like_its_declared_type_is_stored_whole()
+    {
+        // Arrange
+        // The check reads the first bytes off a stream that cannot be rewound, so they have to reach the store too
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithInMemoryBlobStore()
+            .WithServices(services => services.Configure<BlobContainerOptions>(
+                TestBlobContainers.Invoices,
+                options => options.ContentSignatures = ContentSignature.Common))
+            .Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+        const string pdf = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF";
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest(content: pdf, forwardOnly: true));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess();
+        Assert.Equal(Encoding.UTF8.GetByteCount(pdf), result.Value.Size);
+        await using var read = (await storage.OpenReadAsync(context, result.Value.Id, TestContext.Current.CancellationToken)).Value;
+        using var reader = new StreamReader(read.Content);
+        Assert.Equal(pdf, await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void A_file_of_a_type_no_signature_lists_is_refused_before_its_cleanup_is_tracked()
+    {
+        // Arrange
+        // The signatures are an allow-list, and the declaration alone is enough to refuse
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithInMemoryBlobStore()
+            .WithServices(services => services.Configure<BlobContainerOptions>(
+                TestBlobContainers.Invoices,
+                options => options.ContentSignatures = ContentSignature.Common))
+            .Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+
+        // Act
+        var result = storage.PrepareUpload(context, CreateRequest(originalFileName: "notes.txt", contentType: "text/plain"));
+
+        // Assert
+        result.IsFailure();
+        Assert.Equal(BlobErrorCodes.BlobTypeNotAllowed, result.Error.Code);
+        Assert.Empty(context.Set<OutboxMessage>().Local);
+    }
+
+    [Fact]
+    public async Task A_file_of_a_type_listed_with_a_lone_wildcard_is_stored_whatever_it_starts_with()
+    {
+        // Arrange
+        // The way to allow a format that has no signature, such as plain text
+        using var app = new TestedWebAppBuilder(testOutputHelper)
+            .WithInMemoryBlobStore()
+            .WithServices(services => services.Configure<BlobContainerOptions>(
+                TestBlobContainers.Invoices,
+                options => options.ContentSignatures = [.. ContentSignature.Common, new ContentSignature("text/plain", "??")]))
+            .Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest(originalFileName: "notes.txt", contentType: "text/plain"));
+
+        // Assert
+        result.IsSuccess();
+        Assert.Equal("text/plain", result.Value.ContentType.Value);
+    }
+
+    [Fact]
+    public async Task Without_signatures_a_file_is_stored_as_whatever_it_was_declared()
+    {
+        // Arrange
+        // The check is opt-in
+        using var app = new TestedWebAppBuilder(testOutputHelper).WithInMemoryBlobStore().Build();
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IBlobStorage<TestDbContext>>();
+
+        // Act
+        var result = await storage.UploadAsync(context, CreateRequest(content: "<html></html>"));
+
+        // Assert
+        result.IsSuccess();
+        Assert.Equal("application/pdf", result.Value.ContentType.Value);
+    }
+
     /// <summary>
     /// Builds a request storing a small file.
     /// </summary>
     /// <param name="originalFileName">The name it arrived with, or null for the default.</param>
     /// <param name="container">The container to store into, or null for the default.</param>
+    /// <param name="content">The text to store, or null for the default.</param>
+    /// <param name="contentType">The declared media type, or null for <c>application/pdf</c>.</param>
+    /// <param name="forwardOnly">True to hand over a stream that cannot seek, like a request body.</param>
     /// <returns>The request.</returns>
-    private static BlobUploadRequest CreateRequest(string? originalFileName = null, string? container = null)
-        => new()
+    private static BlobUploadRequest CreateRequest(
+        string? originalFileName = null,
+        string? container = null,
+        string? content = null,
+        string? contentType = null,
+        bool forwardOnly = false)
+    {
+        var bytes = Encoding.UTF8.GetBytes(content ?? "hello");
+
+        return new()
         {
             Container = container ?? TestBlobContainers.Invoices,
-            Content = new MemoryStream(Encoding.UTF8.GetBytes("hello")),
+            Content = forwardOnly ? new ForwardOnlyStream(bytes) : new MemoryStream(bytes),
             OriginalFileName = originalFileName ?? "report.pdf",
-            ContentType = "application/pdf",
+            ContentType = contentType ?? "application/pdf",
         };
+    }
+
+    /// <summary>
+    /// A stream that hands out a few bytes per read and cannot seek, like a request body.
+    /// </summary>
+    /// <param name="bytes">The content.</param>
+    private sealed class ForwardOnlyStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        /// <inheritdoc />
+        public override bool CanSeek => false;
+
+        /// <inheritdoc />
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        /// <inheritdoc />
+        public override long Seek(long offset, SeekOrigin loc) => throw new NotSupportedException();
+
+        /// <inheritdoc />
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => base.ReadAsync(buffer[..Math.Min(buffer.Length, 3)], cancellationToken);
+    }
 }

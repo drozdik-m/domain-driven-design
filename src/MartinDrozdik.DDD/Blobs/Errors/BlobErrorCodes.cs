@@ -26,4 +26,9 @@ public static class BlobErrorCodes
     /// Gets the code reporting that a media type or extension is not among the allowed ones.
     /// </summary>
     public static ErrorCode BlobTypeNotAllowed { get; } = new ErrorCode(nameof(BlobTypeNotAllowed));
+
+    /// <summary>
+    /// Gets the code reporting that content does not start the way files of its declared media type do.
+    /// </summary>
+    public static ErrorCode BlobContentMismatch { get; } = new ErrorCode(nameof(BlobContentMismatch));
 }

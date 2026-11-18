@@ -81,16 +81,24 @@ internal sealed class BlobStorage<TDbContext>(
             throw new InvalidOperationException($"The upload to '{key.Path}' is not saved yet. Save the context after {nameof(PrepareUpload)} and before {nameof(AddOnSaveAsync)}.");
         }
 
+        // Find signatures for the content type, if any
+        var signatures = options.ContentSignatures?.Where(s => s.MediaType == request.ContentType).ToList();
+
         // Write the content to the store
         // On any failure the saved cleanup removes whatever was written
         BlobWriteReceipt receipt;
         try
         {
-            receipt = await store.WriteAsync(key, request.Content, new BlobWriteOptions(options.ComputeChecksum, options.MaxSize), cancellationToken);
+            var writeOptions = new BlobWriteOptions(options.ComputeChecksum, options.MaxSize, signatures);
+            receipt = await store.WriteAsync(key, request.Content, writeOptions, cancellationToken);
         }
         catch (BlobTooLargeException exception)
         {
             return Result.Failure<Blob, Error>(BlobErrors.TooLarge(exception.MaxSize ?? options.MaxSize ?? 0));
+        }
+        catch (BlobContentMismatchException)
+        {
+            return Result.Failure<Blob, Error>(BlobErrors.ContentMismatch(request.ContentType));
         }
 
         // Create the blob record
@@ -188,6 +196,12 @@ internal sealed class BlobStorage<TDbContext>(
     {
         // Validate mime type
         if (options.AllowedContentTypes is { } allowedContentTypes && !allowedContentTypes.Contains(contentType.Value))
+        {
+            return BlobErrors.ContentTypeNotAllowed(contentType);
+        }
+
+        // Check if the content matches any of the signatures, if any were specified
+        if (options.ContentSignatures is { } signatures && !signatures.Any(s => s.MediaType == contentType))
         {
             return BlobErrors.ContentTypeNotAllowed(contentType);
         }

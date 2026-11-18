@@ -30,5 +30,10 @@ internal sealed class BlobContainerOptionsValidator : AbstractValidator<BlobCont
             .Must(extension => extension.All(character => char.IsAsciiDigit(character) || char.IsAsciiLetterLower(character)))
             .When(x => x.AllowedExtensions is not null)
             .WithMessage("An allowed extension is written in lowercase, the way a blob records it.");
+
+        RuleForEach(x => x.ContentSignatures)
+            .NotNull()
+            .When(x => x.ContentSignatures is not null)
+            .WithMessage("A content signature must not be null.");
     }
 }
