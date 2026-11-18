@@ -36,11 +36,25 @@ internal sealed class OutboxHealthCheck<TDbContext>(
         CancellationToken cancellationToken = default)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var messages = dbContext.Set<OutboxMessage>();
 
-        var deadLettered = await messages.CountAsync(m => m.FailedAt != null, cancellationToken);
-        var pending = await messages.CountAsync(m => m.ProcessedAt == null && m.FailedAt == null, cancellationToken);
-        var overdue = await messages.CountAsync(m => m.ProcessedAt == null && m.FailedAt == null && m.AvailableAt <= now, cancellationToken);
+        // One round trip that seeks the (ProcessedAt, FailedAt, AvailableAt) index and never reads the delivered rows,
+        // which pile up without retention.
+        // A dead letter never has ProcessedAt set, so the filter keeps every one of them
+        var counts = await dbContext.Set<OutboxMessage>()
+            .Where(m => m.ProcessedAt == null)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                DeadLettered = g.Count(m => m.FailedAt != null),
+                Pending = g.Count(m => m.FailedAt == null),
+                Overdue = g.Count(m => m.FailedAt == null && m.AvailableAt <= now),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // No undelivered row means no group at all
+        var deadLettered = counts?.DeadLettered ?? 0;
+        var pending = counts?.Pending ?? 0;
+        var overdue = counts?.Overdue ?? 0;
 
         var data = new Dictionary<string, object>(StringComparer.Ordinal)
         {

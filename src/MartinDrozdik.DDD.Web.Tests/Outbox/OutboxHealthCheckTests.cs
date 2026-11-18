@@ -1,11 +1,15 @@
+using System.Data.Common;
 using System.Net;
 using MartinDrozdik.DDD.Outbox;
 using MartinDrozdik.DDD.Testing;
 using MartinDrozdik.DDD.Testing.Outbox;
 using MartinDrozdik.DDD.Web.Outbox.Health;
+using MartinDrozdik.DDD.Web.Outbox.Models;
 using MartinDrozdik.DDD.Web.Outbox.Options;
 using MartinDrozdik.DDD.Web.Tests.App;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Time.Testing;
@@ -177,6 +181,77 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
         Assert.Equal("custom", Assert.Single(report.Tags));
     }
 
+    [Fact]
+    public async Task A_probe_counts_in_one_query_that_seeks_past_the_delivered_messages()
+    {
+        // Arrange
+        // Without retention the delivered messages pile up, and every readiness probe of every instance runs this query
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var commands = new CommandRecorder();
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(cancellationToken);
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseSqlite(connection)
+            .AddInterceptors(commands)
+            .Options;
+        await using var context = new TestDbContext(options, TimeProvider.System);
+        await context.Database.EnsureCreatedAsync(cancellationToken);
+
+        var now = s_initialTime.UtcDateTime;
+        var delivered = CreateMessage(now);
+        delivered.Claim(Guid.CreateVersion7(), now, TimeSpan.FromMinutes(1));
+        delivered.MarkProcessed(now);
+        var deadLettered = CreateMessage(now);
+        deadLettered.Claim(Guid.CreateVersion7(), now, TimeSpan.FromMinutes(1));
+        deadLettered.MarkFailed(now, "boom");
+        context.Set<OutboxMessage>().AddRange(delivered, deadLettered, CreateMessage(now), CreateMessage(now.AddDays(1)));
+        await context.SaveChangesAsync(cancellationToken);
+
+        var check = new OutboxHealthCheck<TestDbContext>(context, degradedBacklogThreshold: 1000, new FakeTimeProvider(s_initialTime));
+        commands.Executed.Clear();
+
+        // Act
+        var result = await check.CheckHealthAsync(new HealthCheckContext(), cancellationToken);
+
+        // Assert
+        var query = Assert.Single(commands.Executed);
+        var plan = await ExplainAsync(connection, query, cancellationToken);
+        Assert.Contains(plan, step => step.StartsWith("SEARCH", StringComparison.Ordinal) && step.Contains("IX_OutboxMessage_ProcessedAt_FailedAt_AvailableAt", StringComparison.Ordinal));
+        Assert.DoesNotContain(plan, step => step.StartsWith("SCAN", StringComparison.Ordinal));
+        Assert.Equal(1, result.Data["deadLettered"]);
+        Assert.Equal(2, result.Data["pending"]);
+        Assert.Equal(1, result.Data["overdue"]);
+    }
+
+    private static OutboxMessage CreateMessage(DateTime availableAtUtc)
+        => OutboxMessage.Create(TestOutboxMessage.MessageType, """{"Text":"counted"}""", availableAtUtc, availableAtUtc);
+
+    /// <summary>
+    /// Asks SQLite how it would run a recorded command.
+    /// </summary>
+    /// <param name="connection">The open connection that holds the database.</param>
+    /// <param name="command">The recorded command.</param>
+    /// <param name="cancellationToken">Cancellation token of the test.</param>
+    /// <returns>The steps of the query plan.</returns>
+    private static async Task<IReadOnlyList<string>> ExplainAsync(SqliteConnection connection, RecordedCommand command, CancellationToken cancellationToken)
+    {
+        await using var explain = connection.CreateCommand();
+        explain.CommandText = $"EXPLAIN QUERY PLAN {command.Text}";
+        foreach (var (name, value) in command.Parameters)
+        {
+            explain.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        }
+
+        var steps = new List<string>();
+        await using var reader = await explain.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            steps.Add(reader.GetString(reader.GetOrdinal("detail")));
+        }
+
+        return steps;
+    }
+
     private static async Task<HealthReportEntry> CheckAsync(TestedApp<Program> app, string name)
     {
         var service = app.Services.GetRequiredService<HealthCheckService>();
@@ -225,4 +300,42 @@ public class OutboxHealthCheckTests(ITestOutputHelper testOutputHelper)
                         .AddOutboxHealthCheck<SecondTestDbContext>(degradedBacklogThreshold);
             })
             .Build();
+
+    /// <summary>
+    /// A command as it was sent to the database, kept after the command itself is disposed.
+    /// </summary>
+    /// <param name="Text">The SQL text.</param>
+    /// <param name="Parameters">The names and values of its parameters.</param>
+    private sealed record RecordedCommand(string Text, IReadOnlyList<(string Name, object? Value)> Parameters);
+
+    /// <summary>
+    /// Records every query a context sends to the database.
+    /// </summary>
+    private sealed class CommandRecorder : DbCommandInterceptor
+    {
+        public List<RecordedCommand> Executed { get; } = [];
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+        {
+            Record(command);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return ValueTask.FromResult(result);
+        }
+
+        public override ValueTask<InterceptionResult<object>> ScalarExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<object> result, CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return ValueTask.FromResult(result);
+        }
+
+        private void Record(DbCommand command)
+            => Executed.Add(new RecordedCommand(
+                command.CommandText,
+                [.. command.Parameters.Cast<DbParameter>().Select(p => (p.ParameterName, p.Value))]));
+    }
 }
